@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Function Execution Service",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

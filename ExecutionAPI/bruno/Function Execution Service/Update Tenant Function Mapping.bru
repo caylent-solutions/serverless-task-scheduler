@@ -1,0 +1,40 @@
+meta {
+  name: Update Tenant Function Mapping
+  type: http
+  seq: 10
+}
+
+put {
+  url: {{baseUrl}}/tenants/:tenant_id/mappings/:target_alias
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+params:path {
+  tenant_id: my-tenant
+  target_alias: my-function-alias
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "tenant_id": "my-tenant",
+    "target_alias": "my-function-alias",
+    "target_id": "updated-target-id",
+    "last_update_user": "",
+    "last_update_date": ""
+  }
+}
+
+docs {
+  Update an existing tenant target mapping. Requires authentication and tenant access.
+
+  The last_update_user and last_update_date will be automatically updated from the authenticated user.
+}

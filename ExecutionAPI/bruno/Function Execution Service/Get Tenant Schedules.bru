@@ -1,0 +1,25 @@
+meta {
+  name: Get Tenant Schedules
+  type: http
+  seq: 17
+}
+
+get {
+  url: {{baseUrl}}/tenants/:tenant_id/schedules
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+params:path {
+  tenant_id: my-tenant
+}
+
+docs {
+  Get all schedules for a tenant. Requires authentication and tenant access.
+
+  Returns a list of all schedules configured across all target mappings for the specified tenant.
+}

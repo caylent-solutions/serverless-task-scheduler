@@ -1,0 +1,26 @@
+meta {
+  name: Delete Tenant Function Mapping
+  type: http
+  seq: 11
+}
+
+delete {
+  url: {{baseUrl}}/tenants/:tenant_id/mappings/:target_alias
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+params:path {
+  tenant_id: my-tenant
+  target_alias: my-function-alias
+}
+
+docs {
+  Delete a tenant target mapping. Requires authentication and tenant access.
+
+  Removes the mapping between a tenant and a target function.
+}

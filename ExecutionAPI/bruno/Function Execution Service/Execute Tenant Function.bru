@@ -1,0 +1,45 @@
+meta {
+  name: Execute Tenant Function
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/tenants/:tenant_id/mappings/:target_alias/_execute
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+params:query {
+  ~async: false
+}
+
+params:path {
+  tenant_id: my-tenant
+  target_alias: my-function-alias
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "param1": "value1",
+    "param2": "value2"
+  }
+}
+
+docs {
+  Execute a tenant function mapping. Requires authentication and tenant access.
+
+  The user must be either:
+  - An admin user (member of 'admin' tenant)
+  - A user with explicit access to the specified tenant
+
+  Set async=true in query params for asynchronous execution.
+}

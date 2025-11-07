@@ -1,0 +1,27 @@
+meta {
+  name: Delete Schedule
+  type: http
+  seq: 15
+}
+
+delete {
+  url: {{baseUrl}}/tenants/:tenant_id/mappings/:target_alias/schedules/:schedule_id
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+params:path {
+  tenant_id: my-tenant
+  target_alias: my-function-alias
+  schedule_id: schedule-uuid
+}
+
+docs {
+  Delete a schedule. Requires authentication and tenant access.
+
+  Removes the schedule from both EventBridge and DynamoDB.
+}

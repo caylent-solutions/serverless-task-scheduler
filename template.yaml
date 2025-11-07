@@ -1,0 +1,521 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Function Execution Service — SAM template for a FastAPI Lambda behind API Gateway
+  with DynamoDB persistence and permissions to invoke Lambdas, manage EventBridge
+  Schedules, and read AWS Secrets Manager. All resources are parameterized by the
+  provided environment name.
+
+# ----------------------------------------------------------------------------
+# Parameters
+# ----------------------------------------------------------------------------
+Parameters:
+  Owner:
+    Type: String
+    Description: Owner responsible for this stack (use your current email address)
+    AllowedPattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+  Environment:
+    Type: String
+    Description: Deployment environment name (e.g., dev, staging, prod) - optional
+    Default: ""
+    AllowedPattern: '^[a-zA-Z0-9-]*$'
+  StackName:
+    Type: String
+    Description: Name of the CloudFormation stack (used as prefix for all resources)
+    Default: "sts"
+
+# ----------------------------------------------------------------------------
+# Globals (applies to all Lambda functions and other resources)
+# ----------------------------------------------------------------------------
+Globals:
+  Function:
+    Runtime: python3.13
+    Timeout: 30
+    MemorySize: 512
+    Tracing: Active
+    Tags:
+      caylent:owner: !Ref Owner
+      caylent:env: !Ref Environment
+      cfn:stack: !Ref StackName
+    Environment:
+      Variables:
+        # App environment selection for the code
+        APP_ENV: !Ref Environment
+        # Force the app to use AWS DynamoDB (not local)
+        DB_TARGET: aws
+        # Table names passed to the application
+        DYNAMODB_TABLE: !Sub ${StackName}-${Environment}-targets
+        DYNAMODB_TENANTS_TABLE: !Sub ${StackName}-${Environment}-tenants
+        DYNAMODB_TENANT_TABLE: !Sub ${StackName}-${Environment}-tenant-mappings
+        DYNAMODB_EXECUTIONS_TABLE: !Sub ${StackName}-${Environment}-executions
+        DYNAMODB_SCHEDULES_TABLE: !Sub ${StackName}-${Environment}-schedules
+        DYNAMODB_USER_MAPPINGS_TABLE: !Sub ${StackName}-${Environment}-user-mappings
+        # Base path for the FastAPI app (environment name)
+        API_BASE_PATH: !Ref Environment
+        # EventBridge Scheduler role ARN
+        SCHEDULER_ROLE_ARN: !GetAtt AppLambdaRole.Arn
+        # EventBridge Scheduler group name
+        SCHEDULER_GROUP_NAME: !Sub ${StackName}-${Environment}-schedules
+        # Cognito configuration
+        COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+        COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
+        COGNITO_REGION: !Ref AWS::Region
+        COGNITO_DOMAIN: !Ref CognitoUserPoolDomain
+        # Admin user email
+        ADMIN_USER_EMAIL: !Ref Owner
+
+# ----------------------------------------------------------------------------
+# Resources
+# ----------------------------------------------------------------------------
+Resources:
+
+  # --------------------------------------------------------------------------
+  # DynamoDB: Targets table
+  # Stores target definitions (primary key: target_id)
+  # --------------------------------------------------------------------------
+  TargetsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${StackName}-${Environment}-targets
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: target_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: target_id
+          KeyType: HASH
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  # --------------------------------------------------------------------------
+  # DynamoDB: Tenants table
+  # Stores tenant definitions (primary key: tenant_id)
+  # --------------------------------------------------------------------------
+  TenantsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${StackName}-${Environment}-tenants
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: tenant_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tenant_id
+          KeyType: HASH
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  # --------------------------------------------------------------------------
+  # DynamoDB: Tenant mappings
+  # Maps tenants to target aliases (composite key: tenant_id + target_alias)
+  # --------------------------------------------------------------------------
+  TenantMappingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${StackName}-${Environment}-tenant-mappings
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: tenant_id
+          AttributeType: S
+        - AttributeName: target_alias
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tenant_id
+          KeyType: HASH
+        - AttributeName: target_alias
+          KeyType: RANGE
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  # --------------------------------------------------------------------------
+  # DynamoDB: Target executions
+  # Tracks execution records (composite key: tenantId#targetName + timestamp)
+  # --------------------------------------------------------------------------
+  TargetExecutionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${StackName}-${Environment}-executions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: tenant_target
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tenant_target
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  SchedulesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${StackName}-${Environment}-schedules
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: tenant_id
+          AttributeType: S
+        - AttributeName: schedule_id
+          AttributeType: S
+        - AttributeName: target_alias
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tenant_id
+          KeyType: HASH
+        - AttributeName: schedule_id
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: tenant-target-index
+          KeySchema:
+            - AttributeName: tenant_id
+              KeyType: HASH
+            - AttributeName: target_alias
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  # --------------------------------------------------------------------------
+  # DynamoDB: User Mappings
+  # Maps users to tenants (composite key: user_id + tenant_id)
+  # Primary access pattern: Get all tenants for a user (user login)
+  # GSI access pattern: Get all users for a tenant (tenant management)
+  # --------------------------------------------------------------------------
+  UserMappingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${StackName}-${Environment}-user-mappings
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: tenant_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: tenant_id
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: tenant-index
+          KeySchema:
+            - AttributeName: tenant_id
+              KeyType: HASH
+            - AttributeName: user_id
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  # --------------------------------------------------------------------------
+  # Cognito User Pool - For user authentication
+  # --------------------------------------------------------------------------
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub ${StackName}-${Environment}-users
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: false
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      UserAttributeUpdateSettings:
+        AttributesRequireVerificationBeforeUpdate:
+          - email
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      UserPoolTags:
+        caylent:owner: !Ref Owner
+        caylent:env: !Ref Environment
+        cfn:stack: !Ref StackName
+
+  # --------------------------------------------------------------------------
+  # Cognito User Pool Client - For web application
+  # --------------------------------------------------------------------------
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub ${StackName}-${Environment}-web-client
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      SupportedIdentityProviders:
+        - COGNITO
+      CallbackURLs:
+        - http://localhost:8000/app/
+      LogoutURLs:
+        - http://localhost:8000/
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - profile
+      AllowedOAuthFlowsUserPoolClient: true
+
+  # --------------------------------------------------------------------------
+  # Cognito User Pool Domain - For hosted UI
+  # --------------------------------------------------------------------------
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub
+        - ${StackName}-${Environment}-${StackIdSuffix}
+        - StackIdSuffix: !Select [2, !Split ['/', !Ref 'AWS::StackId']]
+      UserPoolId: !Ref CognitoUserPool
+
+  # --------------------------------------------------------------------------
+  # API Gateway (REST API) — acts as the public entrypoint for the Lambda
+  # We use ANY on / and /{proxy+} for full FastAPI routing via Mangum
+  # Only creates the environment-named stage, no default "Stage"
+  # --------------------------------------------------------------------------
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub ${StackName}-${Environment}-api
+      StageName: !Ref Environment
+      TracingEnabled: true
+      # Disable default "Stage" stage creation
+      DisableExecuteApiEndpoint: false
+      Tags:
+        caylent:owner: !Ref Owner
+        caylent:env: !Ref Environment
+        cfn:stack: !Ref StackName
+
+  # --------------------------------------------------------------------------
+  # Lambda: FastAPI app wrapped with Mangum
+  # Permissions:
+  #   - DynamoDB CRUD on the three tables above
+  #   - Invoke other Lambda functions
+  #   - EventBridge Scheduler CRUD (plus iam:PassRole for scheduling roles)
+  #   - Secrets Manager read
+  # --------------------------------------------------------------------------
+  AppLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${StackName}-${Environment}-api
+      CodeUri: ExecutionAPI/
+      Handler: app/lambda_handler.handler
+      Role: !GetAtt AppLambdaRole.Arn
+
+      Events:
+        ApiAny:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /{proxy+}
+            Method: ANY
+        ApiRoot:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /
+            Method: ANY
+
+  # --------------------------------------------------------------------------
+  # App Lambda IAM Role
+  # Separate IAM role for the Lambda function with all necessary permissions
+  # --------------------------------------------------------------------------
+  AppLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub
+        - ${StackName}-${Environment}-lambda-${StackIdSuffix}
+        - StackIdSuffix: !Select [2, !Split ['/', !Ref 'AWS::StackId']]
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - lambda.amazonaws.com
+                - scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub AppLambdaPolicy-${Environment}
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # DynamoDB CRUD on app tables
+              - Effect: Allow
+                Action:
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt TargetsTable.Arn
+                  - !GetAtt TenantsTable.Arn
+                  - !GetAtt TenantMappingsTable.Arn
+                  - !GetAtt TargetExecutionsTable.Arn
+                  - !GetAtt SchedulesTable.Arn
+                  - !GetAtt UserMappingsTable.Arn
+                  - !Sub '${SchedulesTable.Arn}/index/*'
+                  - !Sub '${UserMappingsTable.Arn}/index/*'
+
+              # Invoke other Lambda functions
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                  - lambda:InvokeAsync
+                Resource: '*'
+
+              # EventBridge Scheduler operations
+              - Effect: Allow
+                Action:
+                  - scheduler:CreateSchedule
+                  - scheduler:UpdateSchedule
+                  - scheduler:DeleteSchedule
+                  - scheduler:GetSchedule
+                  - scheduler:ListSchedules
+                  - scheduler:TagResource
+                  - scheduler:UntagResource
+                  - scheduler:GetScheduleGroup
+                  - scheduler:CreateScheduleGroup
+                  - scheduler:DeleteScheduleGroup
+                  - scheduler:ListScheduleGroups
+                Resource: '*'
+
+              # Cognito operations for user authentication and management
+              - Effect: Allow
+                Action:
+                  # Standard user authentication
+                  - cognito-idp:InitiateAuth
+                  # Password reset flow (user-initiated)
+                  - cognito-idp:ForgotPassword
+                  - cognito-idp:ConfirmForgotPassword
+                  # Admin operations for user management
+                  - cognito-idp:AdminGetUser
+                  - cognito-idp:AdminCreateUser
+                  - cognito-idp:AdminSetUserPassword
+                  - cognito-idp:AdminDeleteUser
+                  - cognito-idp:ListUsers
+                Resource: !GetAtt CognitoUserPool.Arn
+
+              # Secrets Manager read
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                Resource: '*'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+# ----------------------------------------------------------------------------
+# Outputs
+# ----------------------------------------------------------------------------
+Outputs:
+  # Public invoke URL for the API stage
+  ApiUrl:
+    Description: API base URL
+    Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/'
+
+  LambdaName:
+    Description: Name of the Lambda function
+    Value: !Ref AppLambda
+
+  TargetsTableName:
+    Description: Name of the Targets DynamoDB table
+    Value: !Ref TargetsTable
+
+  TenantMappingsTableName:
+    Description: Name of the TenantMappings DynamoDB table
+    Value: !Ref TenantMappingsTable
+
+  TargetExecutionsTableName:
+    Description: Name of the TargetExecutions DynamoDB table
+    Value: !Ref TargetExecutionsTable
+
+  SchedulesTableName:
+    Description: Name of the Schedules DynamoDB table
+    Value: !Ref SchedulesTable
+
+  UserMappingsTableName:
+    Description: Name of the UserMappings DynamoDB table
+    Value: !Ref UserMappingsTable
+
+  CognitoUserPoolId:
+    Description: ID of the Cognito User Pool
+    Value: !Ref CognitoUserPool
+
+  CognitoUserPoolClientId:
+    Description: ID of the Cognito User Pool Client
+    Value: !Ref CognitoUserPoolClient
+
+  CognitoUserPoolDomain:
+    Description: Domain for Cognito Hosted UI
+    Value: !Sub
+      - ${StackName}-${Environment}-${StackIdSuffix}
+      - StackIdSuffix: !Select [2, !Split ['/', !Ref 'AWS::StackId']]
+
+  CognitoHostedUIUrl:
+    Description: URL for Cognito Hosted UI Login
+    Value: !Sub 
+      - https://${Domain}.auth.${AWS::Region}.amazoncognito.com/login?client_id=${ClientId}&response_type=code&redirect_uri=${RedirectUri}
+      - Domain: !Ref CognitoUserPoolDomain
+        ClientId: !Ref CognitoUserPoolClient
+        RedirectUri: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/app/'

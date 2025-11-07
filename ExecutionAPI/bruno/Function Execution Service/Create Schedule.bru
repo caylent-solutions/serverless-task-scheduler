@@ -1,0 +1,51 @@
+meta {
+  name: Create Schedule
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/tenants/:tenant_id/mappings/:target_alias/schedules
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+params:path {
+  tenant_id: my-tenant
+  target_alias: my-function-alias
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "schedule_expression": "rate(5 minutes)",
+    "description": "Run every 5 minutes",
+    "timezone": "America/New_York",
+    "state": "ENABLED",
+    "target_input": {
+      "param1": "value1"
+    }
+  }
+}
+
+docs {
+  Create a schedule for a tenant target mapping. Requires authentication and tenant access.
+
+  Schedule expression examples:
+  - "rate(5 minutes)" - Every 5 minutes
+  - "cron(0 12 * * ? *)" - Daily at noon UTC
+  - "at(2024-12-31T23:59:59)" - One-time at specific time
+
+  Optional fields:
+  - start_date: ISO format datetime to start the schedule
+  - end_date: ISO format datetime to end the schedule
+  - timezone: IANA timezone (e.g., "America/New_York")
+  - state: "ENABLED" or "DISABLED"
+}
