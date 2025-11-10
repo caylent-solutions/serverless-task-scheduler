@@ -1,5 +1,126 @@
 import React, { useState } from 'react';
 
+// Shared styles for consistency
+const styles = {
+  pageContainer: {
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'linear-gradient(135deg, #3d4a5c 0%, #2a3441 50%, #2e3947 100%)'
+  },
+  card: {
+    maxWidth: '28rem',
+    width: '100%',
+    padding: '2.5rem',
+    background: 'white',
+    borderRadius: '12px',
+    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)',
+    border: '1px solid rgba(151, 202, 111, 0.2)'
+  },
+  title: {
+    marginTop: '1.5rem',
+    textAlign: 'center',
+    fontSize: '1.875rem',
+    fontWeight: '700',
+    color: '#1a202c',
+    marginBottom: '0.5rem'
+  },
+  subtitle: {
+    marginTop: '0.5rem',
+    textAlign: 'center',
+    fontSize: '0.875rem',
+    color: '#4a5568'
+  },
+  form: {
+    marginTop: '2rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1.5rem'
+  },
+  errorBox: {
+    borderRadius: '8px',
+    background: 'linear-gradient(135deg, #fed7d7, #fcbdbd)',
+    padding: '1rem',
+    border: '1px solid #fc8181',
+    fontSize: '0.875rem',
+    color: '#742a2a'
+  },
+  successBox: {
+    borderRadius: '8px',
+    background: 'linear-gradient(135deg, #d4edc4, #c5e4b5)',
+    padding: '1rem',
+    border: '1px solid #97CA6F',
+    fontSize: '0.875rem',
+    color: '#2d3748'
+  },
+  input: {
+    width: '100%',
+    padding: '0.625rem 0.75rem',
+    fontSize: '0.875rem',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    transition: 'all 0.3s ease',
+    fontFamily: 'inherit'
+  },
+  button: (loading) => ({
+    width: '100%',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: '0.625rem 1rem',
+    border: 'none',
+    fontSize: '0.875rem',
+    fontWeight: '600',
+    borderRadius: '8px',
+    background: loading ? 'linear-gradient(135deg, #a8d67f, #97CA6F)' : 'linear-gradient(135deg, #97CA6F, #7db555)',
+    color: '#3d4a5c',
+    cursor: loading ? 'not-allowed' : 'pointer',
+    transition: 'all 0.3s ease',
+    boxShadow: '0 2px 4px rgba(151, 202, 111, 0.2)'
+  }),
+  linkButton: {
+    background: 'none',
+    border: 'none',
+    fontSize: '0.875rem',
+    fontWeight: '500',
+    color: '#718096',
+    cursor: 'pointer',
+    transition: 'color 0.3s ease'
+  },
+  linkButtonPrimary: {
+    background: 'none',
+    border: 'none',
+    fontSize: '0.875rem',
+    fontWeight: '500',
+    color: '#97CA6F',
+    cursor: 'pointer',
+    transition: 'color 0.3s ease'
+  }
+};
+
+const handleInputFocus = (e) => {
+  e.target.style.borderColor = '#97CA6F';
+  e.target.style.boxShadow = '0 0 0 3px rgba(151, 202, 111, 0.1)';
+};
+
+const handleInputBlur = (e) => {
+  e.target.style.borderColor = '#e2e8f0';
+  e.target.style.boxShadow = 'none';
+};
+
+const handleButtonHover = (e, loading) => {
+  if (!loading) {
+    e.target.style.boxShadow = '0 4px 12px rgba(151, 202, 111, 0.3)';
+    e.target.style.transform = 'translateY(-1px)';
+  }
+};
+
+const handleButtonLeave = (e) => {
+  e.target.style.boxShadow = '0 2px 4px rgba(151, 202, 111, 0.2)';
+  e.target.style.transform = 'translateY(0)';
+};
+
 function Login({ onLoginSuccess }) {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -61,9 +182,9 @@ function Login({ onLoginSuccess }) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          email, 
-          confirmation_code: confirmationCode 
+        body: JSON.stringify({
+          email,
+          confirmation_code: confirmationCode
         }),
       });
 
@@ -183,32 +304,21 @@ function Login({ onLoginSuccess }) {
   // Forgot password panel
   if (showForgotPassword) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg">
+      <div style={styles.pageContainer}>
+        <div style={styles.card}>
           <div>
-            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-              Reset Password
-            </h2>
-            <p className="mt-2 text-center text-sm text-gray-600">
+            <h2 style={styles.title}>Reset Password</h2>
+            <p style={styles.subtitle}>
               Enter your email to receive a password reset code
             </p>
           </div>
 
-          <form className="mt-8 space-y-6" onSubmit={handleForgotPassword}>
-            {error && (
-              <div className="rounded-md bg-red-50 p-4">
-                <div className="text-sm text-red-800">{error}</div>
-              </div>
-            )}
-
-            {successMessage && (
-              <div className="rounded-md bg-green-50 p-4">
-                <div className="text-sm text-green-800">{successMessage}</div>
-              </div>
-            )}
+          <form style={styles.form} onSubmit={handleForgotPassword}>
+            {error && <div style={styles.errorBox}>{error}</div>}
+            {successMessage && <div style={styles.successBox}>{successMessage}</div>}
 
             <div>
-              <label htmlFor="email-reset" className="sr-only">
+              <label htmlFor="email-reset" style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden' }}>
                 Email address
               </label>
               <input
@@ -216,10 +326,12 @@ function Login({ onLoginSuccess }) {
                 name="email"
                 type="email"
                 required
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                style={styles.input}
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onFocus={handleInputFocus}
+                onBlur={handleInputBlur}
               />
             </div>
 
@@ -227,13 +339,15 @@ function Login({ onLoginSuccess }) {
               <button
                 type="submit"
                 disabled={loading}
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
+                style={styles.button(loading)}
+                onMouseOver={(e) => handleButtonHover(e, loading)}
+                onMouseOut={handleButtonLeave}
               >
                 {loading ? 'Sending...' : 'Send Reset Code'}
               </button>
             </div>
 
-            <div className="text-center">
+            <div style={{ textAlign: 'center' }}>
               <button
                 type="button"
                 onClick={() => {
@@ -241,7 +355,9 @@ function Login({ onLoginSuccess }) {
                   setError('');
                   setSuccessMessage('');
                 }}
-                className="font-medium text-gray-600 hover:text-gray-500"
+                style={styles.linkButton}
+                onMouseOver={(e) => e.target.style.color = '#4a5568'}
+                onMouseOut={(e) => e.target.style.color = '#718096'}
               >
                 Back to login
               </button>
@@ -255,32 +371,21 @@ function Login({ onLoginSuccess }) {
   // Reset password confirmation panel
   if (showResetPassword) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg">
+      <div style={styles.pageContainer}>
+        <div style={styles.card}>
           <div>
-            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-              Set New Password
-            </h2>
-            <p className="mt-2 text-center text-sm text-gray-600">
-              Enter the code sent to <span className="font-medium">{email}</span> and your new password
+            <h2 style={styles.title}>Set New Password</h2>
+            <p style={styles.subtitle}>
+              Enter the code sent to <span style={{ fontWeight: '500' }}>{email}</span> and your new password
             </p>
           </div>
 
-          <form className="mt-8 space-y-6" onSubmit={handleConfirmReset}>
-            {error && (
-              <div className="rounded-md bg-red-50 p-4">
-                <div className="text-sm text-red-800">{error}</div>
-              </div>
-            )}
-
-            {successMessage && (
-              <div className="rounded-md bg-green-50 p-4">
-                <div className="text-sm text-green-800">{successMessage}</div>
-              </div>
-            )}
+          <form style={styles.form} onSubmit={handleConfirmReset}>
+            {error && <div style={styles.errorBox}>{error}</div>}
+            {successMessage && <div style={styles.successBox}>{successMessage}</div>}
 
             <div>
-              <label htmlFor="reset-code" className="sr-only">
+              <label htmlFor="reset-code" style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden' }}>
                 Verification Code
               </label>
               <input
@@ -288,15 +393,17 @@ function Login({ onLoginSuccess }) {
                 name="code"
                 type="text"
                 required
-                className="appearance-none rounded-t-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                style={styles.input}
                 placeholder="Verification code"
                 value={confirmationCode}
                 onChange={(e) => setConfirmationCode(e.target.value)}
+                onFocus={handleInputFocus}
+                onBlur={handleInputBlur}
               />
             </div>
 
             <div>
-              <label htmlFor="new-password" className="sr-only">
+              <label htmlFor="new-password" style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden' }}>
                 New Password
               </label>
               <input
@@ -304,10 +411,12 @@ function Login({ onLoginSuccess }) {
                 name="newPassword"
                 type="password"
                 required
-                className="appearance-none rounded-b-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                style={styles.input}
                 placeholder="New password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                onFocus={handleInputFocus}
+                onBlur={handleInputBlur}
               />
             </div>
 
@@ -315,13 +424,15 @@ function Login({ onLoginSuccess }) {
               <button
                 type="submit"
                 disabled={loading}
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
+                style={styles.button(loading)}
+                onMouseOver={(e) => handleButtonHover(e, loading)}
+                onMouseOut={handleButtonLeave}
               >
                 {loading ? 'Resetting...' : 'Reset Password'}
               </button>
             </div>
 
-            <div className="text-center">
+            <div style={{ textAlign: 'center' }}>
               <button
                 type="button"
                 onClick={() => {
@@ -332,7 +443,9 @@ function Login({ onLoginSuccess }) {
                   setError('');
                   setSuccessMessage('');
                 }}
-                className="font-medium text-gray-600 hover:text-gray-500"
+                style={styles.linkButton}
+                onMouseOver={(e) => e.target.style.color = '#4a5568'}
+                onMouseOut={(e) => e.target.style.color = '#718096'}
               >
                 Back
               </button>
@@ -346,32 +459,21 @@ function Login({ onLoginSuccess }) {
   // Confirmation panel
   if (showConfirmation) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg">
+      <div style={styles.pageContainer}>
+        <div style={styles.card}>
           <div>
-            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-              Verify Your Email
-            </h2>
-            <p className="mt-2 text-center text-sm text-gray-600">
-              We sent a verification code to <span className="font-medium">{email}</span>
+            <h2 style={styles.title}>Verify Your Email</h2>
+            <p style={styles.subtitle}>
+              We sent a verification code to <span style={{ fontWeight: '500' }}>{email}</span>
             </p>
           </div>
-          
-          <form className="mt-8 space-y-6" onSubmit={handleConfirmation}>
-            {error && (
-              <div className="rounded-md bg-red-50 p-4">
-                <div className="text-sm text-red-800">{error}</div>
-              </div>
-            )}
-            
-            {successMessage && (
-              <div className="rounded-md bg-green-50 p-4">
-                <div className="text-sm text-green-800">{successMessage}</div>
-              </div>
-            )}
-            
+
+          <form style={styles.form} onSubmit={handleConfirmation}>
+            {error && <div style={styles.errorBox}>{error}</div>}
+            {successMessage && <div style={styles.successBox}>{successMessage}</div>}
+
             <div>
-              <label htmlFor="confirmation-code" className="sr-only">
+              <label htmlFor="confirmation-code" style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden' }}>
                 Verification Code
               </label>
               <input
@@ -379,10 +481,12 @@ function Login({ onLoginSuccess }) {
                 name="code"
                 type="text"
                 required
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                style={styles.input}
                 placeholder="Enter verification code"
                 value={confirmationCode}
                 onChange={(e) => setConfirmationCode(e.target.value)}
+                onFocus={handleInputFocus}
+                onBlur={handleInputBlur}
               />
             </div>
 
@@ -390,18 +494,22 @@ function Login({ onLoginSuccess }) {
               <button
                 type="submit"
                 disabled={loading}
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
+                style={styles.button(loading)}
+                onMouseOver={(e) => handleButtonHover(e, loading)}
+                onMouseOut={handleButtonLeave}
               >
                 {loading ? 'Verifying...' : 'Verify Email'}
               </button>
             </div>
-            
-            <div className="flex items-center justify-between text-sm">
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
               <button
                 type="button"
                 onClick={handleResendCode}
                 disabled={loading}
-                className="font-medium text-indigo-600 hover:text-indigo-500 disabled:text-indigo-400"
+                style={styles.linkButtonPrimary}
+                onMouseOver={(e) => !loading && (e.target.style.color = '#7db555')}
+                onMouseOut={(e) => (e.target.style.color = '#97CA6F')}
               >
                 Resend code
               </button>
@@ -413,7 +521,9 @@ function Login({ onLoginSuccess }) {
                   setError('');
                   setSuccessMessage('');
                 }}
-                className="font-medium text-gray-600 hover:text-gray-500"
+                style={styles.linkButton}
+                onMouseOver={(e) => e.target.style.color = '#4a5568'}
+                onMouseOut={(e) => e.target.style.color = '#718096'}
               >
                 Back to login
               </button>
@@ -424,31 +534,21 @@ function Login({ onLoginSuccess }) {
     );
   }
 
+  // Main login panel
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg">
+    <div style={styles.pageContainer}>
+      <div style={styles.card}>
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
-          </h2>
+          <h2 style={styles.title}>Sign in to your account</h2>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-800">{error}</div>
-            </div>
-          )}
+        <form style={styles.form} onSubmit={handleSubmit}>
+          {error && <div style={styles.errorBox}>{error}</div>}
+          {successMessage && <div style={styles.successBox}>{successMessage}</div>}
 
-          {successMessage && (
-            <div className="rounded-md bg-green-50 p-4">
-              <div className="text-sm text-green-800">{successMessage}</div>
-            </div>
-          )}
-
-          <div className="rounded-md shadow-sm -space-y-px">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
             <div>
-              <label htmlFor="email-address" className="sr-only">
+              <label htmlFor="email-address" style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden' }}>
                 Email address
               </label>
               <input
@@ -457,14 +557,20 @@ function Login({ onLoginSuccess }) {
                 type="email"
                 autoComplete="email"
                 required
-                className="appearance-none rounded-t-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                style={{
+                  ...styles.input,
+                  borderBottomLeftRadius: '0',
+                  borderBottomRightRadius: '0'
+                }}
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onFocus={handleInputFocus}
+                onBlur={handleInputBlur}
               />
             </div>
             <div>
-              <label htmlFor="password" className="sr-only">
+              <label htmlFor="password" style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden' }}>
                 Password
               </label>
               <input
@@ -473,10 +579,17 @@ function Login({ onLoginSuccess }) {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="appearance-none rounded-b-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                style={{
+                  ...styles.input,
+                  borderTopLeftRadius: '0',
+                  borderTopRightRadius: '0',
+                  borderTop: 'none'
+                }}
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onFocus={handleInputFocus}
+                onBlur={handleInputBlur}
               />
             </div>
           </div>
@@ -485,13 +598,15 @@ function Login({ onLoginSuccess }) {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
+              style={styles.button(loading)}
+              onMouseOver={(e) => handleButtonHover(e, loading)}
+              onMouseOut={handleButtonLeave}
             >
               {loading ? 'Processing...' : 'Sign in'}
             </button>
           </div>
 
-          <div className="text-center">
+          <div style={{ textAlign: 'center' }}>
             <button
               type="button"
               onClick={() => {
@@ -499,7 +614,9 @@ function Login({ onLoginSuccess }) {
                 setError('');
                 setSuccessMessage('');
               }}
-              className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+              style={styles.linkButtonPrimary}
+              onMouseOver={(e) => e.target.style.color = '#7db555'}
+              onMouseOut={(e) => e.target.style.color = '#97CA6F'}
             >
               Forgot your password?
             </button>
