@@ -326,7 +326,7 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
                 />
               </div>
               <div className="form-group">
-                <label>Environment Variables (JSON)</label>
+                <label>Environment Variables - ECS Only (JSON)</label>
                 <textarea
                   value={selectedMapping.environment_variables}
                   onChange={(e) => setSelectedMapping({...selectedMapping, environment_variables: e.target.value})}
@@ -336,6 +336,9 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
   "TIMEOUT": "30"
 }`}
                 />
+                <small style={{ color: 'var(--color-text-light)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+                  Note: Environment variables are only supported for ECS targets. Step Functions and Lambda targets do not support runtime environment injection.
+                </small>
               </div>
               <div className="form-group">
                 <label>Default Payload (JSON)</label>
