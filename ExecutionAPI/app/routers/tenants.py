@@ -219,47 +219,27 @@ async def create_target_schedule(
     base_group_name = os.environ.get("SCHEDULER_GROUP_NAME", "default")
     tenant_group_name = f"{base_group_name}-{tenant_id}"
 
+    # Get executor Lambda ARN from environment
+    executor_arn = os.environ.get("LAMBDA_EXECUTOR_ARN")
+    if not executor_arn:
+        raise HTTPException(
+            status_code=500,
+            detail="LAMBDA_EXECUTOR_ARN not configured"
+        )
+
     # Create in EventBridge Scheduler first
+    # Build the target input payload for the executor Lambda
     target_input = {
-        "version": "2.0",
-        "routeKey": "POST /tenants/{tenant_id}/mappings/{target_alias}/_execute",
-        "rawPath": f"/tenants/{tenant_id}/mappings/{target_alias}/_execute",
-        "rawQueryString": "",
-        "headers": {
-            "content-type": "application/json",
-            "x-forwarded-for": "127.0.0.1",
-            "x-forwarded-port": "443",
-            "x-forwarded-proto": "https",
-            "accept": "*/*",
-            "accept-encoding": "gzip, deflate",
-            "host": "api.example.com"
-        },
-        "requestContext": {
-            "accountId": "123456789012",
-            "apiId": "api-id",
-            "domainName": "api.example.com",
-            "domainPrefix": "api",
-            "http": {
-                "method": "POST",
-                "path": f"/tenants/{tenant_id}/mappings/{target_alias}/_execute",
-                "protocol": "HTTP/1.1",
-                "sourceIp": "127.0.0.1",
-                "userAgent": "Custom/1.0"
-            },
-            "requestId": str(uuid.uuid4()),
-            "routeKey": "POST /tenants/{tenant_id}/mappings/{target_alias}/_execute",
-            "stage": "$default",
-            "time": datetime.datetime.now().strftime("%d/%b/%Y:%H:%M:%S +0000"),
-            "timeEpoch": int(datetime.datetime.now().timestamp() * 1000)
-        },
-        "isBase64Encoded": False,
-        "body": json.dumps(schedule.get("target_input", {}))
+        "tenant_id": tenant_id,
+        "target_alias": target_alias,
+        "schedule_id": schedule_model.schedule_id,
+        "payload": schedule.get("target_input", {})
     }
 
     result = scheduler.create_schedule(
         schedule_name=schedule_model.schedule_id,
         schedule_expression=schedule_model.schedule_expression,
-        target_arn=os.environ.get("EXECUTION_API_LAMBDA_ARN"),
+        target_arn=executor_arn,
         target_input=target_input,
         description=schedule_model.description,
         timezone=schedule_model.timezone,
@@ -325,47 +305,27 @@ async def update_target_schedule(
     base_group_name = os.environ.get("SCHEDULER_GROUP_NAME", "default")
     tenant_group_name = f"{base_group_name}-{tenant_id}"
 
+    # Get executor Lambda ARN from environment
+    executor_arn = os.environ.get("LAMBDA_EXECUTOR_ARN")
+    if not executor_arn:
+        raise HTTPException(
+            status_code=500,
+            detail="LAMBDA_EXECUTOR_ARN not configured"
+        )
+
     # Update in EventBridge Scheduler first
+    # Build the target input payload for the executor Lambda
     target_input = {
-        "version": "2.0",
-        "routeKey": "POST /tenants/{tenant_id}/mappings/{target_alias}/_execute",
-        "rawPath": f"/tenants/{tenant_id}/mappings/{target_alias}/_execute",
-        "rawQueryString": "",
-        "headers": {
-            "content-type": "application/json",
-            "x-forwarded-for": "127.0.0.1",
-            "x-forwarded-port": "443",
-            "x-forwarded-proto": "https",
-            "accept": "*/*",
-            "accept-encoding": "gzip, deflate",
-            "host": "api.example.com"
-        },
-        "requestContext": {
-            "accountId": "123456789012",
-            "apiId": "api-id",
-            "domainName": "api.example.com",
-            "domainPrefix": "api",
-            "http": {
-                "method": "POST",
-                "path": f"/tenants/{tenant_id}/mappings/{target_alias}/_execute",
-                "protocol": "HTTP/1.1",
-                "sourceIp": "127.0.0.1",
-                "userAgent": "Custom/1.0"
-            },
-            "requestId": str(uuid.uuid4()),
-            "routeKey": "POST /tenants/{tenant_id}/mappings/{target_alias}/_execute",
-            "stage": "$default",
-            "time": datetime.datetime.now().strftime("%d/%b/%Y:%H:%M:%S +0000"),
-            "timeEpoch": int(datetime.datetime.now().timestamp() * 1000)
-        },
-        "isBase64Encoded": False,
-        "body": json.dumps(schedule.get("target_input", {}))
+        "tenant_id": tenant_id,
+        "target_alias": target_alias,
+        "schedule_id": schedule_model.schedule_id,
+        "payload": schedule.get("target_input", {})
     }
 
     result = scheduler.update_schedule(
         schedule_name=schedule_model.schedule_id,
         schedule_expression=schedule_model.schedule_expression,
-        target_arn=os.environ.get("EXECUTION_API_LAMBDA_ARN"),
+        target_arn=executor_arn,
         target_input=target_input,
         description=schedule_model.description,
         timezone=schedule_model.timezone,

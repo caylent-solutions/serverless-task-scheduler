@@ -58,6 +58,8 @@ Globals:
         SCHEDULER_GROUP_NAME: !Sub ${StackName}-${Environment}-schedules
         # Lambda ARN for EventBridge Scheduler target
         EXECUTION_API_LAMBDA_ARN: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${StackName}-${Environment}-api
+        # Lambda Executor ARN for EventBridge Scheduler
+        LAMBDA_EXECUTOR_ARN: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${StackName}-${Environment}-executor
         # Cognito configuration
         COGNITO_USER_POOL_ID: !Ref CognitoUserPool
         COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
@@ -368,6 +370,99 @@ Resources:
             Method: ANY
 
   # --------------------------------------------------------------------------
+  # Lambda: Executor - Handles scheduled task execution
+  # Invoked by EventBridge Scheduler with IAM permissions to execute targets
+  # --------------------------------------------------------------------------
+  LambdaExecutor:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${StackName}-${Environment}-executor
+      CodeUri: LambdaExecutor/
+      Handler: handler.handler
+      Role: !GetAtt LambdaExecutorRole.Arn
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Sub ${StackName}-${Environment}-targets
+          DYNAMODB_TENANT_TABLE: !Sub ${StackName}-${Environment}-tenant-mappings
+          DYNAMODB_EXECUTIONS_TABLE: !Sub ${StackName}-${Environment}-executions
+
+  # --------------------------------------------------------------------------
+  # Lambda Executor IAM Role
+  # Permissions to read DynamoDB, invoke Lambdas, run ECS tasks, start Step Functions
+  # --------------------------------------------------------------------------
+  LambdaExecutorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub
+        - ${StackName}-${Environment}-executor-${StackIdSuffix}
+        - StackIdSuffix: !Select [2, !Split ['/', !Ref 'AWS::StackId']]
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub LambdaExecutorPolicy-${Environment}
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # DynamoDB read access to resolve targets
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                Resource:
+                  - !GetAtt TargetsTable.Arn
+                  - !GetAtt TenantMappingsTable.Arn
+
+              # DynamoDB write access to record executions
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                Resource:
+                  - !GetAtt TargetExecutionsTable.Arn
+
+              # Invoke Lambda functions
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: '*'
+
+              # ECS task execution
+              - Effect: Allow
+                Action:
+                  - ecs:RunTask
+                  - ecs:DescribeTasks
+                Resource: '*'
+
+              # Step Functions execution
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                  - states:DescribeExecution
+                Resource: '*'
+
+              # IAM PassRole for ECS tasks
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: ecs-tasks.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  # --------------------------------------------------------------------------
   # App Lambda IAM Role
   # Separate IAM role for the Lambda function with all necessary permissions
   # --------------------------------------------------------------------------
@@ -550,8 +645,16 @@ Outputs:
 
   CognitoHostedUIUrl:
     Description: URL for Cognito Hosted UI Login
-    Value: !Sub 
+    Value: !Sub
       - https://${Domain}.auth.${AWS::Region}.amazoncognito.com/login?client_id=${ClientId}&response_type=code&redirect_uri=${RedirectUri}
       - Domain: !Ref CognitoUserPoolDomain
         ClientId: !Ref CognitoUserPoolClient
         RedirectUri: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/app/'
+
+  LambdaExecutorName:
+    Description: Name of the Lambda Executor function
+    Value: !Ref LambdaExecutor
+
+  LambdaExecutorArn:
+    Description: ARN of the Lambda Executor function
+    Value: !GetAtt LambdaExecutor.Arn
