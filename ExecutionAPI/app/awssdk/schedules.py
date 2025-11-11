@@ -129,7 +129,43 @@ class EventBridgeScheduler:
         if not self.role_arn:
             logger.warning("SCHEDULER_ROLE_ARN not set. Schedule operations may fail.")
     
-    def create_schedule(self, 
+    def ensure_schedule_group_exists(self, group_name: Optional[str] = None) -> bool:
+        """
+        Ensure a schedule group exists, creating it if necessary.
+
+        Args:
+            group_name: Name of the group to check/create (defaults to configured group)
+
+        Returns:
+            True if group exists or was created successfully, False otherwise
+        """
+        target_group = group_name or self.group_name
+
+        try:
+            # Try to get the schedule group
+            self.scheduler_client.get_schedule_group(Name=target_group)
+            logger.info(f"Schedule group already exists: {target_group}")
+            return True
+
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'ResourceNotFoundException':
+                # Group doesn't exist, create it
+                try:
+                    logger.info(f"Creating schedule group: {target_group}")
+                    self.scheduler_client.create_schedule_group(Name=target_group)
+                    logger.info(f"Successfully created schedule group: {target_group}")
+                    return True
+                except ClientError as create_error:
+                    logger.error(f"Failed to create schedule group {target_group}: {create_error}")
+                    return False
+            else:
+                logger.error(f"Error checking schedule group {target_group}: {e}")
+                return False
+        except Exception as e:
+            logger.error(f"Unexpected error checking schedule group {target_group}: {e}")
+            return False
+
+    def create_schedule(self,
                        schedule_name: str,
                        schedule_expression: str,
                        target_arn: str,
@@ -142,7 +178,7 @@ class EventBridgeScheduler:
                        tags: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """
         Create a new schedule on AWS EventBridge Scheduler.
-        
+
         Args:
             schedule_name: Unique name for the schedule
             schedule_expression: Cron or rate expression for the schedule
@@ -154,12 +190,20 @@ class EventBridgeScheduler:
             end_date: Optional end date for the schedule
             state: Schedule state (ENABLED, DISABLED)
             tags: Optional tags for the schedule
-            
+
         Returns:
             Dictionary with schedule creation result
         """
         try:
             logger.info(f"Creating schedule: {schedule_name}")
+
+            # Ensure the schedule group exists before creating the schedule
+            if not self.ensure_schedule_group_exists():
+                return {
+                    'status': 'ERROR',
+                    'schedule_name': schedule_name,
+                    'error_message': f'Failed to ensure schedule group {self.group_name} exists'
+                }
             
             # Build the schedule configuration
             schedule_config = {

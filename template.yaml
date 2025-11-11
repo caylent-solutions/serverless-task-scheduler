@@ -44,18 +44,20 @@ Globals:
         # Force the app to use AWS DynamoDB (not local)
         DB_TARGET: aws
         # Table names passed to the application
-        DYNAMODB_TABLE: !Sub ${StackName}-targets-${Environment}
-        DYNAMODB_TENANTS_TABLE: !Sub ${StackName}-tenants-${Environment}
-        DYNAMODB_TENANT_TABLE: !Sub ${StackName}-tenant-mappings-${Environment}
-        DYNAMODB_EXECUTIONS_TABLE: !Sub ${StackName}-executions-${Environment}
-        DYNAMODB_SCHEDULES_TABLE: !Sub ${StackName}-schedules-${Environment}
-        DYNAMODB_USER_MAPPINGS_TABLE: !Sub ${StackName}-user-mappings-${Environment}
+        DYNAMODB_TABLE: !Sub ${StackName}-${Environment}-targets
+        DYNAMODB_TENANTS_TABLE: !Sub ${StackName}-${Environment}-tenants
+        DYNAMODB_TENANT_TABLE: !Sub ${StackName}-${Environment}-tenant-mappings
+        DYNAMODB_EXECUTIONS_TABLE: !Sub ${StackName}-${Environment}-executions
+        DYNAMODB_SCHEDULES_TABLE: !Sub ${StackName}-${Environment}-schedules
+        DYNAMODB_USER_MAPPINGS_TABLE: !Sub ${StackName}-${Environment}-user-mappings
         # Base path for the FastAPI app (environment name)
         API_BASE_PATH: !Ref Environment
         # EventBridge Scheduler role ARN
         SCHEDULER_ROLE_ARN: !GetAtt AppLambdaRole.Arn
         # EventBridge Scheduler group name
-        SCHEDULER_GROUP_NAME: !Sub ${StackName}-schedules-${Environment}
+        SCHEDULER_GROUP_NAME: !Sub ${StackName}-${Environment}-schedules
+        # Lambda ARN for EventBridge Scheduler target
+        EXECUTION_API_LAMBDA_ARN: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${StackName}-${Environment}-api
         # Cognito configuration
         COGNITO_USER_POOL_ID: !Ref CognitoUserPool
         COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
@@ -76,7 +78,7 @@ Resources:
   TargetsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${StackName}-targets-${Environment}
+      TableName: !Sub ${StackName}-${Environment}-targets
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: target_id
@@ -99,7 +101,7 @@ Resources:
   TenantsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${StackName}-tenants-${Environment}
+      TableName: !Sub ${StackName}-${Environment}-tenants
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: tenant_id
@@ -122,7 +124,7 @@ Resources:
   TenantMappingsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${StackName}-tenant-mappings-${Environment}
+      TableName: !Sub ${StackName}-${Environment}-tenant-mappings
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: tenant_id
@@ -149,7 +151,7 @@ Resources:
   TargetExecutionsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${StackName}-executions-${Environment}
+      TableName: !Sub ${StackName}-${Environment}-executions
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: tenant_target
@@ -172,7 +174,7 @@ Resources:
   SchedulesTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${StackName}-schedules-${Environment}
+      TableName: !Sub ${StackName}-${Environment}-schedules
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: tenant_id
@@ -212,7 +214,7 @@ Resources:
   UserMappingsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${StackName}-user-mappings-${Environment}
+      TableName: !Sub ${StackName}-${Environment}-user-mappings
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: user_id
@@ -247,7 +249,7 @@ Resources:
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
     Properties:
-      UserPoolName: !Sub ${StackName}-users-${Environment}
+      UserPoolName: !Sub ${StackName}-${Environment}-users
       AutoVerifiedAttributes:
         - email
       UsernameAttributes:
@@ -284,7 +286,7 @@ Resources:
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
-      ClientName: !Sub ${StackName}-web-client-${Environment}
+      ClientName: !Sub ${StackName}-${Environment}-web-client
       UserPoolId: !Ref CognitoUserPool
       GenerateSecret: false
       ExplicitAuthFlows:
@@ -312,7 +314,9 @@ Resources:
   CognitoUserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
     Properties:
-      Domain: !Sub '${StackName}-${Environment}'
+      Domain: !Sub
+        - ${StackName}-${Environment}-${StackIdSuffix}
+        - StackIdSuffix: !Select [2, !Split ['/', !Ref 'AWS::StackId']]
       UserPoolId: !Ref CognitoUserPool
 
   # --------------------------------------------------------------------------
@@ -323,7 +327,7 @@ Resources:
   ApiGateway:
     Type: AWS::Serverless::Api
     Properties:
-      Name: !Sub ${StackName}-api-${Environment}
+      Name: !Sub ${StackName}-${Environment}-api
       StageName: !Ref Environment
       TracingEnabled: true
       # Disable default "Stage" stage creation
@@ -344,7 +348,7 @@ Resources:
   AppLambda:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub ${StackName}-api-${Environment}
+      FunctionName: !Sub ${StackName}-${Environment}-api
       CodeUri: ExecutionAPI/
       Handler: app/lambda_handler.handler
       Role: !GetAtt AppLambdaRole.Arn
@@ -370,7 +374,9 @@ Resources:
   AppLambdaRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub ${StackName}-app-lambda
+      RoleName: !Sub
+        - ${StackName}-${Environment}-lambda-${StackIdSuffix}
+        - StackIdSuffix: !Select [2, !Split ['/', !Ref 'AWS::StackId']]
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
