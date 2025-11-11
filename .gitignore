@@ -197,3 +197,5 @@ cython_debug/
 
 # React build output copied to wwwroot
 ExecutionAPI/app/wwwroot/
+
+samconfig.toml
