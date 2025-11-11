@@ -213,6 +213,12 @@ async def create_target_schedule(
         state=schedule.get("state", "ENABLED")
     )
 
+    # Build tenant-specific schedule group name
+    # Format: {base_group_name}-{tenant_id}
+    # Example: jyelle-sts-dev-schedules-jer
+    base_group_name = os.environ.get("SCHEDULER_GROUP_NAME", "default")
+    tenant_group_name = f"{base_group_name}-{tenant_id}"
+
     # Create in EventBridge Scheduler first
     target_input = {
         "version": "2.0",
@@ -259,7 +265,8 @@ async def create_target_schedule(
         timezone=schedule_model.timezone,
         start_date=schedule_model.start_date,
         end_date=schedule_model.end_date,
-        state=schedule_model.state
+        state=schedule_model.state,
+        group_name=tenant_group_name
     )
 
     if result["status"] != "SUCCESS":
@@ -314,6 +321,10 @@ async def update_target_schedule(
         state=schedule.get("state", "ENABLED")
     )
 
+    # Build tenant-specific schedule group name
+    base_group_name = os.environ.get("SCHEDULER_GROUP_NAME", "default")
+    tenant_group_name = f"{base_group_name}-{tenant_id}"
+
     # Update in EventBridge Scheduler first
     target_input = {
         "version": "2.0",
@@ -360,7 +371,8 @@ async def update_target_schedule(
         timezone=schedule_model.timezone,
         start_date=schedule_model.start_date,
         end_date=schedule_model.end_date,
-        state=schedule_model.state
+        state=schedule_model.state,
+        group_name=tenant_group_name
     )
 
     if result["status"] != "SUCCESS":
@@ -382,8 +394,12 @@ async def delete_target_schedule(
     _: dict = Depends(require_tenant_access)
 ):
     """Delete a schedule for a target mapping (requires tenant access)"""
+    # Build tenant-specific schedule group name
+    base_group_name = os.environ.get("SCHEDULER_GROUP_NAME", "default")
+    tenant_group_name = f"{base_group_name}-{tenant_id}"
+
     # Delete from EventBridge first
-    result = scheduler.delete_schedule(schedule_name=schedule_id)
+    result = scheduler.delete_schedule(schedule_name=schedule_id, group_name=tenant_group_name)
 
     if result["status"] != "SUCCESS" and result.get("error_code") != "ResourceNotFoundException":
         raise HTTPException(status_code=500, detail=f"Failed to delete EventBridge schedule: {result.get('error_message', 'Unknown error')}")

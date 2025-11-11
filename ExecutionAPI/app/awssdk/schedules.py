@@ -175,7 +175,8 @@ class EventBridgeScheduler:
                        start_date: Optional[datetime] = None,
                        end_date: Optional[datetime] = None,
                        state: str = 'ENABLED',
-                       tags: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+                       tags: Optional[Dict[str, str]] = None,
+                       group_name: Optional[str] = None) -> Dict[str, Any]:
         """
         Create a new schedule on AWS EventBridge Scheduler.
 
@@ -190,21 +191,24 @@ class EventBridgeScheduler:
             end_date: Optional end date for the schedule
             state: Schedule state (ENABLED, DISABLED)
             tags: Optional tags for the schedule
+            group_name: Optional custom group name (defaults to configured group)
 
         Returns:
             Dictionary with schedule creation result
         """
         try:
-            logger.info(f"Creating schedule: {schedule_name}")
+            # Use custom group name or default
+            target_group = group_name or self.group_name
+            logger.info(f"Creating schedule: {schedule_name} in group: {target_group}")
 
             # Ensure the schedule group exists before creating the schedule
-            if not self.ensure_schedule_group_exists():
+            if not self.ensure_schedule_group_exists(target_group):
                 return {
                     'status': 'ERROR',
                     'schedule_name': schedule_name,
-                    'error_message': f'Failed to ensure schedule group {self.group_name} exists'
+                    'error_message': f'Failed to ensure schedule group {target_group} exists'
                 }
-            
+
             # Build the schedule configuration
             schedule_config = {
                 'Name': schedule_name,
@@ -217,7 +221,7 @@ class EventBridgeScheduler:
                     'RoleArn': self.role_arn
                 },
                 'State': state,
-                'GroupName': self.group_name
+                'GroupName': target_group
             }
             
             # Add optional fields
@@ -279,10 +283,11 @@ class EventBridgeScheduler:
                        start_date: Optional[datetime] = None,
                        end_date: Optional[datetime] = None,
                        state: Optional[str] = None,
-                       tags: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+                       tags: Optional[Dict[str, str]] = None,
+                       group_name: Optional[str] = None) -> Dict[str, Any]:
         """
         Update an existing schedule on AWS EventBridge Scheduler.
-        
+
         Args:
             schedule_name: Name of the schedule to update
             schedule_expression: New cron or rate expression (optional)
@@ -294,17 +299,20 @@ class EventBridgeScheduler:
             end_date: New end date (optional)
             state: New state (optional)
             tags: New tags (optional)
-            
+            group_name: Optional custom group name (defaults to configured group)
+
         Returns:
             Dictionary with schedule update result
         """
         try:
-            logger.info(f"Updating schedule: {schedule_name}")
-            
+            # Use custom group name or default
+            target_group = group_name or self.group_name
+            logger.info(f"Updating schedule: {schedule_name} in group: {target_group}")
+
             # Build the update configuration
             update_config = {
                 'Name': schedule_name,
-                'GroupName': self.group_name
+                'GroupName': target_group
             }
             
             # Add fields that are being updated
@@ -364,22 +372,25 @@ class EventBridgeScheduler:
                 'error_message': str(e)
             }
     
-    def delete_schedule(self, schedule_name: str) -> Dict[str, Any]:
+    def delete_schedule(self, schedule_name: str, group_name: Optional[str] = None) -> Dict[str, Any]:
         """
         Delete a schedule from AWS EventBridge Scheduler.
-        
+
         Args:
             schedule_name: Name of the schedule to delete
-            
+            group_name: Optional custom group name (defaults to configured group)
+
         Returns:
             Dictionary with schedule deletion result
         """
         try:
-            logger.info(f"Deleting schedule: {schedule_name}")
-            
+            # Use custom group name or default
+            target_group = group_name or self.group_name
+            logger.info(f"Deleting schedule: {schedule_name} from group: {target_group}")
+
             response = self.scheduler_client.delete_schedule(
                 Name=schedule_name,
-                GroupName=self.group_name
+                GroupName=target_group
             )
             
             logger.info(f"Successfully deleted schedule: {schedule_name}")
