@@ -8,7 +8,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from fastapi_events.dispatcher import dispatch
 from ..awssdk.dynamodb import get_database_client
-from ..awssdk.lambdas import get_lambda_runner  # Still used for _execute endpoints
+from ..awssdk.targets import get_target_invoker
 from ..awssdk.schedules import get_scheduler_client
 from ..awssdk.usermappings import UserMappingsDB
 from ..models.schedule import Schedule
@@ -21,10 +21,10 @@ from ..authorization import require_admin, require_tenant_access
 router = APIRouter()
 logger = logging.getLogger("app.routers.tenants")
 
-# Get the database client, scheduler client, and lambda runner
+# Get the database client, scheduler client, and target invoker
 db_client = get_database_client()
 scheduler = get_scheduler_client()
-lambda_runner = get_lambda_runner()  # Still used for _execute endpoints
+target_invoker = get_target_invoker()
 
 # =============================================================================
 # Tenant CRUD Endpoints
@@ -167,15 +167,15 @@ async def execute_tenant_mapping(
             execution_data_with_context,
             is_async=async_execution)
 
-    # Execute the target
+    # Execute the target using the unified target invoker (supports Lambda, Step Functions, ECS)
     if async_execution:
-        # For async execution, use the async Lambda invocation
-        lambda_runner.execute_lambda_async(target["target_arn"], execution_data_with_context)
-
+        # For async execution, use the async invocation
+        target_result = target_invoker.invoke_async(target["target_arn"], execution_data_with_context)
+        result["target_result"] = target_result
         return result
     else:
-        # For sync execution, directly call the execute_target method
-        target_result = lambda_runner.execute_lambda_sync(target["target_arn"], execution_data_with_context)
+        # For sync execution, wait for response
+        target_result = target_invoker.invoke_sync(target["target_arn"], execution_data_with_context)
         result["target_result"] = target_result
         return result
 

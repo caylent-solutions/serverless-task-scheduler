@@ -6,7 +6,7 @@ both synchronously and asynchronously.
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from . import get_session
 
@@ -188,6 +188,109 @@ class ECSAdapter:
                 params[key] = payload[key]
         
         return params
+    
+    def register_task_definition(self, task_definition: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Register a new ECS task definition.
+        
+        Args:
+            task_definition: Dictionary containing task definition parameters:
+                - family: Task definition family name (required)
+                - containerDefinitions: List of container definitions (required)
+                - taskRoleArn: IAM role for the task (optional)
+                - executionRoleArn: IAM role for ECS to pull images and manage tasks (optional)
+                - networkMode: Network mode (optional)
+                - cpu: CPU units (optional)
+                - memory: Memory in MB (optional)
+                - requiresCompatibilities: List of launch types (optional)
+                - volumes: List of volumes (optional)
+                - placementConstraints: List of placement constraints (optional)
+                - tags: List of tags (optional)
+                - etc. (all standard ECS RegisterTaskDefinition parameters)
+            
+        Returns:
+            Dictionary with task definition details
+        """
+        logger.info(f"Registering ECS task definition: {task_definition.get('family')}")
+        
+        try:
+            response = self._ecs_client.register_task_definition(**task_definition)
+            
+            task_def = response.get('taskDefinition', {})
+            return {
+                "status": "SUCCESS",
+                "taskDefinitionArn": task_def.get('taskDefinitionArn'),
+                "family": task_def.get('family'),
+                "revision": task_def.get('revision'),
+                "taskDefinition": task_def
+            }
+        except Exception as e:
+            logger.error(f"Failed to register task definition: {str(e)}")
+            return {
+                "status": "ERROR",
+                "error": str(e)
+            }
+    
+    def describe_task_definition(self, task_definition: str) -> Dict[str, Any]:
+        """
+        Describe an ECS task definition.
+        
+        Args:
+            task_definition: Task definition ARN or family:revision
+            
+        Returns:
+            Dictionary with task definition details
+        """
+        logger.info(f"Describing ECS task definition: {task_definition}")
+        
+        try:
+            response = self._ecs_client.describe_task_definition(
+                taskDefinition=task_definition
+            )
+            
+            task_def = response.get('taskDefinition', {})
+            return {
+                "status": "SUCCESS",
+                "taskDefinition": task_def
+            }
+        except Exception as e:
+            logger.error(f"Failed to describe task definition: {str(e)}")
+            return {
+                "status": "ERROR",
+                "error": str(e)
+            }
+    
+    def list_task_definitions(self, family_prefix: Optional[str] = None, status: str = "ACTIVE") -> Dict[str, Any]:
+        """
+        List ECS task definitions.
+        
+        Args:
+            family_prefix: Filter by family prefix (optional)
+            status: Filter by status (ACTIVE, INACTIVE, or ALL) - default: ACTIVE
+            
+        Returns:
+            Dictionary with list of task definition ARNs
+        """
+        logger.info(f"Listing ECS task definitions (family_prefix={family_prefix}, status={status})")
+        
+        try:
+            params = {"status": status}
+            if family_prefix:
+                params["familyPrefix"] = family_prefix
+            
+            response = self._ecs_client.list_task_definitions(**params)
+            
+            return {
+                "status": "SUCCESS",
+                "taskDefinitionArns": response.get('taskDefinitionArns', []),
+                "nextToken": response.get('nextToken')
+            }
+        except Exception as e:
+            logger.error(f"Failed to list task definitions: {str(e)}")
+            return {
+                "status": "ERROR",
+                "error": str(e)
+            }
 
 
 # Singleton accessor

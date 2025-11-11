@@ -172,7 +172,7 @@ Resources:
   SchedulesTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${StackName}-schedules-${Environment}-1
+      TableName: !Sub ${StackName}-schedules-${Environment}
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: tenant_id
@@ -406,12 +406,42 @@ Resources:
                   - !Sub '${SchedulesTable.Arn}/index/*'
                   - !Sub '${UserMappingsTable.Arn}/index/*'
 
-              # Invoke other Lambda functions
+              # Invoke Lambda functions (covers both sync and async)
               - Effect: Allow
                 Action:
                   - lambda:InvokeFunction
-                  - lambda:InvokeAsync
                 Resource: '*'
+              
+              # Step Functions operations
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                  - states:DescribeExecution
+                  - states:StopExecution
+                  - states:ListExecutions
+                Resource: '*'
+              
+              # ECS operations
+              - Effect: Allow
+                Action:
+                  - ecs:RunTask
+                  - ecs:DescribeTasks
+                  - ecs:StopTask
+                  - ecs:ListTasks
+                  - ecs:RegisterTaskDefinition
+                  - ecs:DeregisterTaskDefinition
+                  - ecs:DescribeTaskDefinition
+                  - ecs:ListTaskDefinitions
+                Resource: '*'
+              
+              # IAM PassRole for ECS tasks
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: ecs-tasks.amazonaws.com
 
               # EventBridge Scheduler operations
               - Effect: Allow
@@ -427,6 +457,12 @@ Resources:
                   - scheduler:CreateScheduleGroup
                   - scheduler:DeleteScheduleGroup
                   - scheduler:ListScheduleGroups
+                Resource: '*'
+              
+              # IAM PassRole permission for EventBridge Scheduler
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
                 Resource: '*'
 
               # Cognito operations for user authentication and management

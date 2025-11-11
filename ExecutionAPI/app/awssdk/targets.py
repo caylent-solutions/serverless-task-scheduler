@@ -31,11 +31,56 @@ class TargetInvoker:
             "account": parts[4],
             "resource": parts[5],
         }
+    
+    def _detect_service(self, target_arn: str) -> str:
+        """
+        Detect the AWS service from the target ARN or identifier.
+        
+        Supports:
+        - Full ARNs: arn:aws:service:region:account:resource
+        - Lambda function names or ARNs
+        - Step Functions state machine ARNs
+        - ECS task definitions: arn:aws:ecs:... or family:revision or family
+        """
+        # Check if it's a full ARN
+        if target_arn.startswith("arn:aws:"):
+            try:
+                meta = self._parse_arn(target_arn)
+                service = meta["service"]
+                # Map service names
+                if service == "lambda":
+                    return "lambda"
+                elif service == "states":
+                    return "states"
+                elif service == "ecs":
+                    # Check if it's a task definition ARN
+                    if "task-definition" in meta["resource"]:
+                        return "ecs"
+                    else:
+                        raise ValueError(f"Unsupported ECS resource type: {target_arn}")
+                else:
+                    raise ValueError(f"Unsupported service in ARN: {service}")
+            except ValueError as e:
+                raise ValueError(f"Invalid ARN format: {target_arn} - {str(e)}")
+        
+        # For non-ARN identifiers, try to detect service
+        # Lambda functions can be referenced by name (no special format needed)
+        # ECS task definitions can be "family:revision" or "family"
+        # Step Functions must be ARNs
+        
+        # If it contains a colon and doesn't start with arn:, might be ECS task definition
+        if ":" in target_arn and not target_arn.startswith("arn:"):
+            # Could be ECS task definition in format "family:revision"
+            return "ecs"
+        
+        # If it's a simple string without special chars, could be Lambda name or ECS family
+        # Default to Lambda (most common case)
+        # Note: This means ECS task definitions without revision must use full ARN or family:revision format
+        return "lambda"
 
     def invoke_async(self, target_arn: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Invoke target asynchronously"""
-        meta = self._parse_arn(target_arn)
-        service = meta["service"]
+        service = self._detect_service(target_arn)
 
         if service == "lambda":
             return self._lambda_adapter.invoke_async(target_arn, payload)
@@ -44,12 +89,11 @@ class TargetInvoker:
         if service == "ecs":
             return self._ecs_adapter.invoke_async(target_arn, payload)
 
-        raise ValueError(f"Unsupported target ARN service: {service}")
+        raise ValueError(f"Unsupported target service: {service}")
 
     def invoke_sync(self, target_arn: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Invoke target synchronously and wait for response"""
-        meta = self._parse_arn(target_arn)
-        service = meta["service"]
+        service = self._detect_service(target_arn)
 
         if service == "lambda":
             return self._lambda_adapter.invoke_sync(target_arn, payload)
@@ -58,7 +102,7 @@ class TargetInvoker:
         if service == "ecs":
             return self._ecs_adapter.invoke_sync(target_arn, payload)
 
-        raise ValueError(f"Unsupported target ARN service: {service}")
+        raise ValueError(f"Unsupported target service: {service}")
 
     def create_scheduled_invocation(self, target_arn: str, payload: Dict[str, Any], delay_seconds: int = 10) -> Dict[str, Any]:
         """
