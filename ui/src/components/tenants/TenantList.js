@@ -77,8 +77,8 @@ const TenantList = ({ isAdmin }) => {
   };
 
   const validateTenantId = (tenantId) => {
-    // Only allow lowercase alphanumeric and underscores, max 12 characters
-    const tenantIdRegex = /^[a-z0-9_]{1,12}$/;
+    // Only allow lowercase alphanumeric and underscores, max 36 characters
+    const tenantIdRegex = /^[a-z0-9_]{1,36}$/;
     return tenantIdRegex.test(tenantId);
   };
 
@@ -88,7 +88,7 @@ const TenantList = ({ isAdmin }) => {
     try {
       // Validate tenant_id format
       if (!validateTenantId(selectedTenant.tenant_id)) {
-        alert('Invalid Tenant ID. Only lowercase letters, numbers, and underscores are allowed (max 12 characters).\nExample: acme_corp');
+        alert('Invalid Tenant ID. Only lowercase letters, numbers, and underscores are allowed (max 36 characters).\nExample: acme_corp');
         return;
       }
 
@@ -227,9 +227,9 @@ const TenantList = ({ isAdmin }) => {
                   onChange={(e) => setSelectedTenant({...selectedTenant, tenant_id: e.target.value.toLowerCase()})}
                   disabled={!!tenants.find(t => t.tenant_id === selectedTenant.tenant_id)}
                   placeholder="acme_corp"
-                  maxLength={12}
-                  pattern="[a-z0-9_]{1,12}"
-                  title="Only lowercase letters, numbers, and underscores (max 12 characters)"
+                  maxLength={36}
+                  pattern="[a-z0-9_]{1,36}"
+                  title="Only lowercase letters, numbers, and underscores (max 36 characters)"
                   required
                 />
               </div>

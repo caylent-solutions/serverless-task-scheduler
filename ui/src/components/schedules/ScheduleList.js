@@ -128,8 +128,20 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `Failed to save schedule: ${response.status}`);
+        let errorMessage = `Failed to save schedule: ${response.status}`;
+        try {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json();
+            errorMessage = errorData.detail || errorMessage;
+          } else {
+            const errorText = await response.text();
+            errorMessage = errorText || errorMessage;
+          }
+        } catch (parseError) {
+          // If parsing fails, use the default error message
+        }
+        throw new Error(errorMessage);
       }
 
       // Refresh the schedules list

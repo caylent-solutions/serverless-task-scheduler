@@ -100,8 +100,8 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
   };
 
   const validateTargetAlias = (alias) => {
-    // Only allow lowercase alphanumeric and underscores, max 12 characters
-    const aliasRegex = /^[a-z0-9_]{1,12}$/;
+    // Only allow lowercase alphanumeric and underscores, max 36 characters
+    const aliasRegex = /^[a-z0-9_]{1,36}$/;
     return aliasRegex.test(alias);
   };
 
@@ -111,7 +111,7 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
     try {
       // Validate target_alias
       if (!validateTargetAlias(selectedMapping.target_alias)) {
-        alert('Invalid Target Alias. Only lowercase letters, numbers, and underscores are allowed (max 12 characters).\nExample: calc_lambda');
+        alert('Invalid Target Alias. Only lowercase letters, numbers, and underscores are allowed (max 36 characters).\nExample: calc_lambda');
         return;
       }
       const isNew = !mappings.find(m => 
@@ -295,9 +295,9 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
                   onChange={(e) => setSelectedMapping({...selectedMapping, target_alias: e.target.value.toLowerCase()})}
                   disabled={!!mappings.find(m => m.tenant_id === selectedMapping.tenant_id && m.target_alias === selectedMapping.target_alias)}
                   placeholder="calc_lambda"
-                  maxLength={12}
-                  pattern="[a-z0-9_]{1,12}"
-                  title="Only lowercase letters, numbers, and underscores (max 12 characters)"
+                  maxLength={36}
+                  pattern="[a-z0-9_]{1,36}"
+                  title="Only lowercase letters, numbers, and underscores (max 36 characters)"
                   required
                 />
               </div>
