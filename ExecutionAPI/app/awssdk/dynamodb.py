@@ -178,30 +178,15 @@ class DatabaseClient(ABC):
         """Get all user-tenant mappings"""
         pass
 
-    # @abstractmethod
-    # def create_execution(self, execution: Execution) -> bool:
-    #     """Create a new target execution"""
-    #     pass
+    @abstractmethod
+    def get_execution_by_schedule_id(self, tenant_id: str, schedule_id: str, execution_id: str = None) -> Optional[Dict[str, Any]]:
+        """Get execution record by tenant_id + schedule_id and optionally execution_id"""
+        pass
 
-    # @abstractmethod
-    # def get_execution(self, tenant_id: str, target_name: str, execution_id: str) -> Optional[Execution]:
-    #     """Get a target execution"""
-    #     pass
-    
-    # @abstractmethod
-    # def list_target_executions(self, tenant_id: str, target_name: str) -> List[Execution]:
-    #     """List all target executions"""
-    #     pass
-
-    # @abstractmethod
-    # def list_tenant_executions(self, tenant_id: str) -> List[Execution]:
-    #     """List all tenant executions"""
-    #     pass
-
-    # @abstractmethod
-    # def list_schedule_executions(self, tenant_id: str, schedule_id: str) -> List[Execution]:
-    #     """List all schedule executions"""
-    #     pass
+    @abstractmethod
+    def list_target_executions(self, tenant_id: str, target_alias: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """List executions for a specific tenant target"""
+        pass
     
     
 class DynamoDBClient(DatabaseClient):
@@ -218,6 +203,7 @@ class DynamoDBClient(DatabaseClient):
         self.tenant_mappings_table_name = os.environ.get('DYNAMODB_TENANT_TABLE', 'TenantMappings')
         self.schedules_table_name = os.environ.get('DYNAMODB_SCHEDULES_TABLE', 'Schedules')
         self.user_mappings_table_name = os.environ.get('DYNAMODB_USER_MAPPINGS_TABLE', 'sts-dev-user-mappings')
+        self.executions_table_name = os.environ.get('DYNAMODB_EXECUTIONS_TABLE', 'Executions')
 
         # This line will raise an exception if DynamoDB is not accessible
         self.targets = self.db.Table(self.targets_table_name)
@@ -225,6 +211,7 @@ class DynamoDBClient(DatabaseClient):
         self.tenant_mappings = self.db.Table(self.tenant_mappings_table_name)
         self.schedules = self.db.Table(self.schedules_table_name)
         self.user_mappings = self.db.Table(self.user_mappings_table_name)
+        self.executions = self.db.Table(self.executions_table_name)
 
         # Test the connection to ensure it's working
         try:
@@ -584,6 +571,66 @@ class DynamoDBClient(DatabaseClient):
             logger.error(f"Error getting all user mappings: {e}")
             return []
 
+    def get_execution_by_schedule_id(self, tenant_id: str, schedule_id: str, execution_id: str = None) -> Optional[Dict[str, Any]]:
+        """
+        Get execution record by tenant_id + schedule_id and optionally execution_id.
+
+        For ad-hoc executions: schedule_id is unique per tenant, so we query and get the first result
+        For recurring schedules: execution_id should be provided for a specific execution
+
+        Args:
+            tenant_id: The tenant identifier
+            schedule_id: The schedule identifier
+            execution_id: Optional execution identifier (Lambda RequestId)
+
+        Returns:
+            Execution record or None
+        """
+        try:
+            tenant_schedule = f"{tenant_id}#{schedule_id}"
+
+            if execution_id:
+                # Direct get_item with both keys
+                response = self.executions.get_item(
+                    Key={
+                        'tenant_schedule': tenant_schedule,
+                        'execution_id': execution_id
+                    }
+                )
+                return response.get('Item')
+            else:
+                # Query by tenant_schedule only, get most recent execution
+                response = self.executions.query(
+                    KeyConditionExpression='tenant_schedule = :ts',
+                    ExpressionAttributeValues={':ts': tenant_schedule},
+                    Limit=1,
+                    ScanIndexForward=False  # Most recent first (by execution_id sort key)
+                )
+                items = response.get('Items', [])
+                return items[0] if items else None
+        except ClientError as e:
+            logger.error(f"Error getting execution for schedule {tenant_id}#{schedule_id}: {e}")
+            return None
+
+    def list_target_executions(self, tenant_id: str, target_alias: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        List executions for a specific tenant target.
+        Queries the tenant-target-index GSI by tenant_target (formatted as 'tenant_id#target_alias').
+        """
+        try:
+            tenant_target = f"{tenant_id}#{target_alias}"
+            response = self.executions.query(
+                IndexName='tenant-target-index',
+                KeyConditionExpression='tenant_target = :tt',
+                ExpressionAttributeValues={':tt': tenant_target},
+                Limit=limit,
+                ScanIndexForward=False  # Get most recent first (by timestamp)
+            )
+            return response.get('Items', [])
+        except ClientError as e:
+            logger.error(f"Error listing executions for {tenant_id}/{target_alias}: {e}")
+            return []
+
 def get_database_client() -> DatabaseClient:
     """
     Get the appropriate database client based on availability and configuration.
@@ -811,4 +858,14 @@ class LocalClient(DatabaseClient):
     def get_all_target_schedules(self, tenant_id: str, target_alias: str) -> List[Schedule]:
         """Get all schedules for a specific target (stub)"""
         logger.warning("LocalClient: get_all_target_schedules not fully implemented")
+        return []
+
+    def get_execution_by_schedule_id(self, tenant_id: str, schedule_id: str, execution_id: str = None) -> Optional[Dict[str, Any]]:
+        """Get execution record by tenant_id + schedule_id and optionally execution_id (stub)"""
+        logger.warning("LocalClient: get_execution_by_schedule_id not fully implemented")
+        return None
+
+    def list_target_executions(self, tenant_id: str, target_alias: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """List executions for a specific tenant target (stub)"""
+        logger.warning("LocalClient: list_target_executions not fully implemented")
         return []

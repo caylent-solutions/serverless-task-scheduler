@@ -148,7 +148,11 @@ Resources:
 
   # --------------------------------------------------------------------------
   # DynamoDB: Target executions
-  # Tracks execution records (composite key: tenantId#targetName + timestamp)
+  # Tracks execution records (composite key: tenant_schedule + execution_id)
+  # Primary key: tenant_id#schedule_id (PK) + execution_id (SK)
+  # - Allows querying all executions for a specific tenant's schedule
+  # - Provides tenant isolation at the database level
+  # GSI: tenant_target (tenant_id#target_alias) + timestamp for listing all executions by tenant/target
   # --------------------------------------------------------------------------
   TargetExecutionsTable:
     Type: AWS::DynamoDB::Table
@@ -156,15 +160,28 @@ Resources:
       TableName: !Sub ${StackName}-${Environment}-executions
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
+        - AttributeName: tenant_schedule
+          AttributeType: S
+        - AttributeName: execution_id
+          AttributeType: S
         - AttributeName: tenant_target
           AttributeType: S
         - AttributeName: timestamp
           AttributeType: S
       KeySchema:
-        - AttributeName: tenant_target
+        - AttributeName: tenant_schedule
           KeyType: HASH
-        - AttributeName: timestamp
+        - AttributeName: execution_id
           KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: tenant-target-index
+          KeySchema:
+            - AttributeName: tenant_target
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
       Tags:
         - Key: caylent:owner
           Value: !Ref Owner
@@ -387,6 +404,18 @@ Resources:
           DYNAMODB_EXECUTIONS_TABLE: !Sub ${StackName}-${Environment}-executions
 
   # --------------------------------------------------------------------------
+  # Lambda Permission for EventBridge Scheduler
+  # Allows EventBridge Scheduler to invoke the LambdaExecutor
+  # --------------------------------------------------------------------------
+  LambdaExecutorSchedulerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaExecutor
+      Action: lambda:InvokeFunction
+      Principal: scheduler.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+
+  # --------------------------------------------------------------------------
   # Lambda Executor IAM Role
   # Permissions to read DynamoDB, invoke Lambdas, run ECS tasks, start Step Functions
   # --------------------------------------------------------------------------
@@ -464,7 +493,12 @@ Resources:
 
   # --------------------------------------------------------------------------
   # App Lambda IAM Role
-  # Separate IAM role for the Lambda function with all necessary permissions
+  # Security Model:
+  # - API Lambda can ONLY invoke the LambdaExecutor (not target Lambdas directly)
+  # - API Lambda manages schedules in EventBridge
+  # - API Lambda manages DynamoDB tables (tenants, mappings, schedules, etc.)
+  # - LambdaExecutor has broad invoke permissions to execute targets
+  # - All target execution is routed through LambdaExecutor for centralized control
   # --------------------------------------------------------------------------
   AppLambdaRole:
     Type: AWS::IAM::Role
@@ -507,44 +541,9 @@ Resources:
                   - !Sub '${SchedulesTable.Arn}/index/*'
                   - !Sub '${UserMappingsTable.Arn}/index/*'
 
-              # Invoke Lambda functions (covers both sync and async)
-              - Effect: Allow
-                Action:
-                  - lambda:InvokeFunction
-                Resource: '*'
-              
-              # Step Functions operations
-              - Effect: Allow
-                Action:
-                  - states:StartExecution
-                  - states:DescribeExecution
-                  - states:StopExecution
-                  - states:ListExecutions
-                Resource: '*'
-              
-              # ECS operations
-              - Effect: Allow
-                Action:
-                  - ecs:RunTask
-                  - ecs:DescribeTasks
-                  - ecs:StopTask
-                  - ecs:ListTasks
-                  - ecs:RegisterTaskDefinition
-                  - ecs:DeregisterTaskDefinition
-                  - ecs:DescribeTaskDefinition
-                  - ecs:ListTaskDefinitions
-                Resource: '*'
-              
-              # IAM PassRole for ECS tasks
-              - Effect: Allow
-                Action:
-                  - iam:PassRole
-                Resource: '*'
-                Condition:
-                  StringEquals:
-                    iam:PassedToService: ecs-tasks.amazonaws.com
-
               # EventBridge Scheduler operations
+              # Note: API Lambda creates schedules that invoke LambdaExecutor
+              # EventBridge invokes LambdaExecutor directly (not the API Lambda)
               - Effect: Allow
                 Action:
                   - scheduler:CreateSchedule

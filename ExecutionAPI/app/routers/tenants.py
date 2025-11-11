@@ -15,7 +15,6 @@ from ..models.schedule import Schedule
 from ..models.tenant import Tenant, TenantList
 from ..models.tenantmapping import TenantMapping
 from ..models.usermapping import UserMapping, UserMappingList
-from .user import get_current_user
 from ..authorization import require_admin, require_tenant_access
 
 router = APIRouter()
@@ -139,45 +138,80 @@ async def execute_tenant_mapping(
     tenant_id: str,
     target_alias: str,
     execution_data: Dict[str, Any],
-    async_execution: bool = Query(False, alias="async"),
     _: dict = Depends(require_tenant_access)
 ):
-    """Execute a tenant target mapping with the given parameters (requires tenant access)"""
+    """
+    Execute a tenant target mapping asynchronously via a one-time EventBridge schedule.
+    This creates a schedule that runs immediately and then auto-deletes itself.
+    All execution goes through the LambdaExecutor for security.
+    """
     # Check if mapping exists
     mapping = db_client.get_tenant_target_mapping(tenant_id, target_alias)
     if not mapping:
         raise HTTPException(status_code=404, detail=f"Mapping for tenant '{tenant_id}' and target alias '{target_alias}' not found")
 
-    # Get the target details to validate execution parameters
+    # Get the target details to validate
     target = db_client.get_target(mapping.target_id)
     if not target:
         raise HTTPException(status_code=404, detail=f"Target '{mapping.target_id}' not found")
 
-    # Add tenant context to execution data
-    execution_data_with_context = {
-        **execution_data,
-        "tenant_context": {
-            "tenant_id": tenant_id,
-            "target_alias": target_alias
-        }
+    # Generate unique one-time schedule ID
+    from uuid_v7.base import uuid7
+    schedule_id = f"adhoc-{uuid7()}"
+
+    # Build tenant-specific schedule group name
+    base_group_name = os.environ.get("SCHEDULER_GROUP_NAME", "default")
+    tenant_group_name = f"{base_group_name}-{tenant_id}"
+
+    # Get executor Lambda ARN from environment
+    executor_arn = os.environ.get("LAMBDA_EXECUTOR_ARN")
+    if not executor_arn:
+        raise HTTPException(
+            status_code=500,
+            detail="LAMBDA_EXECUTOR_ARN not configured"
+        )
+
+    # Build the target input payload for the executor Lambda
+    target_input = {
+        "tenant_id": tenant_id,
+        "target_alias": target_alias,
+        "schedule_id": schedule_id,
+        "payload": execution_data
     }
 
-    result = db_client.execute_target(
-            mapping.target_id,
-            execution_data_with_context,
-            is_async=async_execution)
+    # Create a one-time schedule that runs immediately (at: now + 1 minute)
+    import datetime
+    start_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=1)
 
-    # Execute the target using the unified target invoker (supports Lambda, Step Functions, ECS)
-    if async_execution:
-        # For async execution, use the async invocation
-        target_result = target_invoker.invoke_async(target["target_arn"], execution_data_with_context)
-        result["target_result"] = target_result
-        return result
-    else:
-        # For sync execution, wait for response
-        target_result = target_invoker.invoke_sync(target["target_arn"], execution_data_with_context)
-        result["target_result"] = target_result
-        return result
+    # Use 'at' expression for one-time execution
+    schedule_expression = f"at({start_time.strftime('%Y-%m-%dT%H:%M:%S')})"
+
+    result = scheduler.create_schedule(
+        schedule_name=schedule_id,
+        schedule_expression=schedule_expression,
+        target_arn=executor_arn,
+        target_input=target_input,
+        description=f"Ad-hoc execution for {target_alias} (auto-delete after execution)",
+        state='ENABLED',
+        group_name=tenant_group_name
+    )
+
+    if result["status"] != "SUCCESS":
+        logger.error(f"Failed to create one-time schedule: {result}")
+        raise HTTPException(status_code=500, detail=f"Failed to schedule execution: {result.get('error_message', 'Unknown error')}")
+
+    # Construct the URL to query execution status
+    # Uses the same endpoint structure as recurring schedules
+    execution_query_url = f"/tenants/{tenant_id}/mappings/{target_alias}/schedules/{schedule_id}/executions"
+
+    return {
+        "status": "SCHEDULED",
+        "schedule_id": schedule_id,
+        "message": f"Ad-hoc execution scheduled for {start_time.isoformat()}",
+        "execution_time": start_time.isoformat(),
+        "execution_query_url": execution_query_url,
+        "note": "This one-time schedule will be automatically deleted by EventBridge after execution. Use the execution_query_url to poll for results and CloudWatch Logs URL."
+    }
 
 @router.post("/tenants/{tenant_id}/mappings/{target_alias}/schedules")
 async def create_target_schedule(
@@ -390,6 +424,58 @@ async def get_tenant_schedules(
     schedules = db_client.get_all_schedules(tenant_id)
     return schedules
 
+@router.get("/tenants/{tenant_id}/mappings/{target_alias}/schedules/{schedule_id}/executions")
+async def get_schedule_executions(
+    tenant_id: str,
+    target_alias: str,
+    schedule_id: str,
+    _: dict = Depends(require_tenant_access)
+):
+    """
+    Get all executions for a specific schedule (requires tenant access).
+    Works for both ad-hoc and recurring schedules.
+    For ad-hoc schedules, will return 0-1 executions.
+    For recurring schedules, currently returns only the most recent execution.
+    """
+    try:
+        # Query by tenant_id + schedule_id to get the most recent execution for this schedule
+        # For ad-hoc schedules, this will return 0 or 1 execution
+        # For recurring schedules, this returns the most recent execution
+        # TODO: Add support for querying all executions with pagination
+        execution = db_client.get_execution_by_schedule_id(tenant_id, schedule_id)
+
+        if not execution:
+            return {
+                "tenant_id": tenant_id,
+                "target_alias": target_alias,
+                "schedule_id": schedule_id,
+                "count": 0,
+                "executions": []
+            }
+
+        # Verify the execution matches the tenant and target from the path
+        tenant_target = execution.get('tenant_target', '')
+        expected_tenant_target = f"{tenant_id}#{target_alias}"
+
+        if tenant_target != expected_tenant_target:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Schedule '{schedule_id}' does not belong to tenant '{tenant_id}' and target '{target_alias}'"
+            )
+
+        return {
+            "tenant_id": tenant_id,
+            "target_alias": target_alias,
+            "schedule_id": schedule_id,
+            "count": 1,
+            "executions": [execution]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving schedule executions: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving schedule executions")
+
 
 # Tenant Target Mappings Management Endpoints (RESTful structure)
 @router.get("/tenants/{tenant_id}/mappings", response_model=List[TenantMapping])
@@ -493,10 +579,73 @@ async def delete_tenant_mapping(
     mapping = db_client.get_tenant_target_mapping(tenant_id, target_alias)
     if not mapping:
         raise HTTPException(status_code=404, detail=f"Mapping for tenant '{tenant_id}' and target '{target_alias}' not found")
-    
+
     # Delete mapping from storage
     success = db_client.delete_tenant_mapping(tenant_id, target_alias)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete tenant mapping")
 
     return mapping
+
+
+# =============================================================================
+# Execution Query Endpoints
+# =============================================================================
+
+@router.get("/tenants/{tenant_id}/mappings/{target_alias}/executions/{execution_id}")
+async def get_execution_by_id(
+    tenant_id: str,
+    target_alias: str,
+    execution_id: str,
+    _: dict = Depends(require_tenant_access)
+):
+    """
+    Get execution record by execution_id (for ad-hoc executions) or schedule_id (for scheduled executions).
+    Returns execution details including CloudWatch Logs URL for testing.
+    Requires tenant access to the tenant_id.
+    """
+    try:
+        # Query execution record by tenant_id + schedule_id (which is execution_id for ad-hoc executions)
+        execution = db_client.get_execution_by_schedule_id(tenant_id, execution_id)
+
+        if not execution:
+            raise HTTPException(status_code=404, detail=f"Execution '{execution_id}' not found or not yet completed")
+
+        # Verify the execution matches the tenant and target from the path
+        tenant_target = execution.get('tenant_target', '')
+        expected_tenant_target = f"{tenant_id}#{target_alias}"
+
+        if tenant_target != expected_tenant_target:
+            raise HTTPException(status_code=404, detail=f"Execution '{execution_id}' does not match tenant '{tenant_id}' and target '{target_alias}'")
+
+        return execution
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving execution: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving execution record")
+
+
+@router.get("/tenants/{tenant_id}/mappings/{target_alias}/executions")
+async def list_executions(
+    tenant_id: str,
+    target_alias: str,
+    limit: int = Query(default=20, ge=1, le=100),
+    _: dict = Depends(require_tenant_access)
+):
+    """
+    List recent executions for a specific tenant target mapping (requires tenant access).
+    Returns up to 'limit' most recent executions sorted by timestamp descending.
+    """
+    try:
+        executions = db_client.list_target_executions(tenant_id, target_alias, limit)
+        return {
+            "tenant_id": tenant_id,
+            "target_alias": target_alias,
+            "count": len(executions),
+            "executions": executions
+        }
+    except Exception as e:
+        logger.error(f"Error listing executions: {e}")
+        raise HTTPException(status_code=500, detail="Error listing executions")

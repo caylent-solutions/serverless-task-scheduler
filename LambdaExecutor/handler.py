@@ -215,17 +215,37 @@ def execute_lambda(function_arn: str, payload: Dict[str, Any]) -> Dict[str, Any]
     )
 
     response_payload = json.loads(response['Payload'].read())
+    request_id = response['ResponseMetadata']['RequestId']
 
     if VERBOSE_LOGGING:
         logger.info(f"Lambda invocation completed. Status: {response['StatusCode']}, Response: {json.dumps(response_payload)}")
     else:
         logger.info(f"Lambda invocation completed. Status: {response['StatusCode']}")
 
+    # Extract function name from ARN (format: arn:aws:lambda:region:account:function:name)
+    function_name = function_arn.split(':')[-1] if ':' in function_arn else function_arn
+
+    # Construct CloudWatch Logs URL
+    # Format: https://console.aws.amazon.com/cloudwatch/home?region=REGION#logsV2:log-groups/log-group/$252Faws$252Flambda$252FFUNCTION_NAME/log-events/YYYY$252FMM$252FDD$252F$255B$2524LATEST$255DREQUESTid
+    region = os.environ.get('AWS_REGION', 'us-east-1')
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+
+    # URL-encode the log group name (/aws/lambda/FUNCTION_NAME)
+    log_group_encoded = f"%252Faws%252Flambda%252F{function_name}"
+
+    # URL-encode the log stream prefix (YYYY/MM/DD/[$LATEST]REQUESTid)
+    log_stream_encoded = f"{now.year}%252F{now.month:02d}%252F{now.day:02d}%252F%255B%2524LATEST%255D{request_id}"
+
+    cloudwatch_url = f"https://console.aws.amazon.com/cloudwatch/home?region={region}#logsV2:log-groups/log-group/{log_group_encoded}/log-events/{log_stream_encoded}"
+
     return {
-        'execution_id': response['ResponseMetadata']['RequestId'],
+        'execution_id': request_id,
         'target_type': 'lambda',
         'response': response_payload,
-        'status_code': response['StatusCode']
+        'status_code': response['StatusCode'],
+        'function_name': function_name,
+        'cloudwatch_logs_url': cloudwatch_url
     }
 
 
@@ -288,29 +308,31 @@ def record_execution(tenant_id: str, target_alias: str, schedule_id: str,
     Args:
         tenant_id: Tenant identifier
         target_alias: Target alias
-        schedule_id: Schedule identifier
-        result: Execution result
-        status: Execution status (SUCCESS/FAILED)
+        schedule_id: Schedule identifier (can be recurring schedule or ad-hoc schedule)
+        result: Execution result (includes execution_id from Lambda RequestId)
+        status: Execution status (SUCCESS/FAILED/PENDING)
     """
     try:
         executions_table = dynamodb.Table(EXECUTIONS_TABLE)
 
         timestamp = datetime.now(timezone.utc).isoformat()
+        tenant_schedule = f"{tenant_id}#{schedule_id}"
         tenant_target = f"{tenant_id}#{target_alias}"
+        execution_id = result.get('execution_id', 'unknown')
 
         executions_table.put_item(
             Item={
+                'tenant_schedule': tenant_schedule,
+                'execution_id': execution_id,
                 'tenant_target': tenant_target,
                 'timestamp': timestamp,
-                'schedule_id': schedule_id,
-                'execution_id': result.get('execution_id', 'unknown'),
                 'status': status,
                 'result': result,
                 'executed_at': timestamp
             }
         )
 
-        logger.info(f"Recorded execution: {tenant_target} at {timestamp}")
+        logger.info(f"Recorded execution: tenant_schedule={tenant_schedule}, execution={execution_id}, status={status}")
 
     except ClientError as e:
         logger.error(f"Failed to record execution: {e}")
