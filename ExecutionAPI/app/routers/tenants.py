@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import uuid
+from uuid_v7.base import uuid7
 from fastapi import APIRouter, HTTPException, Query, Depends, Request
 import logging
 from typing import Dict, Any, List, Optional
@@ -187,7 +188,7 @@ async def create_target_schedule(
 ):
     """Create a new schedule for a target mapping (requires tenant access)"""
     # Generate unique schedule ID (using uuid7 for time-based sorting)
-    schedule_name = f"{uuid.uuid7()}"
+    schedule_name = f"{uuid7()}"
 
     # Convert datetime strings to datetime objects
     start_date_obj = None
