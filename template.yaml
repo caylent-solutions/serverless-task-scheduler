@@ -53,7 +53,7 @@ Globals:
         # Base path for the FastAPI app (environment name)
         API_BASE_PATH: !Ref Environment
         # EventBridge Scheduler role ARN
-        SCHEDULER_ROLE_ARN: !GetAtt AppLambdaRole.Arn
+        SCHEDULER_ROLE_ARN: !GetAtt EventBridgeSchedulerRole.Arn
         # EventBridge Scheduler group name
         SCHEDULER_GROUP_NAME: !Sub ${StackName}-${Environment}-schedules
         # Lambda ARN for EventBridge Scheduler target
@@ -492,6 +492,45 @@ Resources:
           Value: !Ref StackName
 
   # --------------------------------------------------------------------------
+  # EventBridge Scheduler IAM Role
+  # This role is assumed by EventBridge Scheduler to invoke the LambdaExecutor
+  # Security Model:
+  # - Can only be assumed by scheduler.amazonaws.com
+  # - Can only invoke the LambdaExecutor Lambda function
+  # - Cannot invoke target Lambdas directly (only through LambdaExecutor)
+  # --------------------------------------------------------------------------
+  EventBridgeSchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub
+        - ${StackName}-${Environment}-scheduler-${StackIdSuffix}
+        - StackIdSuffix: !Select [2, !Split ['/', !Ref 'AWS::StackId']]
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub EventBridgeSchedulerPolicy-${Environment}
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Permission to invoke only the LambdaExecutor
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${StackName}-${Environment}-executor
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  # --------------------------------------------------------------------------
   # App Lambda IAM Role
   # Security Model:
   # - API Lambda can ONLY invoke the LambdaExecutor (not target Lambdas directly)
@@ -511,9 +550,7 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Service: 
-                - lambda.amazonaws.com
-                - scheduler.amazonaws.com
+              Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
         - PolicyName: !Sub AppLambdaPolicy-${Environment}
