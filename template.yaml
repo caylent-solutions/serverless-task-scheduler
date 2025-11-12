@@ -473,6 +473,13 @@ Resources:
                   - states:DescribeExecution
                 Resource: '*'
 
+              # CloudWatch Logs access to find log streams
+              - Effect: Allow
+                Action:
+                  - logs:DescribeLogStreams
+                  - logs:FilterLogEvents
+                Resource: 'arn:aws:logs:*:*:log-group:/aws/lambda/*'
+
               # IAM PassRole for ECS tasks
               - Effect: Allow
                 Action:
@@ -577,6 +584,7 @@ Resources:
                   - !GetAtt UserMappingsTable.Arn
                   - !Sub '${SchedulesTable.Arn}/index/*'
                   - !Sub '${UserMappingsTable.Arn}/index/*'
+                  - !Sub '${TargetExecutionsTable.Arn}/index/*'
 
               # EventBridge Scheduler operations
               # Note: API Lambda creates schedules that invoke LambdaExecutor
