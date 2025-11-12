@@ -318,7 +318,11 @@ def record_execution(tenant_id: str, target_alias: str, schedule_id: str,
         timestamp = datetime.now(timezone.utc).isoformat()
         tenant_schedule = f"{tenant_id}#{schedule_id}"
         tenant_target = f"{tenant_id}#{target_alias}"
-        execution_id = result.get('execution_id', 'unknown')
+        lambda_request_id = result.get('execution_id', 'unknown')
+
+        # Create sortable execution_id: ISO8601-timestamp#lambda-request-id
+        # This ensures chronological ordering while maintaining uniqueness
+        execution_id = f"{timestamp}#{lambda_request_id}"
 
         executions_table.put_item(
             Item={
@@ -328,7 +332,8 @@ def record_execution(tenant_id: str, target_alias: str, schedule_id: str,
                 'timestamp': timestamp,
                 'status': status,
                 'result': result,
-                'executed_at': timestamp
+                'executed_at': timestamp,
+                'lambda_request_id': lambda_request_id  # Store separately for reference
             }
         )
 
