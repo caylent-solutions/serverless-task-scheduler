@@ -1,0 +1,11 @@
+{
+  "Comment": "Full Step Functions execution test event",
+  "tenant_id": "jer",
+  "target_alias": "calculator",
+  "schedule_id": "test-schedule-001",
+  "payload": {
+    "operation": "multiply",
+    "numbers": [2, 3, 4],
+    "description": "Test multiplication operation"
+  }
+}

@@ -1,0 +1,201 @@
+{
+  "Comment": "Executor Step Function - Replaces LambdaExecutor with workflow orchestration. Uses Parallel state with single branch to centralize error handling.",
+  "StartAt": "Preprocessing",
+  "States": {
+    "Preprocessing": {
+      "Type": "Task",
+      "Comment": "Resolve target from tenant mapping and merge payloads",
+      "Resource": "${PreprocessingLambdaArn}",
+      "ResultPath": "$",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "RecordFailure"
+        }
+      ],
+      "Next": "ExecuteTargetWithErrorHandling"
+    },
+    "ExecuteTargetWithErrorHandling": {
+      "Type": "Parallel",
+      "Comment": "Wraps target execution in Parallel state to centralize error handling and post-processing",
+      "Branches": [
+        {
+          "StartAt": "TargetTypeChoice",
+          "States": {
+            "TargetTypeChoice": {
+              "Type": "Choice",
+              "Comment": "Route to appropriate target executor based on target_type",
+              "Choices": [
+                {
+                  "Variable": "$.target_type",
+                  "StringEquals": "lambda",
+                  "Next": "ExecuteLambdaTarget"
+                },
+                {
+                  "Variable": "$.target_type",
+                  "StringEquals": "ecs",
+                  "Next": "ExecuteECSTarget"
+                },
+                {
+                  "Or": [
+                    {
+                      "Variable": "$.target_type",
+                      "StringEquals": "stepfunctions"
+                    },
+                    {
+                      "Variable": "$.target_type",
+                      "StringEquals": "step-functions"
+                    }
+                  ],
+                  "Next": "ExecuteStepFunctionTarget"
+                }
+              ],
+              "Default": "UnsupportedTargetType"
+            },
+            "ExecuteLambdaTarget": {
+              "Type": "Task",
+              "Comment": "Execute Lambda target and capture CloudWatch logs URL",
+              "Resource": "${LambdaExecutionHelperArn}",
+              "ResultPath": "$.execution_result",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed"],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 0
+                }
+              ],
+              "End": true
+            },
+            "ExecuteECSTarget": {
+              "Type": "Task",
+              "Comment": "Execute ECS task with payload in environment variable",
+              "Resource": "arn:aws:states:::ecs:runTask.sync",
+              "Parameters": {
+                "Cluster.$": "$.target_config.cluster",
+                "TaskDefinition.$": "$.target_config.task_definition",
+                "LaunchType.$": "$.target_config.launch_type",
+                "NetworkConfiguration.$": "$.target_config.network_configuration",
+                "Overrides": {
+                  "ContainerOverrides": [
+                    {
+                      "Name.$": "$.target_config.container_name",
+                      "Environment": [
+                        {
+                          "Name": "EXECUTION_PAYLOAD",
+                          "Value.$": "States.JsonToString($.merged_payload)"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "ResultPath": "$.execution_result",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed"],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 0
+                }
+              ],
+              "End": true
+            },
+            "ExecuteStepFunctionTarget": {
+              "Type": "Task",
+              "Comment": "Start execution of another Step Functions state machine",
+              "Resource": "arn:aws:states:::states:startExecution.sync:2",
+              "Parameters": {
+                "StateMachineArn.$": "$.target_arn",
+                "Input.$": "$.merged_payload"
+              },
+              "ResultPath": "$.execution_result",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed"],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 0
+                }
+              ],
+              "End": true
+            },
+            "UnsupportedTargetType": {
+              "Type": "Fail",
+              "Comment": "Target type is not supported",
+              "Error": "UnsupportedTargetType",
+              "Cause": "The specified target_type is not supported. Must be one of: lambda, ecs, stepfunctions, step-functions"
+            }
+          }
+        }
+      ],
+      "ResultSelector": {
+        "execution_result.$": "$[0].execution_result",
+        "tenant_id.$": "$[0].tenant_id",
+        "target_alias.$": "$[0].target_alias",
+        "schedule_id.$": "$[0].schedule_id"
+      },
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "RecordFailure"
+        }
+      ],
+      "Next": "RecordSuccess"
+    },
+    "RecordSuccess": {
+      "Type": "Task",
+      "Comment": "Record successful execution to DynamoDB",
+      "Resource": "${PostprocessingLambdaArn}",
+      "Parameters": {
+        "tenant_id.$": "$.tenant_id",
+        "target_alias.$": "$.target_alias",
+        "schedule_id.$": "$.schedule_id",
+        "execution_result.$": "$.execution_result",
+        "status": "SUCCESS",
+        "state_machine_execution_arn.$": "$$.Execution.Name",
+        "execution_start_time.$": "$$.Execution.StartTime"
+      },
+      "ResultPath": "$.record_result",
+      "Next": "ExecutionSucceeded"
+    },
+    "RecordFailure": {
+      "Type": "Task",
+      "Comment": "Record failed execution to DynamoDB with error details and redrive info",
+      "Resource": "${PostprocessingLambdaArn}",
+      "Parameters": {
+        "tenant_id.$": "$.tenant_id",
+        "target_alias.$": "$.target_alias",
+        "schedule_id.$": "$.schedule_id",
+        "execution_result.$": "$.error",
+        "status": "FAILED",
+        "state_machine_execution_arn.$": "$$.Execution.Name",
+        "execution_start_time.$": "$$.Execution.StartTime",
+        "failed_state.$": "$$.State.Name",
+        "redrive_info": {
+          "can_redrive": true,
+          "redrive_from_state.$": "$$.State.Name"
+        }
+      },
+      "ResultPath": "$.record_result",
+      "Next": "ExecutionFailed"
+    },
+    "ExecutionFailed": {
+      "Type": "Fail",
+      "Comment": "Execution failed - error details recorded in DynamoDB",
+      "Error": "TargetExecutionFailed",
+      "Cause": "Target execution failed. Check DynamoDB execution record for details."
+    },
+    "ExecutionSucceeded": {
+      "Type": "Succeed",
+      "Comment": "Execution completed successfully"
+    }
+  }
+}
