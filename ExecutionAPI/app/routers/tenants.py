@@ -143,7 +143,7 @@ async def execute_tenant_mapping(
     """
     Execute a tenant target mapping asynchronously via a one-time EventBridge schedule.
     This creates a schedule that runs immediately and then auto-deletes itself.
-    All execution goes through the LambdaExecutor for security.
+    All execution goes through the ExecutorStepFunction for security.
     """
     # Check if mapping exists
     mapping = db_client.get_tenant_target_mapping(tenant_id, target_alias)
@@ -163,15 +163,15 @@ async def execute_tenant_mapping(
     base_group_name = os.environ.get("SCHEDULER_GROUP_NAME", "default")
     tenant_group_name = f"{base_group_name}-{tenant_id}"
 
-    # Get executor Lambda ARN from environment
-    executor_arn = os.environ.get("LAMBDA_EXECUTOR_ARN")
+    # Get executor Step Functions ARN from environment
+    executor_arn = os.environ.get("STEP_FUNCTIONS_EXECUTOR_ARN")
     if not executor_arn:
         raise HTTPException(
             status_code=500,
-            detail="LAMBDA_EXECUTOR_ARN not configured"
+            detail="STEP_FUNCTIONS_EXECUTOR_ARN not configured"
         )
 
-    # Build the target input payload for the executor Lambda
+    # Build the target input payload for the executor Step Functions
     target_input = {
         "tenant_id": tenant_id,
         "target_alias": target_alias,
@@ -253,16 +253,16 @@ async def create_target_schedule(
     base_group_name = os.environ.get("SCHEDULER_GROUP_NAME", "default")
     tenant_group_name = f"{base_group_name}-{tenant_id}"
 
-    # Get executor Lambda ARN from environment
-    executor_arn = os.environ.get("LAMBDA_EXECUTOR_ARN")
+    # Get executor Step Functions ARN from environment
+    executor_arn = os.environ.get("STEP_FUNCTIONS_EXECUTOR_ARN")
     if not executor_arn:
         raise HTTPException(
             status_code=500,
-            detail="LAMBDA_EXECUTOR_ARN not configured"
+            detail="STEP_FUNCTIONS_EXECUTOR_ARN not configured"
         )
 
     # Create in EventBridge Scheduler first
-    # Build the target input payload for the executor Lambda
+    # Build the target input payload for the executor Step Functions
     target_input = {
         "tenant_id": tenant_id,
         "target_alias": target_alias,
@@ -339,16 +339,16 @@ async def update_target_schedule(
     base_group_name = os.environ.get("SCHEDULER_GROUP_NAME", "default")
     tenant_group_name = f"{base_group_name}-{tenant_id}"
 
-    # Get executor Lambda ARN from environment
-    executor_arn = os.environ.get("LAMBDA_EXECUTOR_ARN")
+    # Get executor Step Functions ARN from environment
+    executor_arn = os.environ.get("STEP_FUNCTIONS_EXECUTOR_ARN")
     if not executor_arn:
         raise HTTPException(
             status_code=500,
-            detail="LAMBDA_EXECUTOR_ARN not configured"
+            detail="STEP_FUNCTIONS_EXECUTOR_ARN not configured"
         )
 
     # Update in EventBridge Scheduler first
-    # Build the target input payload for the executor Lambda
+    # Build the target input payload for the executor Step Functions
     target_input = {
         "tenant_id": tenant_id,
         "target_alias": target_alias,

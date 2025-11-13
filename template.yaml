@@ -16,9 +16,8 @@ Parameters:
     AllowedPattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
   Environment:
     Type: String
-    Description: Deployment environment name (e.g., dev, staging, prod) - optional
-    Default: ""
-    AllowedPattern: '^[a-zA-Z0-9-]*$'
+    Description: Deployment environment name (e.g., dev, staging, prod)
+    AllowedPattern: '^[a-zA-Z0-9-]+$'
   StackName:
     Type: String
     Description: Name of the CloudFormation stack (used as prefix for all resources)
@@ -44,22 +43,18 @@ Globals:
         # Force the app to use AWS DynamoDB (not local)
         DB_TARGET: aws
         # Table names passed to the application
-        DYNAMODB_TABLE: !Sub ${StackName}-${Environment}-targets
-        DYNAMODB_TENANTS_TABLE: !Sub ${StackName}-${Environment}-tenants
-        DYNAMODB_TENANT_TABLE: !Sub ${StackName}-${Environment}-tenant-mappings
-        DYNAMODB_EXECUTIONS_TABLE: !Sub ${StackName}-${Environment}-executions
-        DYNAMODB_SCHEDULES_TABLE: !Sub ${StackName}-${Environment}-schedules
-        DYNAMODB_USER_MAPPINGS_TABLE: !Sub ${StackName}-${Environment}-user-mappings
+        DYNAMODB_TABLE: !Ref TargetsTable
+        DYNAMODB_TENANTS_TABLE: !Ref TenantsTable
+        DYNAMODB_TENANT_TABLE: !Ref TenantMappingsTable
+        DYNAMODB_EXECUTIONS_TABLE: !Ref TargetExecutionsTable
+        DYNAMODB_SCHEDULES_TABLE: !Ref SchedulesTable
+        DYNAMODB_USER_MAPPINGS_TABLE: !Ref UserMappingsTable
         # Base path for the FastAPI app (environment name)
         API_BASE_PATH: !Ref Environment
         # EventBridge Scheduler role ARN
         SCHEDULER_ROLE_ARN: !GetAtt EventBridgeSchedulerRole.Arn
         # EventBridge Scheduler group name
         SCHEDULER_GROUP_NAME: !Sub ${StackName}-${Environment}-schedules
-        # Lambda ARN for EventBridge Scheduler target
-        EXECUTION_API_LAMBDA_ARN: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${StackName}-${Environment}-api
-        # Lambda Executor ARN for EventBridge Scheduler
-        LAMBDA_EXECUTOR_ARN: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${StackName}-${Environment}-executor
         # Cognito configuration
         COGNITO_USER_POOL_ID: !Ref CognitoUserPool
         COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
@@ -80,7 +75,9 @@ Resources:
   TargetsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${StackName}-${Environment}-targets
+      TableName: !Sub
+        - ${StackName}-${Environment}-targets-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: target_id
@@ -103,7 +100,9 @@ Resources:
   TenantsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${StackName}-${Environment}-tenants
+      TableName: !Sub
+        - ${StackName}-${Environment}-tenants-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: tenant_id
@@ -126,7 +125,9 @@ Resources:
   TenantMappingsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${StackName}-${Environment}-tenant-mappings
+      TableName: !Sub
+        - ${StackName}-${Environment}-tenant-mappings-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: tenant_id
@@ -157,7 +158,9 @@ Resources:
   TargetExecutionsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${StackName}-${Environment}-executions
+      TableName: !Sub
+        - ${StackName}-${Environment}-executions-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: tenant_schedule
@@ -193,7 +196,9 @@ Resources:
   SchedulesTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${StackName}-${Environment}-schedules
+      TableName: !Sub
+        - ${StackName}-${Environment}-schedules-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: tenant_id
@@ -233,7 +238,9 @@ Resources:
   UserMappingsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${StackName}-${Environment}-user-mappings
+      TableName: !Sub
+        - ${StackName}-${Environment}-user-mappings-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: user_id
@@ -268,7 +275,9 @@ Resources:
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
     Properties:
-      UserPoolName: !Sub ${StackName}-${Environment}-users
+      UserPoolName: !Sub
+        - ${StackName}-${Environment}-users-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       AutoVerifiedAttributes:
         - email
       UsernameAttributes:
@@ -305,7 +314,9 @@ Resources:
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
-      ClientName: !Sub ${StackName}-${Environment}-web-client
+      ClientName: !Sub
+        - ${StackName}-${Environment}-web-client-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       UserPoolId: !Ref CognitoUserPool
       GenerateSecret: false
       ExplicitAuthFlows:
@@ -335,7 +346,7 @@ Resources:
     Properties:
       Domain: !Sub
         - ${StackName}-${Environment}-${StackIdSuffix}
-        - StackIdSuffix: !Select [2, !Split ['/', !Ref 'AWS::StackId']]
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       UserPoolId: !Ref CognitoUserPool
 
   # --------------------------------------------------------------------------
@@ -346,7 +357,9 @@ Resources:
   ApiGateway:
     Type: AWS::Serverless::Api
     Properties:
-      Name: !Sub ${StackName}-${Environment}-api
+      Name: !Sub
+        - ${StackName}-${Environment}-api-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       StageName: !Ref Environment
       TracingEnabled: true
       # Disable default "Stage" stage creation
@@ -367,10 +380,16 @@ Resources:
   AppLambda:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub ${StackName}-${Environment}-api
+      FunctionName: !Sub
+        - ${StackName}-${Environment}-api-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       CodeUri: ExecutionAPI/
       Handler: app/lambda_handler.handler
       Role: !GetAtt AppLambdaRole.Arn
+      Environment:
+        Variables:
+          # Step Functions Executor ARN for EventBridge Scheduler
+          STEP_FUNCTIONS_EXECUTOR_ARN: !GetAtt ExecutorStateMachine.Arn
 
       Events:
         ApiAny:
@@ -387,131 +406,19 @@ Resources:
             Method: ANY
 
   # --------------------------------------------------------------------------
-  # Lambda: Executor - Handles scheduled task execution
-  # Invoked by EventBridge Scheduler with IAM permissions to execute targets
-  # --------------------------------------------------------------------------
-  LambdaExecutor:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub ${StackName}-${Environment}-executor
-      CodeUri: LambdaExecutor/
-      Handler: handler.handler
-      Role: !GetAtt LambdaExecutorRole.Arn
-      Environment:
-        Variables:
-          DYNAMODB_TABLE: !Sub ${StackName}-${Environment}-targets
-          DYNAMODB_TENANT_TABLE: !Sub ${StackName}-${Environment}-tenant-mappings
-          DYNAMODB_EXECUTIONS_TABLE: !Sub ${StackName}-${Environment}-executions
-
-  # --------------------------------------------------------------------------
-  # Lambda Permission for EventBridge Scheduler
-  # Allows EventBridge Scheduler to invoke the LambdaExecutor
-  # --------------------------------------------------------------------------
-  LambdaExecutorSchedulerPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref LambdaExecutor
-      Action: lambda:InvokeFunction
-      Principal: scheduler.amazonaws.com
-      SourceAccount: !Ref AWS::AccountId
-
-  # --------------------------------------------------------------------------
-  # Lambda Executor IAM Role
-  # Permissions to read DynamoDB, invoke Lambdas, run ECS tasks, start Step Functions
-  # --------------------------------------------------------------------------
-  LambdaExecutorRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub
-        - ${StackName}-${Environment}-executor-${StackIdSuffix}
-        - StackIdSuffix: !Select [2, !Split ['/', !Ref 'AWS::StackId']]
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: !Sub LambdaExecutorPolicy-${Environment}
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              # DynamoDB read access to resolve targets
-              - Effect: Allow
-                Action:
-                  - dynamodb:GetItem
-                  - dynamodb:Query
-                Resource:
-                  - !GetAtt TargetsTable.Arn
-                  - !GetAtt TenantMappingsTable.Arn
-
-              # DynamoDB write access to record executions
-              - Effect: Allow
-                Action:
-                  - dynamodb:PutItem
-                Resource:
-                  - !GetAtt TargetExecutionsTable.Arn
-
-              # Invoke Lambda functions
-              - Effect: Allow
-                Action:
-                  - lambda:InvokeFunction
-                Resource: '*'
-
-              # ECS task execution
-              - Effect: Allow
-                Action:
-                  - ecs:RunTask
-                  - ecs:DescribeTasks
-                Resource: '*'
-
-              # Step Functions execution
-              - Effect: Allow
-                Action:
-                  - states:StartExecution
-                  - states:DescribeExecution
-                Resource: '*'
-
-              # CloudWatch Logs access to find log streams
-              - Effect: Allow
-                Action:
-                  - logs:DescribeLogStreams
-                  - logs:FilterLogEvents
-                Resource: 'arn:aws:logs:*:*:log-group:/aws/lambda/*'
-
-              # IAM PassRole for ECS tasks
-              - Effect: Allow
-                Action:
-                  - iam:PassRole
-                Resource: '*'
-                Condition:
-                  StringEquals:
-                    iam:PassedToService: ecs-tasks.amazonaws.com
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Tags:
-        - Key: caylent:owner
-          Value: !Ref Owner
-        - Key: caylent:env
-          Value: !Ref Environment
-        - Key: cfn:stack
-          Value: !Ref StackName
-
-  # --------------------------------------------------------------------------
   # EventBridge Scheduler IAM Role
-  # This role is assumed by EventBridge Scheduler to invoke the LambdaExecutor
+  # This role is assumed by EventBridge Scheduler to invoke the ExecutorStepFunction
   # Security Model:
   # - Can only be assumed by scheduler.amazonaws.com
-  # - Can only invoke the LambdaExecutor Lambda function
-  # - Cannot invoke target Lambdas directly (only through LambdaExecutor)
+  # - Can only start the ExecutorStepFunction state machine
+  # - Cannot invoke target Lambdas directly (only through ExecutorStepFunction)
   # --------------------------------------------------------------------------
   EventBridgeSchedulerRole:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub
         - ${StackName}-${Environment}-scheduler-${StackIdSuffix}
-        - StackIdSuffix: !Select [2, !Split ['/', !Ref 'AWS::StackId']]
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -524,11 +431,77 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              # Permission to invoke only the LambdaExecutor
+              # Permission to start ExecutorStepFunction
               - Effect: Allow
                 Action:
-                  - lambda:InvokeFunction
-                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${StackName}-${Environment}-executor
+                  - states:StartExecution
+                Resource: !Sub
+                  - arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${StackName}-${Environment}-executor-sfn-${StackIdSuffix}
+                  - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  # ==========================================================================
+  # ExecutorStepFunction - Step Functions-based replacement for LambdaExecutor
+  # ==========================================================================
+
+  # --------------------------------------------------------------------------
+  # Lambda: Preprocessing - Resolve targets and merge payloads
+  # --------------------------------------------------------------------------
+  PreprocessingLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub
+        - ${StackName}-${Environment}-executor-preprocessing-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      CodeUri: ExecutorStepFunction/
+      Handler: preprocessing.handler
+      Runtime: python3.13
+      Timeout: 30
+      MemorySize: 256
+      Role: !GetAtt PreprocessingLambdaRole.Arn
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref TargetsTable
+          DYNAMODB_TENANT_TABLE: !Ref TenantMappingsTable
+          APP_ENV: !Ref Environment
+      Tags:
+        caylent:owner: !Ref Owner
+        caylent:env: !Ref Environment
+        cfn:stack: !Ref StackName
+
+  PreprocessingLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub
+        - ${StackName}-${Environment}-pre-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub PreprocessingPolicy-${Environment}
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # DynamoDB read access to resolve targets
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                Resource:
+                  - !GetAtt TargetsTable.Arn
+                  - !GetAtt TenantMappingsTable.Arn
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Tags:
         - Key: caylent:owner
           Value: !Ref Owner
@@ -538,20 +511,243 @@ Resources:
           Value: !Ref StackName
 
   # --------------------------------------------------------------------------
+  # Lambda: Lambda Execution Helper - Execute Lambda targets and capture logs
+  # --------------------------------------------------------------------------
+  LambdaExecutionHelperLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub
+        - ${StackName}-${Environment}-executor-lambda-helper-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      CodeUri: ExecutorStepFunction/
+      Handler: lambda_execution_helper.handler
+      Runtime: python3.13
+      Timeout: 60
+      MemorySize: 256
+      Role: !GetAtt LambdaExecutionHelperRole.Arn
+      Environment:
+        Variables:
+          APP_ENV: !Ref Environment
+      Tags:
+        caylent:owner: !Ref Owner
+        caylent:env: !Ref Environment
+        cfn:stack: !Ref StackName
+
+  LambdaExecutionHelperRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub
+        - ${StackName}-${Environment}-exec-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub LambdaExecutionHelperPolicy-${Environment}
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Invoke target Lambda functions
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: '*'
+
+              # CloudWatch Logs access to find log streams
+              - Effect: Allow
+                Action:
+                  - logs:DescribeLogStreams
+                  - logs:FilterLogEvents
+                Resource: 'arn:aws:logs:*:*:log-group:/aws/lambda/*'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  # --------------------------------------------------------------------------
+  # Lambda: Postprocessing - Record execution results to DynamoDB
+  # --------------------------------------------------------------------------
+  PostprocessingLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub
+        - ${StackName}-${Environment}-executor-postprocessing-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      CodeUri: ExecutorStepFunction/
+      Handler: postprocessing.handler
+      Runtime: python3.13
+      Timeout: 30
+      MemorySize: 256
+      Role: !GetAtt PostprocessingLambdaRole.Arn
+      Environment:
+        Variables:
+          DYNAMODB_EXECUTIONS_TABLE: !Ref TargetExecutionsTable
+          APP_ENV: !Ref Environment
+      Tags:
+        caylent:owner: !Ref Owner
+        caylent:env: !Ref Environment
+        cfn:stack: !Ref StackName
+
+  PostprocessingLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub
+        - ${StackName}-${Environment}-post-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub PostprocessingPolicy-${Environment}
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # DynamoDB write access to record executions
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                Resource:
+                  - !GetAtt TargetExecutionsTable.Arn
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  # --------------------------------------------------------------------------
+  # Step Functions State Machine - Orchestrates target execution
+  # --------------------------------------------------------------------------
+  ExecutorStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: !Sub
+        - ${StackName}-${Environment}-executor-sfn-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      DefinitionUri: ExecutorStepFunction/state_machine.json
+      DefinitionSubstitutions:
+        PreprocessingLambdaArn: !GetAtt PreprocessingLambda.Arn
+        LambdaExecutionHelperArn: !GetAtt LambdaExecutionHelperLambda.Arn
+        PostprocessingLambdaArn: !GetAtt PostprocessingLambda.Arn
+      Role: !GetAtt ExecutorStateMachineRole.Arn
+      Type: STANDARD
+      Tracing:
+        Enabled: true
+      Tags:
+        caylent:owner: !Ref Owner
+        caylent:env: !Ref Environment
+        cfn:stack: !Ref StackName
+
+  ExecutorStateMachineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub
+        - ${StackName}-${Environment}-sfn-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub ExecutorStateMachinePolicy-${Environment}
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Invoke helper Lambda functions
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt PreprocessingLambda.Arn
+                  - !GetAtt LambdaExecutionHelperLambda.Arn
+                  - !GetAtt PostprocessingLambda.Arn
+
+              # ECS task execution (for ECS targets)
+              - Effect: Allow
+                Action:
+                  - ecs:RunTask
+                  - ecs:StopTask
+                  - ecs:DescribeTasks
+                Resource: '*'
+
+              # Step Functions execution (for nested Step Functions)
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                  - states:DescribeExecution
+                  - states:StopExecution
+                Resource: '*'
+
+              # IAM PassRole for ECS tasks
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: ecs-tasks.amazonaws.com
+
+              # X-Ray tracing
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                  - xray:GetSamplingRules
+                  - xray:GetSamplingTargets
+                Resource: '*'
+
+              # EventBridge rules (for Step Functions managed rules)
+              - Effect: Allow
+                Action:
+                  - events:PutTargets
+                  - events:PutRule
+                  - events:DescribeRule
+                Resource: !Sub 'arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEvents*'
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  # Note: Step Functions doesn't require explicit permission resource like Lambda
+  # EventBridge Scheduler can invoke Step Functions via the EventBridgeSchedulerRole
+  # which has states:StartExecution permission (see lines 533-537 above)
+
+  # --------------------------------------------------------------------------
   # App Lambda IAM Role
   # Security Model:
-  # - API Lambda can ONLY invoke the LambdaExecutor (not target Lambdas directly)
-  # - API Lambda manages schedules in EventBridge
+  # - API Lambda manages schedules in EventBridge that trigger ExecutorStepFunction
   # - API Lambda manages DynamoDB tables (tenants, mappings, schedules, etc.)
-  # - LambdaExecutor has broad invoke permissions to execute targets
-  # - All target execution is routed through LambdaExecutor for centralized control
+  # - API Lambda does not invoke target Lambdas directly
+  # - All target execution is routed through ExecutorStepFunction for centralized control
   # --------------------------------------------------------------------------
   AppLambdaRole:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub
         - ${StackName}-${Environment}-lambda-${StackIdSuffix}
-        - StackIdSuffix: !Select [2, !Split ['/', !Ref 'AWS::StackId']]
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -587,8 +783,8 @@ Resources:
                   - !Sub '${TargetExecutionsTable.Arn}/index/*'
 
               # EventBridge Scheduler operations
-              # Note: API Lambda creates schedules that invoke LambdaExecutor
-              # EventBridge invokes LambdaExecutor directly (not the API Lambda)
+              # Note: API Lambda creates schedules that start ExecutorStepFunction
+              # EventBridge invokes ExecutorStepFunction directly (not the API Lambda)
               - Effect: Allow
                 Action:
                   - scheduler:CreateSchedule
@@ -695,10 +891,23 @@ Outputs:
         ClientId: !Ref CognitoUserPoolClient
         RedirectUri: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/app/'
 
-  LambdaExecutorName:
-    Description: Name of the Lambda Executor function
-    Value: !Ref LambdaExecutor
+  # ExecutorStepFunction Outputs
+  ExecutorStateMachineArn:
+    Description: ARN of the Executor Step Functions state machine
+    Value: !GetAtt ExecutorStateMachine.Arn
 
-  LambdaExecutorArn:
-    Description: ARN of the Lambda Executor function
-    Value: !GetAtt LambdaExecutor.Arn
+  ExecutorStateMachineName:
+    Description: Name of the Executor Step Functions state machine
+    Value: !GetAtt ExecutorStateMachine.Name
+
+  PreprocessingLambdaArn:
+    Description: ARN of the Preprocessing Lambda
+    Value: !GetAtt PreprocessingLambda.Arn
+
+  LambdaExecutionHelperArn:
+    Description: ARN of the Lambda Execution Helper
+    Value: !GetAtt LambdaExecutionHelperLambda.Arn
+
+  PostprocessingLambdaArn:
+    Description: ARN of the Postprocessing Lambda
+    Value: !GetAtt PostprocessingLambda.Arn
