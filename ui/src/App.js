@@ -8,7 +8,11 @@ import UserManagement from './components/users/UserManagement';
 import Login from './components/auth/Login';
 
 function App() {
-  const [tenantName, setTenantName] = useState(undefined);
+  // Initialize state from sessionStorage if available
+  const [tenantName, setTenantName] = useState(() => {
+    const saved = sessionStorage.getItem('selectedTenant');
+    return saved || undefined;
+  });
   const [currentView, setCurrentView] = useState('home');
   const [isAdmin, setIsAdmin] = useState(false);
   const [userEmail, setUserEmail] = useState('');
@@ -40,16 +44,22 @@ function App() {
         setIsAuthenticated(true);
 
         // Auto-set tenant if user is admin (member of 'admin' tenant)
-        if (userInfo.isAdmin) {
-          console.log('Admin user detected, setting tenant to admin'); // Debug log
-          setTenantName('admin');
-        } else if (userInfo.tenants && userInfo.tenants.length > 0) {
-          // Regular users with tenant mappings - use first tenant
-          console.log('Auto-selecting tenant:', userInfo.tenants[0]); // Debug log
-          setTenantName(userInfo.tenants[0]);
+        // Only auto-set if no tenant is already selected from sessionStorage
+        const savedTenant = sessionStorage.getItem('selectedTenant');
+        if (!savedTenant) {
+          if (userInfo.isAdmin) {
+            console.log('Admin user detected, setting tenant to admin'); // Debug log
+            handleTenantChange('admin');
+          } else if (userInfo.tenants && userInfo.tenants.length > 0) {
+            // Regular users with tenant mappings - use first tenant
+            console.log('Auto-selecting tenant:', userInfo.tenants[0]); // Debug log
+            handleTenantChange(userInfo.tenants[0]);
+          } else {
+            console.log('No tenant set - user can browse without tenant context'); // Debug log
+            // Leave tenantName as undefined - user can browse the welcome screen
+          }
         } else {
-          console.log('No tenant set - user can browse without tenant context'); // Debug log
-          // Leave tenantName as undefined - user can browse the welcome screen
+          console.log('Using saved tenant from sessionStorage:', savedTenant);
         }
       } else if (response.status === 401) {
         // Unauthorized - need to log in
@@ -79,6 +89,12 @@ function App() {
 
   const handleTenantChange = (newTenant) => {
     setTenantName(newTenant);
+    // Persist to sessionStorage
+    if (newTenant) {
+      sessionStorage.setItem('selectedTenant', newTenant);
+    } else {
+      sessionStorage.removeItem('selectedTenant');
+    }
   };
 
   // Show loading state
