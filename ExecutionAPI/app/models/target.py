@@ -1,10 +1,17 @@
 from typing import Dict, List, Optional, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+from app.validation import validate_url_safe_identifier
 
 
 class TargetBase(BaseModel):
     target_id: str
     target_description: str
+
+    @field_validator('target_id')
+    @classmethod
+    def validate_target_id_format(cls, v):
+        """Ensure target_id is URL-safe (lowercase alphanumeric, underscores, hyphens)."""
+        return validate_url_safe_identifier(v, "target_id")
 
 
 class Target(TargetBase):

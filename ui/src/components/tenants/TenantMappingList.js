@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import authenticatedFetch from '../../utils/api';
 import ExecutionHistoryModal from '../common/ExecutionHistoryModal';
+import { validateUrlSafeIdentifier, handleUrlSafeInput } from '../../utils/validation';
 
 const TenantMappingList = ({ tenantName = 'admin' }) => {
   const [mappings, setMappings] = useState([]);
@@ -93,19 +94,14 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
     });
   };
 
-  const validateTargetAlias = (alias) => {
-    // Only allow lowercase alphanumeric and underscores, max 36 characters
-    const aliasRegex = /^[a-z0-9_]{1,36}$/;
-    return aliasRegex.test(alias);
-  };
-
   const handleSave = async (e) => {
     e.preventDefault();
 
     try {
       // Validate target_alias
-      if (!validateTargetAlias(selectedMapping.target_alias)) {
-        alert('Invalid Target Alias. Only lowercase letters, numbers, and underscores are allowed (max 36 characters).\nExample: calc_lambda');
+      const validationError = validateUrlSafeIdentifier(selectedMapping.target_alias, 'Target Alias');
+      if (validationError) {
+        alert(validationError + '\nExample: calc-lambda');
         return;
       }
       const isNew = !mappings.find(m => 
@@ -296,12 +292,12 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
                 <input
                   type="text"
                   value={selectedMapping.target_alias}
-                  onChange={(e) => setSelectedMapping({...selectedMapping, target_alias: e.target.value.toLowerCase()})}
+                  onChange={handleUrlSafeInput((value) => setSelectedMapping({...selectedMapping, target_alias: value}))}
                   disabled={!!mappings.find(m => m.tenant_id === selectedMapping.tenant_id && m.target_alias === selectedMapping.target_alias)}
-                  placeholder="calc_lambda"
+                  placeholder="calc-lambda"
                   maxLength={36}
-                  pattern="[a-z0-9_]{1,36}"
-                  title="Only lowercase letters, numbers, and underscores (max 36 characters)"
+                  pattern="[a-z0-9_-]{1,36}"
+                  title="Only lowercase letters, numbers, underscores, and hyphens (max 36 characters)"
                   required
                 />
               </div>
