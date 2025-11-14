@@ -9,8 +9,8 @@ tenant IDs, target aliases, target IDs, and schedule IDs.
 import re
 
 
-# Pattern for URL-safe identifiers: lowercase alphanumeric, underscores, and hyphens
-URL_SAFE_PATTERN = re.compile(r'^[a-z0-9_-]+$')
+# Pattern for URL-safe identifiers: alphanumeric (upper and lowercase), underscores, and hyphens
+URL_SAFE_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
 
 # Maximum length for identifiers (36 = UUID length)
 MAX_IDENTIFIER_LENGTH = 36
@@ -49,7 +49,7 @@ def validate_url_safe_identifier(value: str, field_name: str = "identifier") -> 
 
     if not URL_SAFE_PATTERN.match(value):
         raise ValueError(
-            f"{field_name} must contain only lowercase letters, numbers, "
+            f"{field_name} must contain only letters, numbers, "
             f"underscores, and hyphens. Got: {value!r}"
         )
 

@@ -5,8 +5,8 @@
  * preventing URL injection attacks and ensuring consistent data format.
  */
 
-// Pattern for URL-safe identifiers: lowercase alphanumeric, underscores, and hyphens
-export const URL_SAFE_PATTERN = /^[a-z0-9_-]+$/;
+// Pattern for URL-safe identifiers: alphanumeric (upper and lowercase), underscores, and hyphens
+export const URL_SAFE_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
 /**
  * Validates if a string is URL-safe (lowercase alphanumeric, underscores, hyphens only)
@@ -29,8 +29,8 @@ export const sanitizeUrlSafe = (value) => {
   if (!value || typeof value !== 'string') {
     return '';
   }
-  // Convert to lowercase and remove any characters that aren't alphanumeric, underscore, or hyphen
-  return value.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  // Remove any characters that aren't alphanumeric, underscore, or hyphen (allow both upper and lowercase)
+  return value.replace(/[^a-zA-Z0-9_-]/g, '');
 };
 
 /**
@@ -44,7 +44,7 @@ export const validateUrlSafeIdentifier = (value, fieldName = 'Field') => {
     return `${fieldName} is required`;
   }
   if (!isUrlSafe(value)) {
-    return `${fieldName} must contain only lowercase letters, numbers, underscores, and hyphens`;
+    return `${fieldName} must contain only letters, numbers, underscores, and hyphens`;
   }
   if (value.length < 1) {
     return `${fieldName} must be at least 1 character long`;

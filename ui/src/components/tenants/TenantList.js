@@ -222,10 +222,10 @@ const TenantList = ({ isAdmin }) => {
                   value={selectedTenant.tenant_id}
                   onChange={handleUrlSafeInput((value) => setSelectedTenant({...selectedTenant, tenant_id: value}))}
                   disabled={!!tenants.find(t => t.tenant_id === selectedTenant.tenant_id)}
-                  placeholder="acme-corp"
+                  placeholder="AcmeCorp"
                   maxLength={36}
-                  pattern="[a-z0-9_-]{1,36}"
-                  title="Only lowercase letters, numbers, underscores, and hyphens (max 36 characters)"
+                  pattern="[a-zA-Z0-9_-]{1,36}"
+                  title="Only letters, numbers, underscores, and hyphens (max 36 characters)"
                   required
                 />
               </div>

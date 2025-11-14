@@ -294,10 +294,10 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
                   value={selectedMapping.target_alias}
                   onChange={handleUrlSafeInput((value) => setSelectedMapping({...selectedMapping, target_alias: value}))}
                   disabled={!!mappings.find(m => m.tenant_id === selectedMapping.tenant_id && m.target_alias === selectedMapping.target_alias)}
-                  placeholder="calc-lambda"
+                  placeholder="CalcLambda"
                   maxLength={36}
-                  pattern="[a-z0-9_-]{1,36}"
-                  title="Only lowercase letters, numbers, underscores, and hyphens (max 36 characters)"
+                  pattern="[a-zA-Z0-9_-]{1,36}"
+                  title="Only letters, numbers, underscores, and hyphens (max 36 characters)"
                   required
                 />
               </div>
