@@ -201,6 +201,39 @@ def record_execution(
         # Add CloudWatch logs URL if present (for Lambda executions)
         if 'cloudwatch_logs_url' in result:
             item['cloudwatch_logs_url'] = result['cloudwatch_logs_url']
+        # For failed executions, try to extract CloudWatch URL from error Cause
+        # The lambda_execution_helper includes the CloudWatch URL in the error JSON
+        elif status == 'FAILED' and 'Cause' in result:
+            try:
+                if VERBOSE_LOGGING:
+                    logger.info(f"Attempting to parse Cause for CloudWatch URL. Cause type: {type(result['Cause'])}, Cause: {result['Cause'][:500] if isinstance(result['Cause'], str) else result['Cause']}")
+
+                # Parse the Cause field - it contains an object with errorMessage
+                cause_data = json.loads(result['Cause'])
+
+                # Check if cloudwatch_logs_url is at the top level
+                if 'cloudwatch_logs_url' in cause_data:
+                    item['cloudwatch_logs_url'] = cause_data['cloudwatch_logs_url']
+                    logger.info(f"Extracted CloudWatch URL from error Cause: {item['cloudwatch_logs_url']}")
+                # If not, check if it's nested in the errorMessage field (double-encoded JSON)
+                elif 'errorMessage' in cause_data:
+                    try:
+                        # Parse the nested JSON in errorMessage
+                        error_message_data = json.loads(cause_data['errorMessage'])
+                        if 'cloudwatch_logs_url' in error_message_data:
+                            item['cloudwatch_logs_url'] = error_message_data['cloudwatch_logs_url']
+                            logger.info(f"Extracted CloudWatch URL from nested errorMessage: {item['cloudwatch_logs_url']}")
+                        elif VERBOSE_LOGGING:
+                            logger.info(f"No cloudwatch_logs_url in nested errorMessage. Keys: {list(error_message_data.keys())}")
+                    except (json.JSONDecodeError, TypeError) as nested_error:
+                        if VERBOSE_LOGGING:
+                            logger.warning(f"Failed to parse nested errorMessage: {nested_error}")
+                elif VERBOSE_LOGGING:
+                    logger.info(f"No cloudwatch_logs_url in parsed Cause. Keys: {list(cause_data.keys())}")
+            except (json.JSONDecodeError, TypeError, KeyError) as e:
+                # If parsing fails, continue without CloudWatch URL
+                if VERBOSE_LOGGING:
+                    logger.warning(f"Failed to parse Cause for CloudWatch URL: {e}")
 
         executions_table.put_item(Item=item)
 

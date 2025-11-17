@@ -649,3 +649,148 @@ async def list_executions(
     except Exception as e:
         logger.error(f"Error listing executions: {e}")
         raise HTTPException(status_code=500, detail="Error listing executions")
+
+
+@router.post("/tenants/{tenant_id}/executions/{execution_id}/redrive")
+async def redrive_execution(
+    tenant_id: str,
+    execution_id: str,
+    _: dict = Depends(require_tenant_access)
+):
+    """
+    Re-drive a failed Step Functions execution using AWS Step Functions redrive capability.
+    This allows retrying a failed execution from the point of failure.
+
+    Args:
+        tenant_id: Tenant identifier
+        execution_id: Execution ID (from DynamoDB executions table)
+
+    Returns:
+        Information about the re-driven execution
+
+    Raises:
+        404: If execution not found or cannot be redriven
+        400: If execution is not in FAILED status
+        500: If redrive operation fails
+    """
+    import boto3
+    from botocore.exceptions import ClientError
+
+    try:
+        # Query DynamoDB to get the execution record
+        # We need to find the execution across all schedules for this tenant
+        # The execution_id in the path is the sort key format: timestamp#identifier
+
+        # Search through all schedules for this tenant to find the execution
+        execution_record = None
+        schedules = db_client.get_all_schedules(tenant_id)
+
+        for schedule in schedules:
+            schedule_id = schedule.get('schedule_id')
+            tenant_schedule = f"{tenant_id}#{schedule_id}"
+
+            # Try to get this specific execution
+            try:
+                import boto3
+                dynamodb = boto3.resource('dynamodb')
+                executions_table_name = os.environ.get('DYNAMODB_EXECUTIONS_TABLE')
+                table = dynamodb.Table(executions_table_name)
+
+                response = table.get_item(
+                    Key={
+                        'tenant_schedule': tenant_schedule,
+                        'execution_id': execution_id
+                    }
+                )
+
+                if 'Item' in response:
+                    execution_record = response['Item']
+                    break
+
+            except Exception:
+                continue
+
+        if not execution_record:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Execution '{execution_id}' not found for tenant '{tenant_id}'"
+            )
+
+        # Verify execution belongs to this tenant
+        if not execution_record.get('tenant_schedule', '').startswith(f"{tenant_id}#"):
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied to this execution"
+            )
+
+        # Check if execution is in FAILED status
+        if execution_record.get('status') != 'FAILED':
+            raise HTTPException(
+                status_code=400,
+                detail=f"Only FAILED executions can be redriven. Current status: {execution_record.get('status')}"
+            )
+
+        # Check if execution can be redriven
+        if not execution_record.get('can_redrive', False):
+            raise HTTPException(
+                status_code=400,
+                detail="This execution cannot be redriven"
+            )
+
+        # Get the Step Functions execution ARN
+        sfn_execution_arn = execution_record.get('state_machine_execution_arn')
+        if not sfn_execution_arn:
+            raise HTTPException(
+                status_code=400,
+                detail="Step Functions execution ARN not found in execution record"
+            )
+
+        # Initialize Step Functions client
+        sfn_client = boto3.client('stepfunctions')
+
+        # Call Step Functions redrive API
+        try:
+            redrive_response = sfn_client.redrive_execution(
+                executionArn=sfn_execution_arn
+            )
+
+            logger.info(f"Successfully redriven execution: {sfn_execution_arn}")
+
+            return {
+                "status": "REDRIVEN",
+                "execution_id": execution_id,
+                "original_execution_arn": sfn_execution_arn,
+                "redrive_date": redrive_response.get('redriveDate'),
+                "message": "Execution has been redriven successfully",
+                "note": "The execution will restart from the failed state. Check the executions list for updated status."
+            }
+
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            error_message = e.response['Error']['Message']
+
+            if error_code == 'ExecutionNotRedrivable':
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Execution cannot be redriven: {error_message}"
+                )
+            elif error_code == 'ExecutionDoesNotExist':
+                raise HTTPException(
+                    status_code=404,
+                    detail="Step Functions execution not found or has been deleted"
+                )
+            else:
+                logger.error(f"Step Functions redrive failed: {error_code} - {error_message}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to redrive execution: {error_message}"
+                )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error during redrive: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unexpected error during redrive: {str(e)}"
+        )

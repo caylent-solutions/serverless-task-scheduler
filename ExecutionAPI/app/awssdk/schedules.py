@@ -312,9 +312,12 @@ class EventBridgeScheduler:
             # Build the update configuration
             update_config = {
                 'Name': schedule_name,
-                'GroupName': target_group
+                'GroupName': target_group,
+                'FlexibleTimeWindow': {
+                    'Mode': 'OFF'
+                }
             }
-            
+
             # Add fields that are being updated
             if schedule_expression is not None:
                 update_config['ScheduleExpression'] = schedule_expression

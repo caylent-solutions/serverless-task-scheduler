@@ -131,9 +131,46 @@ const ExecutionHistoryModal = ({
   // Server-side filtering is now handled by the API, so we use executions directly
   const filteredExecutions = executions;
 
-  // Get CloudWatch logs URL from result
+  // Get CloudWatch logs URL from execution record
   const getCloudWatchUrl = (execution) => {
-    return execution.result?.cloudwatch_logs_url || '#';
+    // CloudWatch URL is stored directly on the execution object, not in result
+    return execution.cloudwatch_logs_url || '#';
+  };
+
+  // Handle re-drive execution
+  const handleRedrive = async (execution) => {
+    if (!window.confirm('Are you sure you want to re-drive this failed execution? This will restart the execution from the point of failure.')) {
+      return;
+    }
+
+    try {
+      const response = await authenticatedFetch(
+        `../tenants/${tenantName}/executions/${execution.execution_id}/redrive`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(errorData.detail || `Failed to redrive execution: ${response.status}`);
+      }
+
+      const result = await response.json();
+      alert(`Execution redriven successfully!\n\n${result.message}\n\nRefresh the page to see the updated status.`);
+
+      // Refresh executions list after short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+
+    } catch (err) {
+      console.error('Error redriving execution:', err);
+      alert(`Failed to redrive execution:\n\n${err.message}`);
+    }
   };
 
   return (
@@ -217,12 +254,13 @@ const ExecutionHistoryModal = ({
                     <th>Start Time</th>
                     <th>Status</th>
                     <th>CloudWatch Logs</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredExecutions.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="no-data">
+                      <td colSpan="5" className="no-data">
                         No executions found matching the filter criteria
                       </td>
                     </tr>
@@ -261,6 +299,19 @@ const ExecutionHistoryModal = ({
                             >
                               🔗 View Logs
                             </a>
+                          </td>
+                          <td>
+                            {execution.status === 'FAILED' && execution.can_redrive !== false ? (
+                              <button
+                                className="btn btn-warning btn-sm"
+                                onClick={() => handleRedrive(execution)}
+                                title="Re-drive this failed execution from the point of failure"
+                              >
+                                🔄 Re-drive
+                              </button>
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
                           </td>
                         </tr>
                       );

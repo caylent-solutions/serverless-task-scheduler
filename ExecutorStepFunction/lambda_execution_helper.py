@@ -112,16 +112,28 @@ def execute_lambda(function_arn: str, payload: Dict[str, Any]) -> Dict[str, Any]
         else:
             logger.info(f"Lambda invocation completed. Status: {status_code}")
 
-        # Check for function errors
-        if 'FunctionError' in response:
-            logger.error(f"Lambda function error: {response_payload}")
-            raise Exception(f"Lambda function error: {json.dumps(response_payload)}")
-
         # Extract function name from ARN (format: arn:aws:lambda:region:account:function:name)
         function_name = function_arn.split(':')[-1] if ':' in function_arn else function_arn
 
         # Find the actual log stream by searching for the request ID
+        # Always capture CloudWatch URL, even for failures, so users can debug
         cloudwatch_url = find_log_stream_url(function_name, request_id, AWS_REGION)
+
+        # Check for function errors - do this AFTER capturing CloudWatch URL
+        if 'FunctionError' in response:
+            logger.error(f"Lambda function error: {response_payload}")
+            # Include CloudWatch URL in the error so it can be recorded
+            error_result = {
+                'execution_id': request_id,
+                'target_type': 'lambda',
+                'response': response_payload,
+                'status_code': status_code,
+                'function_name': function_name,
+                'cloudwatch_logs_url': cloudwatch_url,
+                'error': f"Lambda function error: {json.dumps(response_payload)}"
+            }
+            # Raise exception but include the CloudWatch URL in the error message
+            raise Exception(json.dumps(error_result))
 
         return {
             'execution_id': request_id,

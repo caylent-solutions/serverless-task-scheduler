@@ -799,12 +799,22 @@ Resources:
                   - scheduler:DeleteScheduleGroup
                   - scheduler:ListScheduleGroups
                 Resource: '*'
-              
+
               # IAM PassRole permission for EventBridge Scheduler
               - Effect: Allow
                 Action:
                   - iam:PassRole
                 Resource: '*'
+
+              # Step Functions Re-drive operations
+              # Allows API Lambda to re-drive failed ExecutorStepFunction executions
+              - Effect: Allow
+                Action:
+                  - states:RedriveExecution
+                  - states:DescribeExecution
+                Resource: !Sub
+                  - arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:${StackName}-${Environment}-executor-sfn-${StackIdSuffix}:*
+                  - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
 
               # Cognito operations for user authentication and management
               - Effect: Allow

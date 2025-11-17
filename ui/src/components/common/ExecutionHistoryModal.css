@@ -249,6 +249,11 @@
   transition: all 0.2s;
 }
 
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
 .btn-secondary {
   background-color: #f0f0f0;
   color: #333;
@@ -256,6 +261,24 @@
 
 .btn-secondary:hover {
   background-color: #e0e0e0;
+}
+
+.btn-warning {
+  background-color: #ff9800;
+  color: white;
+}
+
+.btn-warning:hover {
+  background-color: #f57c00;
+}
+
+.btn-warning:active {
+  background-color: #ef6c00;
+}
+
+.text-muted {
+  color: #999;
+  font-style: italic;
 }
 
 /* Responsive Design */
