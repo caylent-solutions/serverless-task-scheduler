@@ -39,7 +39,7 @@ def validate_url_safe_identifier(value: str, field_name: str = "identifier") -> 
 
     if len(value) < MIN_IDENTIFIER_LENGTH:
         raise ValueError(
-            f"{field_name} must be at least {MIN_IDENTIFIER_LENGTH} character long"
+            f"{field_name} must be at least {MIN_IDENTIFIER_LENGTH} characters long"
         )
 
     if len(value) > MAX_IDENTIFIER_LENGTH:
