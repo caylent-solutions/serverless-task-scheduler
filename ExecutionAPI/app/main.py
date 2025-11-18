@@ -58,9 +58,8 @@ async def log_and_time_requests(request: Request, call_next):
         # Optional authentication check for API routes only (not /app/ since React handles login page)
         # Check specific paths that need authentication:
         # - /user/* (user info, user management)
-        # - /tenants/* (tenant management)
+        # - /tenants/* (tenant management, includes all execution endpoints)
         # - POST/PUT/DELETE /targets/* (modifying targets - admin only)
-        # - POST /targets/{id}/_execute (executing targets)
         # But NOT:
         # - GET /targets/{id} (reading target specs should be public)
         # - /auth/* (login, signup, etc.)

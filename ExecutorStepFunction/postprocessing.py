@@ -35,7 +35,7 @@ Input Event (Failure):
 Output:
 {
     "status": "recorded",
-    "execution_id": "2025-01-15T10:00:00.000Z#request-id"
+    "execution_id": "01234567-89ab-cdef-0123-456789abcdef"
 }
 """
 
@@ -44,7 +44,7 @@ import logging
 import os
 import boto3
 from typing import Dict, Any
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from botocore.exceptions import ClientError
 
 # Configure logging
@@ -155,17 +155,13 @@ def record_execution(
         tenant_schedule = f"{tenant_id}#{schedule_id}"
         tenant_target = f"{tenant_id}#{target_alias}"
 
-        # Extract execution ID from result or use state machine execution
-        if status == 'SUCCESS':
-            # For successful executions, try to get the execution_id from the result
-            lambda_request_id = result.get('execution_id', state_machine_execution_arn)
-        else:
-            # For failed executions, use the state machine execution name
-            lambda_request_id = state_machine_execution_arn
+        # Use the Step Functions execution name (UUIDv7) directly as execution_id
+        # UUIDv7 is time-ordered so we get chronological sorting automatically
+        execution_id = state_machine_execution_arn
 
-        # Create sortable execution_id: ISO8601-timestamp#identifier
-        # This ensures chronological ordering while maintaining uniqueness
-        execution_id = f"{timestamp}#{lambda_request_id}"
+        # Calculate TTL: 45 days from now (in seconds since epoch)
+        ttl_date = datetime.now(timezone.utc) + timedelta(days=45)
+        ttl = int(ttl_date.timestamp())
 
         # Build the item to store
         item = {
@@ -176,9 +172,9 @@ def record_execution(
             'status': status,
             'result': result,
             'executed_at': timestamp,
-            'execution_identifier': lambda_request_id,
             'state_machine_execution_arn': state_machine_execution_arn,
-            'execution_start_time': execution_start_time
+            'execution_start_time': execution_start_time,
+            'ttl': ttl
         }
 
         # Add failure-specific information

@@ -4,7 +4,7 @@ from pydantic import BaseModel, create_model, Field
 from fastapi.responses import HTMLResponse
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
-from ..models.target import Target, TargetList, TargetExecution, RouteChangedEvent
+from ..models.target import Target, TargetList, TargetExecution, RouteChangedEvent, TargetWithExecutionInfo
 from .targets import create_get_target, create_execute_target
 from ..awssdk.dynamodb import get_database_client
 import logging
@@ -175,16 +175,10 @@ class OpenAPIHelpers:
             methods=["GET"],
             summary=f"Get info for {event.name}",
             description=f"{event.description}",
-            response_model=Target
+            response_model=TargetWithExecutionInfo
         )
-        addrouter.add_api_route(
-            f"/targets/{event.name}/_execute",
-            create_execute_target(event.name, request_model),
-            methods=["POST"],
-            summary=f"Execute {event.name}",
-            description=f"{event.description}",
-            response_model=TargetExecution
-        )
+        # Note: Direct execution via /targets/{target_id}/_execute has been removed
+        # All executions must go through tenant context: /tenants/{tenant_id}/targets/{target_id}/_execute
         return addrouter
 
 

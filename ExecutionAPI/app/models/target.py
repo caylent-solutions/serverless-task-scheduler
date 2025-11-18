@@ -1,5 +1,5 @@
 from typing import Dict, List, Optional, Any
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, validator, Field
 from app.validation import validate_url_safe_identifier
 
 
@@ -15,8 +15,45 @@ class TargetBase(BaseModel):
 
 class Target(TargetBase):
     target_arn: str
-    target_parameter_schema: Dict[str, Any]
+    target_parameter_schema: Dict[str, Any] = Field(
+        ...,
+        description="JSON Schema defining the parameters required for execution",
+        example={
+            "type": "object",
+            "required": ["param1", "param2"],
+            "properties": {
+                "param1": {
+                    "type": "string",
+                    "description": "First parameter"
+                },
+                "param2": {
+                    "type": "integer",
+                    "description": "Second parameter"
+                }
+            }
+        }
+    )
     target_binary_link: Optional[str] = None
+
+
+class TargetWithExecutionInfo(Target):
+    """
+    Extended target information including execution details for AI agents.
+    This includes the execution endpoint and parameter schema.
+    """
+    execution_endpoint: str = Field(
+        ...,
+        description="The URL template to POST to for execution. Replace {tenant_id} with actual tenant ID",
+        example="/tenants/my-tenant/targets/my-target/_execute"
+    )
+    execution_method: str = Field(
+        default="POST",
+        description="HTTP method for execution"
+    )
+    execution_requires_tenant_context: bool = Field(
+        default=True,
+        description="Whether tenant context is required for execution"
+    )
 
 
 class TargetList(BaseModel):

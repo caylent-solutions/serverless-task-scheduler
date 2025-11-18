@@ -13,6 +13,7 @@ const ExecutionHistoryModal = ({
   const [executions, setExecutions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [redrivingExecutions, setRedrivingExecutions] = useState(new Set()); // Track which executions are being redriven
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'SUCCESS', 'FAILED'
@@ -66,6 +67,9 @@ const ExecutionHistoryModal = ({
         const executionsData = Array.isArray(data) ? data : (data.executions || []);
         setExecutions(executionsData);
         setError(null);
+
+        // Clear redriving state when new data is fetched
+        setRedrivingExecutions(new Set());
       } catch (err) {
         console.error('Error fetching executions:', err);
         setError(err.message);
@@ -86,28 +90,20 @@ const ExecutionHistoryModal = ({
 
     for (let i = 0; i < 10; i++) {
       const timestamp = new Date(now.getTime() - i * 3600000); // 1 hour intervals
-      const lambdaRequestId = `${Math.random().toString(36).substring(7)}-${Math.random().toString(36).substring(7)}`;
-      const executionId = `${timestamp.toISOString()}#${lambdaRequestId}`;
+      // Generate a mock UUIDv7-like ID (simplified for testing)
+      const executionId = `${Math.random().toString(36).substring(2, 15)}-${Math.random().toString(36).substring(2, 15)}`;
 
       mockData.push({
         execution_id: executionId,
         timestamp: timestamp.toISOString(),
         status: i % 5 === 0 ? 'FAILED' : 'SUCCESS',
-        lambda_request_id: lambdaRequestId,
         result: {
-          cloudwatch_logs_url: `https://console.aws.amazon.com/cloudwatch/home#logsV2:log-groups/log-group/$252Faws$252Flambda$252FLambdaCalculator/log-events/${timestamp.getFullYear()}$252F${(timestamp.getMonth() + 1).toString().padStart(2, '0')}$252F${timestamp.getDate().toString().padStart(2, '0')}$252F$255B$2524LATEST$255D${lambdaRequestId}`
+          cloudwatch_logs_url: `https://console.aws.amazon.com/cloudwatch/home#logsV2:log-groups/log-group/$252Faws$252Flambda$252FLambdaCalculator/log-events/${timestamp.getFullYear()}$252F${(timestamp.getMonth() + 1).toString().padStart(2, '0')}$252F${timestamp.getDate().toString().padStart(2, '0')}$252F$255B$2524LATEST$255D${executionId}`
         }
       });
     }
 
     return mockData;
-  };
-
-  // Extract timestamp from execution_id (format: timestamp#request_id)
-  const getTimestampFromExecutionId = (executionId) => {
-    if (!executionId) return '';
-    const parts = executionId.split('#');
-    return parts[0] || '';
   };
 
   // Format timestamp for display
@@ -143,9 +139,20 @@ const ExecutionHistoryModal = ({
       return;
     }
 
+    // Add execution to redriving set
+    setRedrivingExecutions(prev => new Set(prev).add(execution.execution_id));
+
     try {
+      // Determine the target alias based on filter type
+      const effectiveTargetAlias = filterType === 'schedule' ? targetAlias : filterValue;
+
+      // Use the execution_id (UUIDv7) directly - no encoding needed for UUID
+      const redriveUrl = `../tenants/${tenantName}/mappings/${effectiveTargetAlias}/executions/${execution.execution_id}/redrive`;
+      console.log('Redrive URL:', redriveUrl);
+      console.log('Execution ID (UUID):', execution.execution_id);
+
       const response = await authenticatedFetch(
-        `../tenants/${tenantName}/executions/${execution.execution_id}/redrive`,
+        redriveUrl,
         {
           method: 'POST',
           headers: {
@@ -160,16 +167,24 @@ const ExecutionHistoryModal = ({
       }
 
       const result = await response.json();
-      alert(`Execution redriven successfully!\n\n${result.message}\n\nRefresh the page to see the updated status.`);
+      console.log('Execution redriven successfully:', result);
+      console.log('Message:', result.message);
+      console.log('Execution ID:', result.execution_id);
+      console.log('Note:', result.note);
 
-      // Refresh executions list after short delay
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+      // Note: Button will remain disabled until executions are refetched
+      // The redriving state will be cleared when the component receives new data
 
     } catch (err) {
       console.error('Error redriving execution:', err);
       alert(`Failed to redrive execution:\n\n${err.message}`);
+
+      // Remove from redriving set on error
+      setRedrivingExecutions(prev => {
+        const next = new Set(prev);
+        next.delete(execution.execution_id);
+        return next;
+      });
     }
   };
 
@@ -266,15 +281,14 @@ const ExecutionHistoryModal = ({
                     </tr>
                   ) : (
                     filteredExecutions.map((execution, index) => {
-                      const timestamp = execution.timestamp || getTimestampFromExecutionId(execution.execution_id);
-                      const requestId = execution.lambda_request_id || execution.execution_id.split('#')[1] || 'unknown';
+                      const timestamp = execution.timestamp || execution.executed_at;
 
                       return (
                         <tr key={execution.execution_id || index}>
                           <td>
                             <div className="execution-id-cell">
                               <div className="request-id" title={execution.execution_id}>
-                                {requestId}
+                                {execution.execution_id}
                               </div>
                             </div>
                           </td>
@@ -305,9 +319,16 @@ const ExecutionHistoryModal = ({
                               <button
                                 className="btn btn-warning btn-sm"
                                 onClick={() => handleRedrive(execution)}
-                                title="Re-drive this failed execution from the point of failure"
+                                disabled={redrivingExecutions.has(execution.execution_id)}
+                                title={redrivingExecutions.has(execution.execution_id)
+                                  ? "Redrive in progress..."
+                                  : "Re-drive this failed execution from the point of failure"}
+                                style={{
+                                  opacity: redrivingExecutions.has(execution.execution_id) ? 0.5 : 1,
+                                  cursor: redrivingExecutions.has(execution.execution_id) ? 'not-allowed' : 'pointer'
+                                }}
                               >
-                                🔄 Re-drive
+                                {redrivingExecutions.has(execution.execution_id) ? '⏳ Redriving...' : '🔄 Re-drive'}
                               </button>
                             ) : (
                               <span className="text-muted">—</span>

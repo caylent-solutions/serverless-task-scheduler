@@ -651,9 +651,10 @@ async def list_executions(
         raise HTTPException(status_code=500, detail="Error listing executions")
 
 
-@router.post("/tenants/{tenant_id}/executions/{execution_id}/redrive")
+@router.post("/tenants/{tenant_id}/mappings/{target_alias}/executions/{execution_id}/redrive")
 async def redrive_execution(
     tenant_id: str,
+    target_alias: str,
     execution_id: str,
     _: dict = Depends(require_tenant_access)
 ):
@@ -663,7 +664,8 @@ async def redrive_execution(
 
     Args:
         tenant_id: Tenant identifier
-        execution_id: Execution ID (from DynamoDB executions table)
+        target_alias: Target alias for the execution
+        execution_id: Execution ID (UUIDv7 of the Step Functions execution)
 
     Returns:
         Information about the re-driven execution
@@ -677,51 +679,30 @@ async def redrive_execution(
     from botocore.exceptions import ClientError
 
     try:
-        # Query DynamoDB to get the execution record
-        # We need to find the execution across all schedules for this tenant
-        # The execution_id in the path is the sort key format: timestamp#identifier
+        # Query DynamoDB using the tenant-target-index GSI to find the execution
+        tenant_target = f"{tenant_id}#{target_alias}"
 
-        # Search through all schedules for this tenant to find the execution
-        execution_record = None
-        schedules = db_client.get_all_schedules(tenant_id)
+        dynamodb = boto3.resource('dynamodb')
+        executions_table_name = os.environ.get('DYNAMODB_EXECUTIONS_TABLE')
+        table = dynamodb.Table(executions_table_name)
 
-        for schedule in schedules:
-            schedule_id = schedule.get('schedule_id')
-            tenant_schedule = f"{tenant_id}#{schedule_id}"
+        # Query the GSI with tenant_target and filter by execution_id (UUIDv7)
+        # Note: Don't use Limit here as it applies before FilterExpression
+        response = table.query(
+            IndexName='tenant-target-index',
+            KeyConditionExpression='tenant_target = :tt',
+            FilterExpression='execution_id = :eid',
+            ExpressionAttributeValues={':tt': tenant_target, ':eid': execution_id}
+        )
 
-            # Try to get this specific execution
-            try:
-                import boto3
-                dynamodb = boto3.resource('dynamodb')
-                executions_table_name = os.environ.get('DYNAMODB_EXECUTIONS_TABLE')
-                table = dynamodb.Table(executions_table_name)
-
-                response = table.get_item(
-                    Key={
-                        'tenant_schedule': tenant_schedule,
-                        'execution_id': execution_id
-                    }
-                )
-
-                if 'Item' in response:
-                    execution_record = response['Item']
-                    break
-
-            except Exception:
-                continue
-
-        if not execution_record:
+        items = response.get('Items', [])
+        if not items:
             raise HTTPException(
                 status_code=404,
-                detail=f"Execution '{execution_id}' not found for tenant '{tenant_id}'"
+                detail=f"Execution '{execution_id}' not found for tenant '{tenant_id}' and target '{target_alias}'"
             )
 
-        # Verify execution belongs to this tenant
-        if not execution_record.get('tenant_schedule', '').startswith(f"{tenant_id}#"):
-            raise HTTPException(
-                status_code=403,
-                detail="Access denied to this execution"
-            )
+        execution_record = items[0]
 
         # Check if execution is in FAILED status
         if execution_record.get('status') != 'FAILED':
@@ -737,18 +718,23 @@ async def redrive_execution(
                 detail="This execution cannot be redriven"
             )
 
-        # Get the Step Functions execution ARN
-        sfn_execution_arn = execution_record.get('state_machine_execution_arn')
-        if not sfn_execution_arn:
+        # Get the state machine ARN from environment and construct the full execution ARN
+        state_machine_arn = os.environ.get('STEP_FUNCTIONS_EXECUTOR_ARN')
+        if not state_machine_arn:
             raise HTTPException(
-                status_code=400,
-                detail="Step Functions execution ARN not found in execution record"
+                status_code=500,
+                detail="State machine ARN not configured"
             )
+
+        # Construct the full execution ARN using the execution_id (UUID)
+        # Format: arn:aws:states:region:account:execution:stateMachineName:executionName
+        sfn_execution_arn = f"{state_machine_arn.replace(':stateMachine:', ':execution:')}:{execution_id}"
 
         # Initialize Step Functions client
         sfn_client = boto3.client('stepfunctions')
 
         # Call Step Functions redrive API
+        # Note: Using RedriveExecution API (boto3 >= 1.34.0)
         try:
             redrive_response = sfn_client.redrive_execution(
                 executionArn=sfn_execution_arn
@@ -761,9 +747,18 @@ async def redrive_execution(
                 "execution_id": execution_id,
                 "original_execution_arn": sfn_execution_arn,
                 "redrive_date": redrive_response.get('redriveDate'),
+                "redrive_count": redrive_response.get('redriveCount'),
                 "message": "Execution has been redriven successfully",
                 "note": "The execution will restart from the failed state. Check the executions list for updated status."
             }
+
+        except AttributeError:
+            # Fallback for older boto3 versions without redrive_execution
+            logger.error("boto3 version does not support redrive_execution")
+            raise HTTPException(
+                status_code=500,
+                detail="Step Functions redrive feature requires boto3 >= 1.34.0. Please update the Lambda runtime dependencies."
+            )
 
         except ClientError as e:
             error_code = e.response['Error']['Code']
