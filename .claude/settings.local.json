@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(aws cloudformation describe-stack-events:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

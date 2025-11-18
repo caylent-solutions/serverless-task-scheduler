@@ -612,21 +612,150 @@ class DynamoDBClient(DatabaseClient):
             logger.error(f"Error getting execution for schedule {tenant_id}#{schedule_id}: {e}")
             return None
 
-    def list_target_executions(self, tenant_id: str, target_alias: str, limit: int = 20) -> List[Dict[str, Any]]:
+    def get_schedule_executions(
+        self,
+        tenant_id: str,
+        schedule_id: str,
+        target_alias: str = None,
+        limit: int = 50,
+        start_time_lower: str = None,
+        start_time_upper: str = None,
+        status: str = None
+    ) -> List[Dict[str, Any]]:
         """
-        List executions for a specific tenant target.
+        Get all executions for a specific schedule with optional filtering.
+
+        Args:
+            tenant_id: The tenant identifier
+            schedule_id: The schedule identifier
+            target_alias: Optional target alias for validation
+            limit: Maximum number of executions to return
+            start_time_lower: ISO 8601 timestamp - only return executions after this time
+            start_time_upper: ISO 8601 timestamp - only return executions before this time
+            status: Filter by execution status (SUCCESS or FAILED)
+
+        Returns:
+            List of execution records
+        """
+        try:
+            tenant_schedule = f"{tenant_id}#{schedule_id}"
+
+            # Build the query
+            query_params = {
+                'KeyConditionExpression': 'tenant_schedule = :ts',
+                'ExpressionAttributeValues': {':ts': tenant_schedule},
+                'Limit': limit,
+                'ScanIndexForward': False  # Most recent first (by execution_id sort key)
+            }
+
+            # Build filter expression for optional filters
+            filter_expressions = []
+
+            if start_time_lower:
+                filter_expressions.append('#ts >= :start_lower')
+                query_params['ExpressionAttributeValues'][':start_lower'] = start_time_lower
+                if 'ExpressionAttributeNames' not in query_params:
+                    query_params['ExpressionAttributeNames'] = {}
+                query_params['ExpressionAttributeNames']['#ts'] = 'timestamp'
+
+            if start_time_upper:
+                filter_expressions.append('#ts <= :start_upper')
+                query_params['ExpressionAttributeValues'][':start_upper'] = start_time_upper
+                if 'ExpressionAttributeNames' not in query_params:
+                    query_params['ExpressionAttributeNames'] = {}
+                query_params['ExpressionAttributeNames']['#ts'] = 'timestamp'
+
+            if status:
+                filter_expressions.append('#st = :status')
+                query_params['ExpressionAttributeValues'][':status'] = status
+                if 'ExpressionAttributeNames' not in query_params:
+                    query_params['ExpressionAttributeNames'] = {}
+                query_params['ExpressionAttributeNames']['#st'] = 'status'
+
+            # If target_alias is provided, validate it matches
+            if target_alias:
+                expected_tenant_target = f"{tenant_id}#{target_alias}"
+                filter_expressions.append('tenant_target = :tt')
+                query_params['ExpressionAttributeValues'][':tt'] = expected_tenant_target
+
+            # Add filter expression if we have any filters
+            if filter_expressions:
+                query_params['FilterExpression'] = ' AND '.join(filter_expressions)
+
+            response = self.executions.query(**query_params)
+            return response.get('Items', [])
+
+        except ClientError as e:
+            logger.error(f"Error getting schedule executions for {tenant_id}#{schedule_id}: {e}")
+            return []
+
+    def list_target_executions(
+        self,
+        tenant_id: str,
+        target_alias: str,
+        limit: int = 50,
+        start_time_lower: str = None,
+        start_time_upper: str = None,
+        status: str = None
+    ) -> List[Dict[str, Any]]:
+        """
+        List executions for a specific tenant target with optional filtering.
         Queries the tenant-target-index GSI by tenant_target (formatted as 'tenant_id#target_alias').
+
+        Args:
+            tenant_id: The tenant identifier
+            target_alias: The target alias
+            limit: Maximum number of executions to return
+            start_time_lower: ISO 8601 timestamp - only return executions after this time
+            start_time_upper: ISO 8601 timestamp - only return executions before this time
+            status: Filter by execution status (SUCCESS or FAILED)
+
+        Returns:
+            List of execution records
         """
         try:
             tenant_target = f"{tenant_id}#{target_alias}"
-            response = self.executions.query(
-                IndexName='tenant-target-index',
-                KeyConditionExpression='tenant_target = :tt',
-                ExpressionAttributeValues={':tt': tenant_target},
-                Limit=limit,
-                ScanIndexForward=False  # Get most recent first (by timestamp)
-            )
+
+            # Build the query
+            query_params = {
+                'IndexName': 'tenant-target-index',
+                'KeyConditionExpression': 'tenant_target = :tt',
+                'ExpressionAttributeValues': {':tt': tenant_target},
+                'Limit': limit,
+                'ScanIndexForward': False  # Get most recent first (by timestamp)
+            }
+
+            # Build filter expression for optional filters
+            filter_expressions = []
+
+            if start_time_lower:
+                filter_expressions.append('#ts >= :start_lower')
+                query_params['ExpressionAttributeValues'][':start_lower'] = start_time_lower
+                if 'ExpressionAttributeNames' not in query_params:
+                    query_params['ExpressionAttributeNames'] = {}
+                query_params['ExpressionAttributeNames']['#ts'] = 'timestamp'
+
+            if start_time_upper:
+                filter_expressions.append('#ts <= :start_upper')
+                query_params['ExpressionAttributeValues'][':start_upper'] = start_time_upper
+                if 'ExpressionAttributeNames' not in query_params:
+                    query_params['ExpressionAttributeNames'] = {}
+                query_params['ExpressionAttributeNames']['#ts'] = 'timestamp'
+
+            if status:
+                filter_expressions.append('#st = :status')
+                query_params['ExpressionAttributeValues'][':status'] = status
+                if 'ExpressionAttributeNames' not in query_params:
+                    query_params['ExpressionAttributeNames'] = {}
+                query_params['ExpressionAttributeNames']['#st'] = 'status'
+
+            # Add filter expression if we have any filters
+            if filter_expressions:
+                query_params['FilterExpression'] = ' AND '.join(filter_expressions)
+
+            response = self.executions.query(**query_params)
             return response.get('Items', [])
+
         except ClientError as e:
             logger.error(f"Error listing executions for {tenant_id}/{target_alias}: {e}")
             return []

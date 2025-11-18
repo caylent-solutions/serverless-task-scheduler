@@ -1,6 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from typing import Optional, Dict, Any
 from datetime import datetime
+from app.validation import validate_url_safe_identifier
 
 
 class TenantMapping(BaseModel):
@@ -13,3 +14,18 @@ class TenantMapping(BaseModel):
     default_payload: Optional[Dict[str, Any]] = None        # Default payload for target execution
     last_update_user: Optional[str] = None   # User who last updated the mapping
     last_update_date: Optional[str] = None   # Timestamp of last update
+
+    @validator('tenant_id')
+    def validate_tenant_id_format(cls, v):
+        """Ensure tenant_id is URL-safe (lowercase alphanumeric, underscores, hyphens)."""
+        return validate_url_safe_identifier(v, "tenant_id")
+
+    @validator('target_alias')
+    def validate_target_alias_format(cls, v):
+        """Ensure target_alias is URL-safe (lowercase alphanumeric, underscores, hyphens)."""
+        return validate_url_safe_identifier(v, "target_alias")
+
+    @validator('target_id')
+    def validate_target_id_format(cls, v):
+        """Ensure target_id is URL-safe (lowercase alphanumeric, underscores, hyphens)."""
+        return validate_url_safe_identifier(v, "target_id")

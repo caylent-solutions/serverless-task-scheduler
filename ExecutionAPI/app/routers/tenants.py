@@ -143,7 +143,7 @@ async def execute_tenant_mapping(
     """
     Execute a tenant target mapping asynchronously via a one-time EventBridge schedule.
     This creates a schedule that runs immediately and then auto-deletes itself.
-    All execution goes through the LambdaExecutor for security.
+    All execution goes through the ExecutorStepFunction for security.
     """
     # Check if mapping exists
     mapping = db_client.get_tenant_target_mapping(tenant_id, target_alias)
@@ -163,15 +163,15 @@ async def execute_tenant_mapping(
     base_group_name = os.environ.get("SCHEDULER_GROUP_NAME", "default")
     tenant_group_name = f"{base_group_name}-{tenant_id}"
 
-    # Get executor Lambda ARN from environment
-    executor_arn = os.environ.get("LAMBDA_EXECUTOR_ARN")
+    # Get executor Step Functions ARN from environment
+    executor_arn = os.environ.get("STEP_FUNCTIONS_EXECUTOR_ARN")
     if not executor_arn:
         raise HTTPException(
             status_code=500,
-            detail="LAMBDA_EXECUTOR_ARN not configured"
+            detail="STEP_FUNCTIONS_EXECUTOR_ARN not configured"
         )
 
-    # Build the target input payload for the executor Lambda
+    # Build the target input payload for the executor Step Functions
     target_input = {
         "tenant_id": tenant_id,
         "target_alias": target_alias,
@@ -253,16 +253,16 @@ async def create_target_schedule(
     base_group_name = os.environ.get("SCHEDULER_GROUP_NAME", "default")
     tenant_group_name = f"{base_group_name}-{tenant_id}"
 
-    # Get executor Lambda ARN from environment
-    executor_arn = os.environ.get("LAMBDA_EXECUTOR_ARN")
+    # Get executor Step Functions ARN from environment
+    executor_arn = os.environ.get("STEP_FUNCTIONS_EXECUTOR_ARN")
     if not executor_arn:
         raise HTTPException(
             status_code=500,
-            detail="LAMBDA_EXECUTOR_ARN not configured"
+            detail="STEP_FUNCTIONS_EXECUTOR_ARN not configured"
         )
 
     # Create in EventBridge Scheduler first
-    # Build the target input payload for the executor Lambda
+    # Build the target input payload for the executor Step Functions
     target_input = {
         "tenant_id": tenant_id,
         "target_alias": target_alias,
@@ -339,16 +339,16 @@ async def update_target_schedule(
     base_group_name = os.environ.get("SCHEDULER_GROUP_NAME", "default")
     tenant_group_name = f"{base_group_name}-{tenant_id}"
 
-    # Get executor Lambda ARN from environment
-    executor_arn = os.environ.get("LAMBDA_EXECUTOR_ARN")
+    # Get executor Step Functions ARN from environment
+    executor_arn = os.environ.get("STEP_FUNCTIONS_EXECUTOR_ARN")
     if not executor_arn:
         raise HTTPException(
             status_code=500,
-            detail="LAMBDA_EXECUTOR_ARN not configured"
+            detail="STEP_FUNCTIONS_EXECUTOR_ARN not configured"
         )
 
     # Update in EventBridge Scheduler first
-    # Build the target input payload for the executor Lambda
+    # Build the target input payload for the executor Step Functions
     target_input = {
         "tenant_id": tenant_id,
         "target_alias": target_alias,
@@ -429,46 +429,35 @@ async def get_schedule_executions(
     tenant_id: str,
     target_alias: str,
     schedule_id: str,
+    limit: int = Query(default=50, ge=1, le=100, description="Maximum number of executions to return"),
+    start_time_lower: Optional[str] = Query(default=None, description="ISO 8601 timestamp - only return executions after this time"),
+    start_time_upper: Optional[str] = Query(default=None, description="ISO 8601 timestamp - only return executions before this time"),
+    status: Optional[str] = Query(default=None, description="Filter by execution status (SUCCESS or FAILED)"),
     _: dict = Depends(require_tenant_access)
 ):
     """
     Get all executions for a specific schedule (requires tenant access).
     Works for both ad-hoc and recurring schedules.
-    For ad-hoc schedules, will return 0-1 executions.
-    For recurring schedules, currently returns only the most recent execution.
+    Supports filtering by time range and status.
     """
     try:
-        # Query by tenant_id + schedule_id to get the most recent execution for this schedule
-        # For ad-hoc schedules, this will return 0 or 1 execution
-        # For recurring schedules, this returns the most recent execution
-        # TODO: Add support for querying all executions with pagination
-        execution = db_client.get_execution_by_schedule_id(tenant_id, schedule_id)
-
-        if not execution:
-            return {
-                "tenant_id": tenant_id,
-                "target_alias": target_alias,
-                "schedule_id": schedule_id,
-                "count": 0,
-                "executions": []
-            }
-
-        # Verify the execution matches the tenant and target from the path
-        tenant_target = execution.get('tenant_target', '')
-        expected_tenant_target = f"{tenant_id}#{target_alias}"
-
-        if tenant_target != expected_tenant_target:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Schedule '{schedule_id}' does not belong to tenant '{tenant_id}' and target '{target_alias}'"
-            )
+        # Query executions for this schedule with filters
+        executions = db_client.get_schedule_executions(
+            tenant_id=tenant_id,
+            schedule_id=schedule_id,
+            target_alias=target_alias,
+            limit=limit,
+            start_time_lower=start_time_lower,
+            start_time_upper=start_time_upper,
+            status=status
+        )
 
         return {
             "tenant_id": tenant_id,
             "target_alias": target_alias,
             "schedule_id": schedule_id,
-            "count": 1,
-            "executions": [execution]
+            "count": len(executions),
+            "executions": executions
         }
     except HTTPException:
         raise
@@ -631,15 +620,26 @@ async def get_execution_by_id(
 async def list_executions(
     tenant_id: str,
     target_alias: str,
-    limit: int = Query(default=20, ge=1, le=100),
+    limit: int = Query(default=50, ge=1, le=100, description="Maximum number of executions to return"),
+    start_time_lower: Optional[str] = Query(default=None, description="ISO 8601 timestamp - only return executions after this time"),
+    start_time_upper: Optional[str] = Query(default=None, description="ISO 8601 timestamp - only return executions before this time"),
+    status: Optional[str] = Query(default=None, description="Filter by execution status (SUCCESS or FAILED)"),
     _: dict = Depends(require_tenant_access)
 ):
     """
     List recent executions for a specific tenant target mapping (requires tenant access).
     Returns up to 'limit' most recent executions sorted by timestamp descending.
+    Supports filtering by time range and status.
     """
     try:
-        executions = db_client.list_target_executions(tenant_id, target_alias, limit)
+        executions = db_client.list_target_executions(
+            tenant_id=tenant_id,
+            target_alias=target_alias,
+            limit=limit,
+            start_time_lower=start_time_lower,
+            start_time_upper=start_time_upper,
+            status=status
+        )
         return {
             "tenant_id": tenant_id,
             "target_alias": target_alias,

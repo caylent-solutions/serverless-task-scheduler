@@ -1,15 +1,31 @@
 from pydantic import BaseModel, Field, validator
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+from app.validation import validate_url_safe_identifier
 
 
 class Schedule(BaseModel):
     """Represents a scheduled target execution for a tenant."""
-    
+
     # Core identifiers
     tenant_id: str = Field(..., description="Tenant identifier")
     schedule_id: str = Field(..., description="Unique schedule identifier within tenant")
     target_alias: str = Field(..., description="Tenant's alias for the target to execute")
+
+    @validator('tenant_id')
+    def validate_tenant_id_format(cls, v):
+        """Ensure tenant_id is URL-safe (lowercase alphanumeric, underscores, hyphens)."""
+        return validate_url_safe_identifier(v, "tenant_id")
+
+    @validator('schedule_id')
+    def validate_schedule_id_format(cls, v):
+        """Ensure schedule_id is URL-safe (lowercase alphanumeric, underscores, hyphens)."""
+        return validate_url_safe_identifier(v, "schedule_id")
+
+    @validator('target_alias')
+    def validate_target_alias_format(cls, v):
+        """Ensure target_alias is URL-safe (lowercase alphanumeric, underscores, hyphens)."""
+        return validate_url_safe_identifier(v, "target_alias")
     
     # Schedule configuration
     schedule_expression: str = Field(..., description="Cron or rate expression for the schedule")

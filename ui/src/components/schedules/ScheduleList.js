@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import authenticatedFetch from '../../utils/api';
+import ExecutionHistoryModal from '../common/ExecutionHistoryModal';
 
 const ScheduleList = ({ tenantName = 'admin' }) => {
   const [schedules, setSchedules] = useState([]);
@@ -8,6 +9,7 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('');
   const [selectedSchedule, setSelectedSchedule] = useState(null);
+  const [executionHistorySchedule, setExecutionHistorySchedule] = useState(null);
 
   // Fetch schedules and mappings from API
   useEffect(() => {
@@ -203,12 +205,13 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
               <th>Schedule Expression</th>
               <th>Description</th>
               <th>State</th>
+              <th>History</th>
             </tr>
           </thead>
           <tbody>
             {filteredSchedules.length === 0 ? (
               <tr>
-                <td colSpan="6" className="text-center">No schedules found</td>
+                <td colSpan="7" className="text-center">No schedules found</td>
               </tr>
             ) : (
               filteredSchedules.map(schedule => (
@@ -237,6 +240,15 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
                     <span className={`status-badge ${schedule.state === 'ENABLED' ? 'status-enabled' : 'status-disabled'}`}>
                       {schedule.state}
                     </span>
+                  </td>
+                  <td className="actions-cell">
+                    <button
+                      className="btn-icon btn-history"
+                      onClick={() => setExecutionHistorySchedule(schedule)}
+                      title="View Execution History"
+                    >
+                      📊
+                    </button>
                   </td>
                 </tr>
               ))
@@ -311,6 +323,17 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
             </form>
           </div>
         </div>
+      )}
+
+      {executionHistorySchedule && (
+        <ExecutionHistoryModal
+          tenantName={tenantName}
+          filterType="schedule"
+          filterValue={executionHistorySchedule.schedule_id}
+          targetAlias={executionHistorySchedule.target_alias}
+          title={`${executionHistorySchedule.schedule_id} (${executionHistorySchedule.target_alias})`}
+          onClose={() => setExecutionHistorySchedule(null)}
+        />
       )}
     </div>
   );

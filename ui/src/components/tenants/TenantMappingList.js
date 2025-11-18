@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import authenticatedFetch from '../../utils/api';
+import ExecutionHistoryModal from '../common/ExecutionHistoryModal';
+import { validateUrlSafeIdentifier, handleUrlSafeInput } from '../../utils/validation';
 
 const TenantMappingList = ({ tenantName = 'admin' }) => {
   const [mappings, setMappings] = useState([]);
   const [targets, setTargets] = useState([]);
-  const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('');
   const [selectedMapping, setSelectedMapping] = useState(null);
+  const [executionHistoryMapping, setExecutionHistoryMapping] = useState(null);
 
-  // Fetch targets, tenants, and mappings from API
+  // Fetch targets and mappings from API
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -21,13 +23,6 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
         if (targetsResponse.ok) {
           const targetsData = await targetsResponse.json();
           setTargets(targetsData.targets || []);
-        }
-
-        // Fetch tenants for dropdown
-        const tenantsResponse = await authenticatedFetch('../tenants');
-        if (tenantsResponse.ok) {
-          const tenantsData = await tenantsResponse.json();
-          setTenants(tenantsData.tenants || []);
         }
 
         // Fetch mappings for admin tenant
@@ -99,19 +94,14 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
     });
   };
 
-  const validateTargetAlias = (alias) => {
-    // Only allow lowercase alphanumeric and underscores, max 36 characters
-    const aliasRegex = /^[a-z0-9_]{1,36}$/;
-    return aliasRegex.test(alias);
-  };
-
   const handleSave = async (e) => {
     e.preventDefault();
 
     try {
       // Validate target_alias
-      if (!validateTargetAlias(selectedMapping.target_alias)) {
-        alert('Invalid Target Alias. Only lowercase letters, numbers, and underscores are allowed (max 36 characters).\nExample: calc_lambda');
+      const validationError = validateUrlSafeIdentifier(selectedMapping.target_alias, 'Target Alias');
+      if (validationError) {
+        alert(validationError + '\nExample: calc-lambda');
         return;
       }
       const isNew = !mappings.find(m => 
@@ -235,26 +225,27 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
               <th>Target Alias</th>
               <th>Target ID</th>
               <th>Description</th>
+              <th>History</th>
             </tr>
           </thead>
           <tbody>
             {filteredMappings.length === 0 ? (
               <tr>
-                <td colSpan="5" className="text-center">No links found</td>
+                <td colSpan="6" className="text-center">No links found</td>
               </tr>
             ) : (
               filteredMappings.map((mapping) => (
                 <tr key={`${mapping.tenant_id}-${mapping.target_alias}`}>
                   <td className="actions-cell">
-                    <button 
-                      className="btn-icon btn-edit" 
+                    <button
+                      className="btn-icon btn-edit"
                       onClick={() => handleEdit(mapping)}
                       title="Edit"
                     >
                       ✏️
                     </button>
-                    <button 
-                      className="btn-icon btn-delete" 
+                    <button
+                      className="btn-icon btn-delete"
                       onClick={() => handleDelete(mapping.tenant_id, mapping.target_alias)}
                       title="Delete"
                     >
@@ -265,6 +256,15 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
                   <td>{mapping.target_alias}</td>
                   <td>{mapping.target_id}</td>
                   <td>{mapping.description}</td>
+                  <td className="actions-cell">
+                    <button
+                      className="btn-icon btn-history"
+                      onClick={() => setExecutionHistoryMapping(mapping)}
+                      title="View Execution History"
+                    >
+                      📊
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
@@ -292,12 +292,12 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
                 <input
                   type="text"
                   value={selectedMapping.target_alias}
-                  onChange={(e) => setSelectedMapping({...selectedMapping, target_alias: e.target.value.toLowerCase()})}
+                  onChange={handleUrlSafeInput((value) => setSelectedMapping({...selectedMapping, target_alias: value}))}
                   disabled={!!mappings.find(m => m.tenant_id === selectedMapping.tenant_id && m.target_alias === selectedMapping.target_alias)}
-                  placeholder="calc_lambda"
+                  placeholder="CalcLambda"
                   maxLength={36}
-                  pattern="[a-z0-9_]{1,36}"
-                  title="Only lowercase letters, numbers, and underscores (max 36 characters)"
+                  pattern="[a-zA-Z0-9_-]{1,36}"
+                  title="Only letters, numbers, underscores, and hyphens (max 36 characters)"
                   required
                 />
               </div>
@@ -386,6 +386,16 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
             </form>
           </div>
         </div>
+      )}
+
+      {executionHistoryMapping && (
+        <ExecutionHistoryModal
+          tenantName={executionHistoryMapping.tenant_id}
+          filterType="alias"
+          filterValue={executionHistoryMapping.target_alias}
+          title={`${executionHistoryMapping.target_alias} (${executionHistoryMapping.target_id})`}
+          onClose={() => setExecutionHistoryMapping(null)}
+        />
       )}
     </div>
   );
