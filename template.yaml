@@ -732,7 +732,7 @@ Resources:
 
   # Note: Step Functions doesn't require explicit permission resource like Lambda
   # EventBridge Scheduler can invoke Step Functions via the EventBridgeSchedulerRole
-  # which has states:StartExecution permission (see lines 533-537 above)
+  # which has states:StartExecution permission (see lines 435-440 above)
 
   # --------------------------------------------------------------------------
   # App Lambda IAM Role
