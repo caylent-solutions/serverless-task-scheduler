@@ -1,9 +1,0 @@
-{
-  "tenant_id": "jer",
-  "target_alias": "calculator",
-  "schedule_id": "daily-calculation",
-  "payload": {
-    "operation": "add",
-    "numbers": [1, 2, 3, 4, 5]
-  }
-}
