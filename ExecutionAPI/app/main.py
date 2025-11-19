@@ -240,12 +240,9 @@ def custom_openapi():
 
     from .routers.openapi import helpers
     try:
-        logger.info("========== custom_openapi method called ==========")
         # Generate the OpenAPI schema with all routes
         db_client = get_database_client()
-        logger.info(f"Calling helpers.get_open_api_endpoint with {len(app.routes)} routes")
         openapi_schema = helpers.get_open_api_endpoint(app_routes=app.routes, db=db_client)
-        logger.info("helpers.get_open_api_endpoint returned successfully")
 
         # Cache it
         app.openapi_schema = openapi_schema
@@ -390,7 +387,6 @@ def load_targets_on_startup():
     _init_done = True
 
     logger.info("Loading targets on startup")
-    logger.info(f"This is me trying to understand when this is called")
 
     # Initialize admin tenant before loading targets
     initialize_admin_tenant()

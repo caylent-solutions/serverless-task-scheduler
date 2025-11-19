@@ -178,7 +178,6 @@ class OpenAPIHelpers:
         Returns:
             Enhanced OpenAPI schema with target-specific request body schemas
         """
-        logger.info("========== _inject_target_schemas CALLED ==========")
         try:
             # Get all tenant mappings to know which target_alias -> target_id mappings exist
             # We'll create schema components for each unique target
@@ -187,14 +186,11 @@ class OpenAPIHelpers:
             # Fetch all targets from database
             try:
                 targets = db.get_all_targets()
-                logger.info(f"Fetched {len(targets)} targets from database")
                 for target in targets:
                     target_id = target.get('target_id')
                     target_schema = target.get('target_parameter_schema', {})
                     if target_id and target_schema:
                         targets_cache[target_id] = target_schema
-                        logger.info(f"Cached schema for target: {target_id}")
-                logger.info(f"Total targets in cache: {list(targets_cache.keys())}")
             except Exception as e:
                 logger.error(f"Failed to fetch targets for OpenAPI schema enhancement: {e}")
                 return openapi_schema
@@ -203,15 +199,11 @@ class OpenAPIHelpers:
             paths = openapi_schema.get('paths', {})
 
             # Also enhance GET /targets/{target_id} endpoints with real schemas as examples
-            logger.info(f"Processing {len(paths)} paths in OpenAPI schema")
             for path, path_item in paths.items():
-                logger.info(f"Checking path: {path}")
                 if path.startswith('/targets/') and '{' not in path.replace('/targets/', '', 1):
                     # This is a specific target endpoint like /targets/calculator
                     target_id = path.replace('/targets/', '')
-                    logger.info(f"Found target endpoint: {path} -> target_id={target_id}")
                     if target_id in targets_cache:
-                        logger.info(f"Target {target_id} found in cache, injecting schema")
                         get_operation = path_item.get('get', {})
                         if get_operation:
                             # Replace the $ref with an inline schema that includes the actual target_parameter_schema
@@ -336,7 +328,6 @@ class OpenAPIHelpers:
             }
 
             openapi_schema['paths'] = paths
-            logger.info("Successfully injected target schemas into OpenAPI spec")
 
         except Exception as e:
             logger.error(f"Error injecting target schemas: {e}")

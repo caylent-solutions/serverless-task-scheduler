@@ -136,15 +136,6 @@ async def get_user_info(current_user: dict = Depends(get_current_user)):
         # Check if user is admin (member of 'admin' tenant)
         user_is_admin = 'admin' in tenants
 
-        # Debug logging
-        logger.info("===== USER INFO DEBUG =====")
-        logger.info(f"Full Cognito claims: {current_user}")
-        logger.info(f"Extracted email: {email}")
-        logger.info(f"Extracted username: {username}")
-        logger.info(f"Tenants from database: {tenants}")
-        logger.info(f"Is admin (member of 'admin' tenant): {user_is_admin}")
-        logger.info("===========================")
-
         return UserInfo(
             email=email,
             username=username,
