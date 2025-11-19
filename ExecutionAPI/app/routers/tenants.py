@@ -733,6 +733,35 @@ async def redrive_execution(
         # Initialize Step Functions client
         sfn_client = boto3.client('stepfunctions')
 
+        # Record initial IN_PROGRESS status before redriving
+        try:
+            from datetime import datetime, timezone, timedelta
+
+            timestamp = datetime.now(timezone.utc).isoformat()
+            tenant_schedule = execution_record.get('tenant_schedule')
+
+            # Calculate TTL: 45 days from now (in seconds since epoch)
+            ttl_date = datetime.now(timezone.utc) + timedelta(days=45)
+            ttl = int(ttl_date.timestamp())
+
+            # Update the execution record to IN_PROGRESS status
+            table.put_item(Item={
+                'tenant_schedule': tenant_schedule,
+                'execution_id': execution_id,
+                'tenant_target': tenant_target,
+                'timestamp': timestamp,
+                'status': 'IN_PROGRESS',
+                'result': {},
+                'executed_at': timestamp,
+                'state_machine_execution_arn': execution_id,
+                'execution_start_time': timestamp,
+                'ttl': ttl
+            })
+            logger.info(f"Updated execution to IN_PROGRESS before redrive: {execution_id}")
+        except Exception as e:
+            logger.warning(f"Failed to update execution status to IN_PROGRESS: {e}")
+            # Continue with redrive even if status update fails
+
         # Call Step Functions redrive API
         # Note: Using RedriveExecution API (boto3 >= 1.34.0)
         try:

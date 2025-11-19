@@ -624,6 +624,13 @@ Resources:
                   - dynamodb:PutItem
                 Resource:
                   - !GetAtt TargetExecutionsTable.Arn
+
+              # Step Functions read access to get execution details
+              - Effect: Allow
+                Action:
+                  - states:DescribeExecution
+                Resource:
+                  - !Sub 'arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:*'
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Tags:
@@ -647,7 +654,6 @@ Resources:
       DefinitionSubstitutions:
         PreprocessingLambdaArn: !GetAtt PreprocessingLambda.Arn
         LambdaExecutionHelperArn: !GetAtt LambdaExecutionHelperLambda.Arn
-        PostprocessingLambdaArn: !GetAtt PostprocessingLambda.Arn
       Role: !GetAtt ExecutorStateMachineRole.Arn
       Type: STANDARD
       Tracing:
@@ -732,6 +738,42 @@ Resources:
           Value: !Ref Environment
         - Key: cfn:stack
           Value: !Ref StackName
+
+  # --------------------------------------------------------------------------
+  # EventBridge Rule for Step Functions Execution Status Changes
+  # --------------------------------------------------------------------------
+  ExecutionStatusEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub
+        - ${StackName}-${Environment}-exec-status-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      Description: Capture Step Functions execution status changes and update DynamoDB
+      EventPattern:
+        source:
+          - aws.states
+        detail-type:
+          - Step Functions Execution Status Change
+        detail:
+          stateMachineArn:
+            - !Ref ExecutorStateMachine
+          status:
+            - SUCCEEDED
+            - FAILED
+            - TIMED_OUT
+            - ABORTED
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt PostprocessingLambda.Arn
+          Id: PostprocessingLambdaTarget
+
+  ExecutionStatusEventPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PostprocessingLambda
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ExecutionStatusEventRule.Arn
 
   # Note: Step Functions doesn't require explicit permission resource like Lambda
   # EventBridge Scheduler can invoke Step Functions via the EventBridgeSchedulerRole

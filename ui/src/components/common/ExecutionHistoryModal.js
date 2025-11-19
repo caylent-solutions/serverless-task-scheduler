@@ -21,65 +21,65 @@ const ExecutionHistoryModal = ({
   const [startTimeUpper, setStartTimeUpper] = useState('');
 
   // Fetch executions from API
-  useEffect(() => {
-    const fetchExecutions = async () => {
-      try {
-        setLoading(true);
+  const fetchExecutions = async () => {
+    try {
+      setLoading(true);
 
-        // Build the correct API endpoint based on filter type
-        // For schedules: GET /tenants/{tenant_id}/mappings/{target_alias}/schedules/{schedule_id}/executions
-        // For aliases: GET /tenants/{tenant_id}/mappings/{target_alias}/executions
+      // Build the correct API endpoint based on filter type
+      // For schedules: GET /tenants/{tenant_id}/mappings/{target_alias}/schedules/{schedule_id}/executions
+      // For aliases: GET /tenants/{tenant_id}/mappings/{target_alias}/executions
 
-        // Build query parameters for filtering
-        const params = new URLSearchParams();
-        params.append('limit', '50');
+      // Build query parameters for filtering
+      const params = new URLSearchParams();
+      params.append('limit', '50');
 
-        if (startTimeLower) {
-          params.append('start_time_lower', new Date(startTimeLower).toISOString());
-        }
-
-        if (startTimeUpper) {
-          params.append('start_time_upper', new Date(startTimeUpper).toISOString());
-        }
-
-        if (statusFilter !== 'all') {
-          params.append('status', statusFilter);
-        }
-
-        let apiUrl;
-        if (filterType === 'schedule') {
-          // For schedule filtering: use schedule_id and target_alias
-          apiUrl = `../tenants/${tenantName}/mappings/${targetAlias}/schedules/${filterValue}/executions?${params.toString()}`;
-        } else {
-          // For alias filtering: filterValue is the target_alias
-          apiUrl = `../tenants/${tenantName}/mappings/${filterValue}/executions?${params.toString()}`;
-        }
-
-        const response = await authenticatedFetch(apiUrl);
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch executions: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        // Handle both array response and object with executions property
-        const executionsData = Array.isArray(data) ? data : (data.executions || []);
-        setExecutions(executionsData);
-        setError(null);
-
-        // Clear redriving state when new data is fetched
-        setRedrivingExecutions(new Set());
-      } catch (err) {
-        console.error('Error fetching executions:', err);
-        setError(err.message);
-        // Set mock data for development if API not available
-        setExecutions(generateMockExecutions(filterValue));
-      } finally {
-        setLoading(false);
+      if (startTimeLower) {
+        params.append('start_time_lower', new Date(startTimeLower).toISOString());
       }
-    };
 
+      if (startTimeUpper) {
+        params.append('start_time_upper', new Date(startTimeUpper).toISOString());
+      }
+
+      if (statusFilter !== 'all') {
+        params.append('status', statusFilter);
+      }
+
+      let apiUrl;
+      if (filterType === 'schedule') {
+        // For schedule filtering: use schedule_id and target_alias
+        apiUrl = `../tenants/${tenantName}/mappings/${targetAlias}/schedules/${filterValue}/executions?${params.toString()}`;
+      } else {
+        // For alias filtering: filterValue is the target_alias
+        apiUrl = `../tenants/${tenantName}/mappings/${filterValue}/executions?${params.toString()}`;
+      }
+
+      const response = await authenticatedFetch(apiUrl);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch executions: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Handle both array response and object with executions property
+      const executionsData = Array.isArray(data) ? data : (data.executions || []);
+      setExecutions(executionsData);
+      setError(null);
+
+      // Clear redriving state when new data is fetched
+      setRedrivingExecutions(new Set());
+    } catch (err) {
+      console.error('Error fetching executions:', err);
+      setError(err.message);
+      // Set mock data for development if API not available
+      setExecutions(generateMockExecutions(filterValue));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchExecutions();
   }, [tenantName, filterType, filterValue, targetAlias, statusFilter, startTimeLower, startTimeUpper]);
 
@@ -248,8 +248,18 @@ const ExecutionHistoryModal = ({
           </div>
 
           {/* Results Info */}
-          <div className="results-info">
-            Showing {filteredExecutions.length} of {executions.length} executions (limited to 50 most recent)
+          <div className="results-info-container">
+            <div className="results-info">
+              Showing {filteredExecutions.length} of {executions.length} executions (limited to 50 most recent)
+            </div>
+            <button
+              className="btn btn-refresh"
+              onClick={fetchExecutions}
+              disabled={loading}
+              title="Refresh executions list"
+            >
+              {loading ? '⟳ Refreshing...' : '🔄 Refresh'}
+            </button>
           </div>
 
           {/* Executions Table */}

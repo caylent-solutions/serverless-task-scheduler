@@ -66,58 +66,100 @@ VERBOSE_LOGGING = APP_ENV in ['dev', 'qa', 'uat']
 def handler(event, context):
     """
     Postprocessing handler for ExecutorStepFunction.
+    Handles EventBridge Step Functions execution status change events.
 
     Args:
-        event: Execution result from Step Functions
+        event: EventBridge event with Step Functions execution status
         context: Lambda context
 
     Returns:
         Confirmation of recorded execution
     """
     if VERBOSE_LOGGING:
-        logger.info(f"Recording execution: {json.dumps(event, default=str)}")
-    else:
-        logger.info(f"Recording execution for tenant={event.get('tenant_id')}, status={event.get('status')}")
+        logger.info(f"Received event: {json.dumps(event, default=str)}")
 
     try:
-        # Extract parameters
-        tenant_id = event['tenant_id']
-        target_alias = event['target_alias']
-        schedule_id = event.get('schedule_id', 'unknown')
-        execution_result = event.get('execution_result', {})
-        status = event['status']
-        state_machine_execution_arn = event.get('state_machine_execution_arn', 'unknown')
-        execution_start_time = event.get('execution_start_time', datetime.now(timezone.utc).isoformat())
-
-        # Additional failure information
-        failed_state = event.get('failed_state')
-        redrive_info = event.get('redrive_info', {})
-
-        # Record execution
-        execution_id = record_execution(
-            tenant_id=tenant_id,
-            target_alias=target_alias,
-            schedule_id=schedule_id,
-            result=execution_result,
-            status=status,
-            state_machine_execution_arn=state_machine_execution_arn,
-            execution_start_time=execution_start_time,
-            failed_state=failed_state,
-            redrive_info=redrive_info
-        )
-
-        logger.info(f"Successfully recorded execution: {execution_id}")
-        return {
-            'status': 'recorded',
-            'execution_id': execution_id
-        }
-
+        return handle_eventbridge_event(event, context)
     except KeyError as e:
         logger.error(f"Missing required field: {e}")
         raise ValueError(f"Missing required field: {e}")
     except Exception as e:
         logger.error(f"Failed to record execution: {str(e)}", exc_info=True)
         raise
+
+
+def handle_eventbridge_event(event, context):
+    """
+    Handle EventBridge Step Functions execution status change event.
+
+    Args:
+        event: EventBridge event
+        context: Lambda context
+
+    Returns:
+        Confirmation of recorded execution
+    """
+    detail = event['detail']
+    execution_arn = detail['executionArn']
+    status = detail['status']  # SUCCEEDED, FAILED, TIMED_OUT, ABORTED
+
+    # Get execution details from Step Functions
+    execution_details = sfn_client.describe_execution(executionArn=execution_arn)
+
+    # Parse input to get tenant_id, target_alias, schedule_id
+    input_data = json.loads(execution_details['input'])
+
+    # Map Step Functions status to our status
+    if status == 'SUCCEEDED':
+        our_status = 'SUCCESS'
+        # Get output for successful executions
+        output_data = json.loads(execution_details.get('output', '{}'))
+        execution_result = output_data.get('execution_result', {})
+        failed_state = None
+        redrive_info = None
+    else:
+        our_status = 'FAILED'
+        # For failures, get error details
+        execution_result = {
+            'Error': detail.get('error', status),
+            'Cause': detail.get('cause', f'Execution {status.lower()}')
+        }
+        failed_state = detail.get('stopDate', 'Unknown')
+        redrive_info = {
+            'can_redrive': True,
+            'redrive_from_state': 'ExecuteTargetWithErrorHandling',
+            'message': f'Execution {status.lower()}. Can be redriven from the Parallel state.'
+        }
+
+    tenant_id = input_data.get('tenant_id')
+    target_alias = input_data.get('target_alias')
+    schedule_id = input_data.get('schedule_id', 'unknown')
+
+    # Extract execution name (UUID) from ARN
+    execution_name = execution_arn.split(':')[-1]
+    execution_start_time = execution_details['startDate'].isoformat()
+
+    if VERBOSE_LOGGING:
+        logger.info(f"Processing EventBridge event: tenant={tenant_id}, status={our_status}")
+
+    # Record execution
+    execution_id = record_execution(
+        tenant_id=tenant_id,
+        target_alias=target_alias,
+        schedule_id=schedule_id,
+        result=execution_result,
+        status=our_status,
+        state_machine_execution_arn=execution_name,
+        execution_start_time=execution_start_time,
+        failed_state=failed_state,
+        redrive_info=redrive_info
+    )
+
+    logger.info(f"Successfully recorded execution from EventBridge: {execution_id}")
+    return {
+        'status': 'recorded',
+        'execution_id': execution_id
+    }
 
 
 def record_execution(

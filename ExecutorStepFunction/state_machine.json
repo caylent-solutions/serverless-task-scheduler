@@ -15,13 +15,6 @@
           "BackoffRate": 2.0
         }
       ],
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "ResultPath": "$.error",
-          "Next": "RecordFailure"
-        }
-      ],
       "Next": "ExecuteTargetWithErrorHandling"
     },
     "ExecuteTargetWithErrorHandling": {
@@ -120,61 +113,12 @@
         "target_alias.$": "$[0].target_alias",
         "schedule_id.$": "$[0].schedule_id"
       },
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "ResultPath": "$.error",
-          "Next": "RecordFailure"
-        }
-      ],
-      "Next": "RecordSuccess"
+      "Next": "EventBridgeHandoff"
     },
-    "RecordSuccess": {
-      "Type": "Task",
-      "Comment": "Record successful execution to DynamoDB",
-      "Resource": "${PostprocessingLambdaArn}",
-      "Parameters": {
-        "tenant_id.$": "$.tenant_id",
-        "target_alias.$": "$.target_alias",
-        "schedule_id.$": "$.schedule_id",
-        "execution_result.$": "$.execution_result",
-        "status": "SUCCESS",
-        "state_machine_execution_arn.$": "$$.Execution.Name",
-        "execution_start_time.$": "$$.Execution.StartTime"
-      },
-      "ResultPath": "$.record_result",
-      "Next": "ExecutionSucceeded"
-    },
-    "RecordFailure": {
-      "Type": "Task",
-      "Comment": "Record failed execution to DynamoDB with error details and redrive info",
-      "Resource": "${PostprocessingLambdaArn}",
-      "Parameters": {
-        "tenant_id.$": "$.tenant_id",
-        "target_alias.$": "$.target_alias",
-        "schedule_id.$": "$.schedule_id",
-        "execution_result.$": "$.error",
-        "status": "FAILED",
-        "state_machine_execution_arn.$": "$$.Execution.Name",
-        "execution_start_time.$": "$$.Execution.StartTime",
-        "failed_state.$": "$$.State.Name",
-        "redrive_info": {
-          "can_redrive": true,
-          "redrive_from_state": "ExecuteTargetWithErrorHandling"
-        }
-      },
-      "ResultPath": "$.record_result",
-      "Next": "ExecutionFailed"
-    },
-    "ExecutionFailed": {
-      "Type": "Fail",
-      "Comment": "Execution failed - error details recorded in DynamoDB",
-      "Error": "TargetExecutionFailed",
-      "Cause": "Target execution failed. Check DynamoDB execution record for details."
-    },
-    "ExecutionSucceeded": {
-      "Type": "Succeed",
-      "Comment": "Execution completed successfully"
+    "EventBridgeHandoff": {
+      "Type": "Pass",
+      "Comment": "Execution complete. EventBridge rule automatically triggers postprocessing Lambda to record execution status in DynamoDB.",
+      "End": true
     }
   }
 }

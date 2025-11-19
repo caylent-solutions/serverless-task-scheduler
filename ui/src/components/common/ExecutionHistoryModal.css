@@ -102,10 +102,17 @@
 }
 
 /* Results Info */
+.results-info-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  gap: 16px;
+}
+
 .results-info {
   font-size: 14px;
   color: #666;
-  padding: 8px 0;
 }
 
 /* Loading and Error States */
@@ -217,6 +224,11 @@
   color: #ef6c00;
 }
 
+.status-badge.status-in_progress {
+  background-color: #fff9c4;
+  color: #f57f17;
+}
+
 .status-badge.status-unknown {
   background-color: #f5f5f5;
   color: #666;
@@ -263,17 +275,33 @@
   background-color: #e0e0e0;
 }
 
+.btn-refresh {
+  background-color: #2196F3;
+  color: white;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-refresh:hover:not(:disabled) {
+  background-color: #1976D2;
+}
+
+.btn-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-warning {
-  background-color: #ff9800;
+  background-color: #999;
   color: white;
 }
 
 .btn-warning:hover {
-  background-color: #f57c00;
+  background-color: #777;
 }
 
 .btn-warning:active {
-  background-color: #ef6c00;
+  background-color: #666;
 }
 
 .text-muted {
