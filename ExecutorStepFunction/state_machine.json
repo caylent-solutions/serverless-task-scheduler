@@ -6,6 +6,13 @@
       "Type": "Task",
       "Comment": "Resolve target from tenant mapping and merge payloads",
       "Resource": "${PreprocessingLambdaArn}",
+      "Parameters": {
+        "execution_id.$": "$$.Execution.Name",
+        "tenant_id.$": "$.tenant_id",
+        "target_alias.$": "$.target_alias",
+        "schedule_id.$": "$.schedule_id",
+        "payload.$": "$.payload"
+      },
       "ResultPath": "$",
       "Retry": [
         {

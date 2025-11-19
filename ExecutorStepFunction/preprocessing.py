@@ -164,8 +164,9 @@ def record_initial_execution(
         tenant_schedule = f"{tenant_id}#{schedule_id}"
         tenant_target = f"{tenant_id}#{target_alias}"
 
-        # Calculate TTL: 45 days from now (in seconds since epoch)
-        ttl_date = datetime.now(timezone.utc) + timedelta(days=45)
+        # Calculate TTL: 15 days from now (in seconds since epoch)
+        # This aligns with the 14-day redrive limit, giving 1 day buffer
+        ttl_date = datetime.now(timezone.utc) + timedelta(days=15)
         ttl = int(ttl_date.timestamp())
 
         item = {

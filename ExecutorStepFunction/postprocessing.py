@@ -201,8 +201,9 @@ def record_execution(
         # UUIDv7 is time-ordered so we get chronological sorting automatically
         execution_id = state_machine_execution_arn
 
-        # Calculate TTL: 45 days from now (in seconds since epoch)
-        ttl_date = datetime.now(timezone.utc) + timedelta(days=45)
+        # Calculate TTL: 15 days from now (in seconds since epoch)
+        # This aligns with the 14-day redrive limit, giving 1 day buffer
+        ttl_date = datetime.now(timezone.utc) + timedelta(days=15)
         ttl = int(ttl_date.timestamp())
 
         # Build the item to store
