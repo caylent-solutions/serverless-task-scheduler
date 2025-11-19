@@ -292,16 +292,21 @@
 }
 
 .btn-warning {
-  background-color: #999;
-  color: white;
+  background: linear-gradient(135deg, #97CA6F 0%, #7db555 100%);
+  color: #3d4a5c;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(151, 202, 111, 0.2);
 }
 
 .btn-warning:hover {
-  background-color: #777;
+  background: linear-gradient(135deg, #a8d67f 0%, #97CA6F 100%);
+  box-shadow: 0 4px 12px rgba(151, 202, 111, 0.3);
+  transform: translateY(-2px);
 }
 
 .btn-warning:active {
-  background-color: #666;
+  background: linear-gradient(135deg, #7db555 0%, #6da545 100%);
+  transform: translateY(0);
 }
 
 .text-muted {

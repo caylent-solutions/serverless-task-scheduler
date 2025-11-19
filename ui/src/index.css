@@ -596,6 +596,18 @@ code {
   border: 1px solid var(--color-teal);
 }
 
+.status-enabled {
+  background: linear-gradient(135deg, #d4edc4, #c5e4b5);
+  color: var(--color-dark-1);
+  border: 1px solid var(--color-green-primary);
+}
+
+.status-disabled {
+  background: linear-gradient(135deg, #fed7d7, #fcbdbd);
+  color: #742a2a;
+  border: 1px solid #fc8181;
+}
+
 /* Welcome Screen Styles */
 .welcome-section {
   text-align: center;
