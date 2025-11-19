@@ -13,8 +13,8 @@ import os
 from fastapi_events.middleware import EventHandlerASGIMiddleware
 from fastapi_events.handlers.local import local_handler
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import RedirectResponse, Response, FileResponse, HTMLResponse
+import mimetypes
 
 # Configure logging - use the custom handler from __init__.py
 logger = logging.getLogger("app")
@@ -180,13 +180,57 @@ async def logout_legacy(response: Response):
     response.delete_cookie("refreshToken")
     return RedirectResponse(url="/app/")
 
-# Serve static files from wwwroot at /app
-# html=True enables serving index.html for directory requests
-app.mount(
-    "/app",
-    StaticFiles(directory=os.path.join(os.path.dirname(__file__), "wwwroot"), html=True),
-    name="static_root",
-)
+# Custom static file serving for React app (StaticFiles doesn't work well with Mangum/Lambda)
+wwwroot_path = os.path.join(os.path.dirname(__file__), "wwwroot")
+logger.info(f"Setting up custom static file serving at /app with directory: {wwwroot_path}")
+logger.info(f"Directory exists: {os.path.exists(wwwroot_path)}")
+if os.path.exists(wwwroot_path):
+    logger.info(f"Directory contents: {os.listdir(wwwroot_path)}")
+
+@app.get("/app/{file_path:path}")
+async def serve_react_app(file_path: str):
+    """
+    Serve React app static files.
+    For directory requests or unknown files, serve index.html (SPA routing).
+    """
+    # Normalize the file path to prevent directory traversal
+    file_path = file_path.strip("/")
+
+    # If no file path or ends with /, serve index.html
+    if not file_path or file_path.endswith("/"):
+        full_path = os.path.join(wwwroot_path, "index.html")
+        logger.info(f"Serving index.html for path: {file_path}")
+    else:
+        full_path = os.path.join(wwwroot_path, file_path)
+        logger.info(f"Attempting to serve: {full_path}")
+
+    # Security: ensure the path is within wwwroot
+    try:
+        full_path = os.path.realpath(full_path)
+        wwwroot_realpath = os.path.realpath(wwwroot_path)
+        if not full_path.startswith(wwwroot_realpath):
+            logger.warning(f"Path traversal attempt blocked: {file_path}")
+            return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
+    except Exception as e:
+        logger.error(f"Error resolving path: {e}")
+        return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
+
+    # If file exists, serve it
+    if os.path.isfile(full_path):
+        # Determine media type
+        media_type, _ = mimetypes.guess_type(full_path)
+        logger.info(f"Serving file: {full_path} with media_type: {media_type}")
+        return FileResponse(full_path, media_type=media_type)
+
+    # If file doesn't exist, serve index.html (for SPA client-side routing)
+    index_path = os.path.join(wwwroot_path, "index.html")
+    if os.path.isfile(index_path):
+        logger.info(f"File not found, serving index.html for SPA routing: {file_path}")
+        return FileResponse(index_path, media_type="text/html")
+
+    # If even index.html doesn't exist, return 404
+    logger.error(f"File not found and no index.html: {file_path}")
+    return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
 
 # Override FastAPI's openapi() method to inject dynamic target schemas
 def custom_openapi():
