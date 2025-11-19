@@ -188,41 +188,40 @@ app.mount(
     name="static_root",
 )
 
-# # Add custom OpenAPI endpoint directly to main app to ensure it's called
-# @app.get("/openapi.json", include_in_schema=False)
-# async def custom_openapi():
-#     """Custom OpenAPI endpoint that handles dynamic models safely"""
-#     from .routers.openapi import helpers
-#     try:
-#         app.openapi_schema = None
-#         db_client = get_database_client()
-#         functions = db_client.get_all_functions()
-#         for function in functions:
-#             logger.info(f"Registering function: {function['function_id']}")
-#             # Dispatch route-added event for each function
-#             event = RouteChangedEvent(
-#                 name=function['function_id'],
-#                 description=function['function_description'],
-#                 path=f"/functions/{function['function_id']}",
-#                 parameters=function['function_parameter_schema']
-#             )
-#             app.include_router(helpers.add_dynamic_route(event))
-    
-#         # Pass the main app's routes to get the complete OpenAPI schema
-#         return helpers.get_open_api_endpoint(app_routes=app.routes)
-#     except Exception as e:
-#         logger.error(f"Error generating OpenAPI schema: {e}")
-#         # Return a minimal schema if generation fails
-#         return {
-#             "openapi": "3.0.0",
-#             "info": {
-#                 "title": "Function Execution Service - API Documentation",
-#                 "version": "1.0.0",
-#                 "description": "API for managing and executing functions"
-#             },
-#             "paths": {},
-#             "components": {}
-#         }
+# Override FastAPI's openapi() method to inject dynamic target schemas
+def custom_openapi():
+    """Custom OpenAPI schema generator that injects dynamic target schemas"""
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    from .routers.openapi import helpers
+    try:
+        logger.info("========== custom_openapi method called ==========")
+        # Generate the OpenAPI schema with all routes
+        db_client = get_database_client()
+        logger.info(f"Calling helpers.get_open_api_endpoint with {len(app.routes)} routes")
+        openapi_schema = helpers.get_open_api_endpoint(app_routes=app.routes, db=db_client)
+        logger.info("helpers.get_open_api_endpoint returned successfully")
+
+        # Cache it
+        app.openapi_schema = openapi_schema
+        return app.openapi_schema
+    except Exception as e:
+        logger.error(f"Error generating OpenAPI schema: {e}")
+        # Return a minimal schema if generation fails
+        return {
+            "openapi": "3.0.0",
+            "info": {
+                "title": "Target Execution Service - API Documentation",
+                "version": "1.0.0",
+                "description": "API for managing and executing targets"
+            },
+            "paths": {},
+            "components": {}
+        }
+
+# Replace FastAPI's openapi method with our custom one
+app.openapi = custom_openapi
 
 
 @local_handler.register(event_name="route-added")
