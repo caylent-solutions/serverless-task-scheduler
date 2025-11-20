@@ -29,7 +29,7 @@ class UserMapping(BaseModel):
 
     user_id: str = Field(..., description="Cognito user ID or email")
     tenant_id: str = Field(..., description="Tenant identifier")
-    create_date: Optional[str] = Field(default_factory=lambda: datetime.utcnow().isoformat(), description="Creation timestamp")
+    create_date: Optional[str] = Field(default_factory=lambda: datetime.now(datetime.timezone.utc).isoformat(), description="Creation timestamp")
     create_user: Optional[str] = Field(None, description="User who created this mapping")
 
 
