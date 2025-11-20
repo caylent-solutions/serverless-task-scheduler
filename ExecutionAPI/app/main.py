@@ -203,11 +203,17 @@ async def serve_react_app(file_path: str):
         full_path = os.path.join(wwwroot_path, file_path)
         logger.info(f"Attempting to serve: {full_path}")
 
-    # Security: ensure the path is within wwwroot
+    # Security: ensure the path is within wwwroot and prevent directory traversal
     try:
+        # Normalize path components to prevent traversal attempts
+        path_parts = [part for part in file_path.split('/') if part and part != '.' and part != '..']
+        safe_file_path = '/'.join(path_parts)
+        
+        full_path = os.path.join(wwwroot_path, safe_file_path)
         full_path = os.path.realpath(full_path)
         wwwroot_realpath = os.path.realpath(wwwroot_path)
-        if not full_path.startswith(wwwroot_realpath):
+        
+        if not full_path.startswith(wwwroot_realpath + os.sep) and full_path != wwwroot_realpath:
             logger.warning(f"Path traversal attempt blocked: {file_path}")
             return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
     except Exception as e:
