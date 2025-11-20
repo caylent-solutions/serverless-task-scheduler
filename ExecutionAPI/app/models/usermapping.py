@@ -3,7 +3,7 @@ UserMapping model - maps users to tenants for access control
 """
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class UserMapping(BaseModel):
