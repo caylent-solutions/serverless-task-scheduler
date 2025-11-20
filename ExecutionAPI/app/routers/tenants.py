@@ -649,3 +649,173 @@ async def list_executions(
     except Exception as e:
         logger.error(f"Error listing executions: {e}")
         raise HTTPException(status_code=500, detail="Error listing executions")
+
+
+@router.post("/tenants/{tenant_id}/mappings/{target_alias}/executions/{execution_id}/redrive")
+async def redrive_execution(
+    tenant_id: str,
+    target_alias: str,
+    execution_id: str,
+    _: dict = Depends(require_tenant_access)
+):
+    """
+    Re-drive a failed Step Functions execution using AWS Step Functions redrive capability.
+    This allows retrying a failed execution from the point of failure.
+
+    Args:
+        tenant_id: Tenant identifier
+        target_alias: Target alias for the execution
+        execution_id: Execution ID (UUIDv7 of the Step Functions execution)
+
+    Returns:
+        Information about the re-driven execution
+
+    Raises:
+        404: If execution not found or cannot be redriven
+        400: If execution is not in FAILED status
+        500: If redrive operation fails
+    """
+    import boto3
+    from botocore.exceptions import ClientError
+
+    try:
+        # Query DynamoDB using the tenant-target-index GSI to find the execution
+        tenant_target = f"{tenant_id}#{target_alias}"
+
+        dynamodb = boto3.resource('dynamodb')
+        executions_table_name = os.environ.get('DYNAMODB_EXECUTIONS_TABLE')
+        table = dynamodb.Table(executions_table_name)
+
+        # Query the GSI with tenant_target and filter by execution_id (UUIDv7)
+        # Note: Don't use Limit here as it applies before FilterExpression
+        response = table.query(
+            IndexName='tenant-target-index',
+            KeyConditionExpression='tenant_target = :tt',
+            FilterExpression='execution_id = :eid',
+            ExpressionAttributeValues={':tt': tenant_target, ':eid': execution_id}
+        )
+
+        items = response.get('Items', [])
+        if not items:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Execution '{execution_id}' not found for tenant '{tenant_id}' and target '{target_alias}'"
+            )
+
+        execution_record = items[0]
+
+        # Check if execution is in FAILED status
+        if execution_record.get('status') != 'FAILED':
+            raise HTTPException(
+                status_code=400,
+                detail=f"Only FAILED executions can be redriven. Current status: {execution_record.get('status')}"
+            )
+
+        # Check if execution can be redriven
+        if not execution_record.get('can_redrive', False):
+            raise HTTPException(
+                status_code=400,
+                detail="This execution cannot be redriven"
+            )
+
+        # Get the state machine ARN from environment and construct the full execution ARN
+        state_machine_arn = os.environ.get('STEP_FUNCTIONS_EXECUTOR_ARN')
+        if not state_machine_arn:
+            raise HTTPException(
+                status_code=500,
+                detail="State machine ARN not configured"
+            )
+
+        # Construct the full execution ARN using the execution_id (UUID)
+        # Format: arn:aws:states:region:account:execution:stateMachineName:executionName
+        sfn_execution_arn = f"{state_machine_arn.replace(':stateMachine:', ':execution:')}:{execution_id}"
+
+        # Initialize Step Functions client
+        sfn_client = boto3.client('stepfunctions')
+
+        # Call Step Functions redrive API
+        # Note: Using RedriveExecution API (boto3 >= 1.34.0)
+        try:
+            redrive_response = sfn_client.redrive_execution(
+                executionArn=sfn_execution_arn
+            )
+
+            logger.info(f"Successfully redriven execution: {sfn_execution_arn}")
+
+            # Only update status to IN_PROGRESS after redrive succeeds
+            try:
+                from datetime import datetime, timezone, timedelta
+
+                timestamp = datetime.now(timezone.utc).isoformat()
+                tenant_schedule = execution_record.get('tenant_schedule')
+
+                # Calculate TTL: 15 days from now (in seconds since epoch)
+                # This aligns with the 14-day redrive limit, giving 1 day buffer
+                ttl_date = datetime.now(timezone.utc) + timedelta(days=15)
+                ttl = int(ttl_date.timestamp())
+
+                # Update the execution record to IN_PROGRESS status
+                table.put_item(Item={
+                    'tenant_schedule': tenant_schedule,
+                    'execution_id': execution_id,
+                    'tenant_target': tenant_target,
+                    'timestamp': timestamp,
+                    'status': 'IN_PROGRESS',
+                    'result': {},
+                    'executed_at': timestamp,
+                    'state_machine_execution_arn': execution_id,
+                    'execution_start_time': timestamp,
+                    'ttl': ttl
+                })
+                logger.info(f"Updated execution to IN_PROGRESS after successful redrive: {execution_id}")
+            except Exception as e:
+                logger.warning(f"Failed to update execution status to IN_PROGRESS after redrive: {e}")
+                # Don't fail the request - redrive succeeded
+
+            return {
+                "status": "REDRIVEN",
+                "execution_id": execution_id,
+                "original_execution_arn": sfn_execution_arn,
+                "redrive_date": redrive_response.get('redriveDate'),
+                "redrive_count": redrive_response.get('redriveCount'),
+                "message": "Execution has been redriven successfully",
+                "note": "The execution will restart from the failed state. Check the executions list for updated status."
+            }
+
+        except AttributeError:
+            # Fallback for older boto3 versions without redrive_execution
+            logger.error("boto3 version does not support redrive_execution")
+            raise HTTPException(
+                status_code=500,
+                detail="Step Functions redrive feature requires boto3 >= 1.34.0. Please update the Lambda runtime dependencies."
+            )
+
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            error_message = e.response['Error']['Message']
+
+            if error_code == 'ExecutionNotRedrivable':
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Execution cannot be redriven: {error_message}"
+                )
+            elif error_code == 'ExecutionDoesNotExist':
+                raise HTTPException(
+                    status_code=404,
+                    detail="Step Functions execution not found or has been deleted"
+                )
+            else:
+                logger.error(f"Step Functions redrive failed: {error_code} - {error_message}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to redrive execution: {error_message}"
+                )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error during redrive: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unexpected error during redrive: {str(e)}"
+        )

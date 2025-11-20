@@ -10,7 +10,7 @@ from ..models.schedule import Schedule
 from ..awssdk.dynamodb import get_database_client
 from ..awssdk.lambdas import get_lambda_runner
 from ..awssdk.targets import get_target_invoker
-from ..models.target import TargetBase, Target, TargetList, RouteChangedEvent
+from ..models.target import TargetBase, Target, TargetList, RouteChangedEvent, TargetWithExecutionInfo
 from ..authorization import require_admin
 
 router = APIRouter()
@@ -24,18 +24,32 @@ scheduler = get_scheduler_client()
 
 def create_get_target(target_id):
     async def get_target():
-        """Get information about the target with the given parameters"""
+        """Get information about the target including execution endpoint for AI agents"""
         # Check if target still exists
         target = db_client.get_target(target_id)
         if not target:
             raise HTTPException(status_code=404, detail=f"Target '{target_id}' not found")
-        
-        # Return the target
-        return target
-    
+
+        # Flatten the parameter schema if it's nested under 'schema' key
+        parameter_schema = target.get('target_parameter_schema', {})
+        if isinstance(parameter_schema, dict) and 'schema' in parameter_schema:
+            parameter_schema = parameter_schema['schema']
+
+        # Enhance with execution information for AI agents
+        # Note: Execution must go through tenant context
+        target_with_execution = {
+            **target,
+            "target_parameter_schema": parameter_schema,
+            "execution_endpoint": f"/tenants/{{tenant_id}}/targets/{target_id}/_execute",
+            "execution_method": "POST",
+            "execution_requires_tenant_context": True
+        }
+
+        return target_with_execution
+
     # Set the function name and docstring
     get_target.__name__ = f"Get_info_{target_id}"
-    get_target.__doc__ = f"Get information about the {target_id} target"
+    get_target.__doc__ = f"Get information about the {target_id} target including how to execute it"
     return get_target
 
 def create_execute_target(target_id, execution_data_schema):
