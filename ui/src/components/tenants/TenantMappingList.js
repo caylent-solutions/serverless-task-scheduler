@@ -274,107 +274,107 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
 
       {selectedMapping && (
         <div className="modal-overlay" onClick={() => setSelectedMapping(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: '900px' }} onClick={(e) => e.stopPropagation()}>
             <h3>{mappings.find(m => m.tenant_id === selectedMapping.tenant_id && m.target_alias === selectedMapping.target_alias) ? 'Edit Link' : 'Add Link'}</h3>
             <form onSubmit={handleSave}>
-              <div className="form-group">
-                <label>Tenant ID</label>
-                <input
-                  type="text"
-                  value={selectedMapping.tenant_id}
-                  readOnly
-                  disabled
-                  className="bg-gray-100"
-                />
-              </div>
-              <div className="form-group">
-                <label>Target Alias</label>
-                <input
-                  type="text"
-                  value={selectedMapping.target_alias}
-                  onChange={handleUrlSafeInput((value) => setSelectedMapping({...selectedMapping, target_alias: value}))}
-                  disabled={!!mappings.find(m => m.tenant_id === selectedMapping.tenant_id && m.target_alias === selectedMapping.target_alias)}
-                  placeholder="CalcLambda"
-                  maxLength={36}
-                  pattern="[a-zA-Z0-9_-]{1,36}"
-                  title="Only letters, numbers, underscores, and hyphens (max 36 characters)"
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Target</label>
-                <select
-                  value={selectedMapping.target_id}
-                  onChange={(e) => setSelectedMapping({...selectedMapping, target_id: e.target.value})}
-                  required
-                >
-                  <option value="">Select a target...</option>
-                  {targets.map(target => (
-                    <option key={target.target_id} value={target.target_id}>
-                      {target.target_id} - {target.target_description}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Description</label>
-                <input 
-                  type="text" 
-                  value={selectedMapping.description}
-                  onChange={(e) => setSelectedMapping({...selectedMapping, description: e.target.value})}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Environment Variables - ECS Only (JSON)</label>
-                <textarea
-                  value={selectedMapping.environment_variables}
-                  onChange={(e) => setSelectedMapping({...selectedMapping, environment_variables: e.target.value})}
-                  rows={4}
-                  placeholder={`{
-  "LOG_LEVEL": "INFO",
-  "TIMEOUT": "30"
-}`}
-                />
-                <small style={{ color: 'var(--color-text-light)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
-                  Note: Environment variables are only supported for ECS targets. Step Functions and Lambda targets do not support runtime environment injection.
-                </small>
-              </div>
-              <div className="form-group">
-                <label>Default Payload (JSON)</label>
-                <textarea
-                  value={selectedMapping.default_payload}
-                  onChange={(e) => setSelectedMapping({...selectedMapping, default_payload: e.target.value})}
-                  rows={6}
-                  placeholder={`{
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                {/* Left Column - Basic Fields */}
+                <div>
+                  <div className="form-group">
+                    <label>Target Alias</label>
+                    <input
+                      type="text"
+                      value={selectedMapping.target_alias}
+                      onChange={handleUrlSafeInput((value) => setSelectedMapping({...selectedMapping, target_alias: value}))}
+                      disabled={!!mappings.find(m => m.tenant_id === selectedMapping.tenant_id && m.target_alias === selectedMapping.target_alias)}
+                      placeholder="CalcLambda"
+                      maxLength={36}
+                      pattern="[a-zA-Z0-9_-]{1,36}"
+                      title="Only letters, numbers, underscores, and hyphens (max 36 characters)"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Target</label>
+                    <select
+                      value={selectedMapping.target_id}
+                      onChange={(e) => setSelectedMapping({...selectedMapping, target_id: e.target.value})}
+                      required
+                    >
+                      <option value="">Select a target...</option>
+                      {targets.map(target => (
+                        <option key={target.target_id} value={target.target_id}>
+                          {target.target_id} - {target.target_description}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Description</label>
+                    <input
+                      type="text"
+                      value={selectedMapping.description}
+                      onChange={(e) => setSelectedMapping({...selectedMapping, description: e.target.value})}
+                      required
+                    />
+                  </div>
+                  {selectedMapping.last_update_user && (
+                    <>
+                      <div className="form-group">
+                        <label>Last Updated By</label>
+                        <input
+                          type="text"
+                          value={selectedMapping.last_update_user}
+                          readOnly
+                          disabled
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Last Updated</label>
+                        <input
+                          type="text"
+                          value={selectedMapping.last_update_date ? new Date(selectedMapping.last_update_date).toLocaleString() : '-'}
+                          readOnly
+                          disabled
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Right Column - JSON Fields */}
+                <div>
+                  <div className="form-group">
+                    <label>Default Payload (JSON)</label>
+                    <textarea
+                      value={selectedMapping.default_payload}
+                      onChange={(e) => setSelectedMapping({...selectedMapping, default_payload: e.target.value})}
+                      rows={10}
+                      placeholder={`{
   "action": "add",
   "x": "5",
   "y": "3"
 }`}
-                />
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Environment Variables - ECS Only (JSON)</label>
+                    <textarea
+                      value={selectedMapping.environment_variables}
+                      onChange={(e) => setSelectedMapping({...selectedMapping, environment_variables: e.target.value})}
+                      rows={10}
+                      placeholder={`{
+  "LOG_LEVEL": "INFO",
+  "TIMEOUT": "30"
+}`}
+                    />
+                    <small style={{ color: 'var(--color-text-light)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+                      Note: Environment variables are only supported for ECS targets. Step Functions and Lambda targets do not support runtime environment injection.
+                    </small>
+                  </div>
+                </div>
               </div>
-              {selectedMapping.last_update_user && (
-                <>
-                  <div className="form-group">
-                    <label>Last Updated By</label>
-                    <input 
-                      type="text" 
-                      value={selectedMapping.last_update_user}
-                      readOnly
-                      disabled
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Last Updated</label>
-                    <input 
-                      type="text" 
-                      value={selectedMapping.last_update_date ? new Date(selectedMapping.last_update_date).toLocaleString() : '-'}
-                      readOnly
-                      disabled
-                    />
-                  </div>
-                </>
-              )}
+
               <div className="form-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setSelectedMapping(null)}>
                   Cancel
