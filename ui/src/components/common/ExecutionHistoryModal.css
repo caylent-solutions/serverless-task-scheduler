@@ -49,11 +49,13 @@
 
 .execution-history-modal .modal-body {
   padding: 24px;
-  flex: 1;
-  overflow-y: auto;
+  flex: 1 1 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-height: 90%;
+  height: 0;
 }
 
 /* Filters Section */
@@ -118,13 +120,19 @@
 /* Loading and Error States */
 .loading-state,
 .error-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   padding: 40px;
   color: #666;
+  min-height: 0;
 }
 
 .error-state {
   color: #d32f2f;
+  flex-direction: column;
 }
 
 .error-message {
@@ -135,10 +143,12 @@
 
 /* Table Container */
 .table-container {
-  flex: 1;
+  flex: 1 1 0;
   overflow: auto;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
+  min-height: 0;
+  height: 0;
 }
 
 .executions-table {

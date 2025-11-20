@@ -331,7 +331,7 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
           filterType="schedule"
           filterValue={executionHistorySchedule.schedule_id}
           targetAlias={executionHistorySchedule.target_alias}
-          title={`${executionHistorySchedule.schedule_id} (${executionHistorySchedule.target_alias})`}
+          title={`${executionHistorySchedule.description?.length > 50 ? executionHistorySchedule.description.substring(0, 50) + '...' : executionHistorySchedule.description} (${executionHistorySchedule.target_alias})`}
           onClose={() => setExecutionHistorySchedule(null)}
         />
       )}
