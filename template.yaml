@@ -367,6 +367,10 @@ Resources:
       TracingEnabled: true
       # Disable default "Stage" stage creation
       DisableExecuteApiEndpoint: false
+      # Enable binary media types for images and other binary content
+      BinaryMediaTypes:
+        - image/*
+        - application/octet-stream
       Tags:
         caylent:owner: !Ref Owner
         caylent:env: !Ref Environment

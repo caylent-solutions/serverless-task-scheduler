@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Task Scheduler",
+  "name": "Serverless Task Scheduler",
   "icons": [
     {
       "src": "favicon.ico",
