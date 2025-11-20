@@ -85,10 +85,6 @@ async def log_and_time_requests(request: Request, call_next):
             # Check cookies
             if not auth_token:
                 auth_token = request.cookies.get('idToken') or request.cookies.get('accessToken')
-                if auth_token:
-                    logger.info(f"Found auth token in cookies for {request.url.path}")
-                else:
-                    logger.info(f"No auth token in cookies for {request.url.path}. Available cookies: {list(request.cookies.keys())}")
 
             # If authentication is configured, require valid token
             if os.environ.get('COGNITO_USER_POOL_ID'):
@@ -108,11 +104,10 @@ async def log_and_time_requests(request: Request, call_next):
                 try:
                     from .cognito_auth import get_token_verifier
                     verifier = get_token_verifier()
-                    logger.info(f"Verifying token for {request.url.path}")
                     claims = verifier.verify_token(auth_token)
                     if not claims:
                         # Token verification failed - redirect to login for /app, return 401 for API
-                        logger.warning(f"Token verification returned None for {request.url.path}")
+                        logger.warning(f"Invalid token for {request.url.path}")
                         if request.url.path.startswith("/app"):
                             return RedirectResponse(url="/")
                         else:
@@ -122,7 +117,6 @@ async def log_and_time_requests(request: Request, call_next):
                                 content={"detail": "Invalid or expired token"}
                             )
                     # Token is valid, attach user info to request
-                    logger.info(f"Token verified successfully for {request.url.path}. User: {claims.get('email', 'unknown')}")
                     request.state.user = claims
                 except ImportError:
                     # Cognito auth not available, proceed without authentication
