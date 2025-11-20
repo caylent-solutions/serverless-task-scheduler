@@ -13,8 +13,8 @@ import os
 from fastapi_events.middleware import EventHandlerASGIMiddleware
 from fastapi_events.handlers.local import local_handler
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import RedirectResponse, Response, FileResponse, HTMLResponse
+import mimetypes
 
 # Configure logging - use the custom handler from __init__.py
 logger = logging.getLogger("app")
@@ -64,14 +64,13 @@ async def log_and_time_requests(request: Request, call_next):
         # - GET /targets/{id} (reading target specs should be public)
         # - /auth/* (login, signup, etc.)
 
-        targets_prefix = f"/{base_path}/targets" if base_path else "/targets"
-        is_targets_path = request.url.path.startswith(targets_prefix)
-        is_mutating_targets = is_targets_path and request.method in ["POST", "PUT", "DELETE"]
-
+        # Note: FastAPI's root_path already strips the base path from request.url.path,
+        # so we should check paths without the base_path prefix
+        # All /targets operations now require authentication (GET requires admin, POST/PUT/DELETE are mutating)
         path_needs_auth = (
-            request.url.path.startswith(f"/{base_path}/user" if base_path else "/user") or
-            request.url.path.startswith(f"/{base_path}/tenants" if base_path else "/tenants") or
-            is_mutating_targets
+            request.url.path.startswith("/user") or
+            request.url.path.startswith("/tenants") or
+            request.url.path.startswith("/targets")
         )
 
         if path_needs_auth:
@@ -86,14 +85,14 @@ async def log_and_time_requests(request: Request, call_next):
             # Check cookies
             if not auth_token:
                 auth_token = request.cookies.get('idToken') or request.cookies.get('accessToken')
-            
+
             # If authentication is configured, require valid token
             if os.environ.get('COGNITO_USER_POOL_ID'):
                 if not auth_token:
                     # No token found - redirect to login
                     logger.warning(f"No authentication token found for {request.url.path}")
-                    if request.url.path.startswith(f"/{base_path}/app" if base_path else "/app"):
-                        return RedirectResponse(url=f"/{base_path}/" if base_path else "/")
+                    if request.url.path.startswith("/app"):
+                        return RedirectResponse(url="/")
                     else:
                         from fastapi.responses import JSONResponse
                         return JSONResponse(
@@ -109,8 +108,8 @@ async def log_and_time_requests(request: Request, call_next):
                     if not claims:
                         # Token verification failed - redirect to login for /app, return 401 for API
                         logger.warning(f"Invalid token for {request.url.path}")
-                        if request.url.path.startswith(f"/{base_path}/app" if base_path else "/app"):
-                            return RedirectResponse(url=f"/{base_path}/" if base_path else "/")
+                        if request.url.path.startswith("/app"):
+                            return RedirectResponse(url="/")
                         else:
                             from fastapi.responses import JSONResponse
                             return JSONResponse(
@@ -126,8 +125,8 @@ async def log_and_time_requests(request: Request, call_next):
                 except Exception as e:
                     logger.error(f"Token verification error: {e}")
                     # Redirect to login on error
-                    if request.url.path.startswith(f"/{base_path}/app" if base_path else "/app"):
-                        return RedirectResponse(url=f"/{base_path}/" if base_path else "/")
+                    if request.url.path.startswith("/app"):
+                        return RedirectResponse(url="/")
                     else:
                         from fastapi.responses import JSONResponse
                         return JSONResponse(
@@ -180,13 +179,63 @@ async def logout_legacy(response: Response):
     response.delete_cookie("refreshToken")
     return RedirectResponse(url="/app/")
 
-# Serve static files from wwwroot at /app
-# html=True enables serving index.html for directory requests
-app.mount(
-    "/app",
-    StaticFiles(directory=os.path.join(os.path.dirname(__file__), "wwwroot"), html=True),
-    name="static_root",
-)
+# Custom static file serving for React app (StaticFiles doesn't work well with Mangum/Lambda)
+wwwroot_path = os.path.join(os.path.dirname(__file__), "wwwroot")
+logger.info(f"Setting up custom static file serving at /app with directory: {wwwroot_path}")
+logger.info(f"Directory exists: {os.path.exists(wwwroot_path)}")
+if os.path.exists(wwwroot_path):
+    logger.info(f"Directory contents: {os.listdir(wwwroot_path)}")
+
+@app.get("/app/{file_path:path}")
+async def serve_react_app(file_path: str):
+    """
+    Serve React app static files.
+    For directory requests or unknown files, serve index.html (SPA routing).
+    """
+    # Normalize the file path to prevent directory traversal
+    file_path = file_path.strip("/")
+
+    # If no file path or ends with /, serve index.html
+    if not file_path or file_path.endswith("/"):
+        full_path = os.path.join(wwwroot_path, "index.html")
+        logger.info(f"Serving index.html for path: {file_path}")
+    else:
+        full_path = os.path.join(wwwroot_path, file_path)
+        logger.info(f"Attempting to serve: {full_path}")
+
+    # Security: ensure the path is within wwwroot and prevent directory traversal
+    try:
+        # Normalize path components to prevent traversal attempts
+        path_parts = [part for part in file_path.split('/') if part and part != '.' and part != '..']
+        safe_file_path = '/'.join(path_parts)
+        
+        full_path = os.path.join(wwwroot_path, safe_file_path)
+        full_path = os.path.realpath(full_path)
+        wwwroot_realpath = os.path.realpath(wwwroot_path)
+        
+        if not full_path.startswith(wwwroot_realpath + os.sep) and full_path != wwwroot_realpath:
+            logger.warning(f"Path traversal attempt blocked: {file_path}")
+            return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
+    except Exception as e:
+        logger.error(f"Error resolving path: {e}")
+        return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
+
+    # If file exists, serve it
+    if os.path.isfile(full_path):
+        # Determine media type
+        media_type, _ = mimetypes.guess_type(full_path)
+        logger.info(f"Serving file: {full_path} with media_type: {media_type}")
+        return FileResponse(full_path, media_type=media_type)
+
+    # If file doesn't exist, serve index.html (for SPA client-side routing)
+    index_path = os.path.join(wwwroot_path, "index.html")
+    if os.path.isfile(index_path):
+        logger.info(f"File not found, serving index.html for SPA routing: {file_path}")
+        return FileResponse(index_path, media_type="text/html")
+
+    # If even index.html doesn't exist, return 404
+    logger.error(f"File not found and no index.html: {file_path}")
+    return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
 
 # Override FastAPI's openapi() method to inject dynamic target schemas
 def custom_openapi():
@@ -196,12 +245,9 @@ def custom_openapi():
 
     from .routers.openapi import helpers
     try:
-        logger.info("========== custom_openapi method called ==========")
         # Generate the OpenAPI schema with all routes
         db_client = get_database_client()
-        logger.info(f"Calling helpers.get_open_api_endpoint with {len(app.routes)} routes")
         openapi_schema = helpers.get_open_api_endpoint(app_routes=app.routes, db=db_client)
-        logger.info("helpers.get_open_api_endpoint returned successfully")
 
         # Cache it
         app.openapi_schema = openapi_schema
@@ -346,7 +392,6 @@ def load_targets_on_startup():
     _init_done = True
 
     logger.info("Loading targets on startup")
-    logger.info(f"This is me trying to understand when this is called")
 
     # Initialize admin tenant before loading targets
     initialize_admin_tenant()

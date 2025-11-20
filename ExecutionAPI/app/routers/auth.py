@@ -88,18 +88,20 @@ async def login(credentials: LoginRequest, response: Response):
             httponly=True,
             secure=True,
             samesite='lax',
+            path="/",
             max_age=3600  # 1 hour
         )
-        
+
         response.set_cookie(
             key="accessToken",
             value=tokens['AccessToken'],
             httponly=True,
             secure=True,
             samesite='lax',
+            path="/",
             max_age=3600  # 1 hour
         )
-        
+
         if 'RefreshToken' in tokens:
             response.set_cookie(
                 key="refreshToken",
@@ -107,6 +109,7 @@ async def login(credentials: LoginRequest, response: Response):
                 httponly=True,
                 secure=True,
                 samesite='lax',
+                path="/",
                 max_age=2592000  # 30 days
             )
         
@@ -229,9 +232,9 @@ async def logout_endpoint(response: Response):
     """
     Logout user by clearing cookies
     """
-    response.delete_cookie("idToken")
-    response.delete_cookie("accessToken")
-    response.delete_cookie("refreshToken")
+    response.delete_cookie("idToken", path="/")
+    response.delete_cookie("accessToken", path="/")
+    response.delete_cookie("refreshToken", path="/")
 
     logger.info("User logged out")
 

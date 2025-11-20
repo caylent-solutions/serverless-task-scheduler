@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 from app.validation import validate_url_safe_identifier
 
 
@@ -8,7 +8,8 @@ class TenantBase(BaseModel):
     tenant_name: str
     description: Optional[str] = None
 
-    @validator('tenant_id')
+    @field_validator('tenant_id')
+    @classmethod
     def validate_tenant_id_format(cls, v):
         """Ensure tenant_id is URL-safe (lowercase alphanumeric, underscores, hyphens)."""
         return validate_url_safe_identifier(v, "tenant_id")
