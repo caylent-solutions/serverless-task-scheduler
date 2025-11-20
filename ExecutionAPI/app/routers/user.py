@@ -86,20 +86,23 @@ def is_admin(user_email: str) -> bool:
 async def get_current_user(request: Request) -> dict:
     """
     Dependency to get the current authenticated user
-    
+
     Returns:
         dict: User claims from Cognito token
+
+    Raises:
+        HTTPException: 401 if user is not authenticated
     """
     user = getattr(request.state, 'user', None)
-    
+
     if not user:
-        # For development/testing, return a default admin user
-        logger.warning("No user found in request state, returning default admin user")
-        return {
-            'email': get_admin_user_email(),
-            'cognito:username': 'admin'
-        }
-    
+        logger.warning("No authenticated user found in request state")
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
     return user
 
 

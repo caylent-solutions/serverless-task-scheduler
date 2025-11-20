@@ -64,14 +64,13 @@ async def log_and_time_requests(request: Request, call_next):
         # - GET /targets/{id} (reading target specs should be public)
         # - /auth/* (login, signup, etc.)
 
-        targets_prefix = f"/{base_path}/targets" if base_path else "/targets"
-        is_targets_path = request.url.path.startswith(targets_prefix)
-        is_mutating_targets = is_targets_path and request.method in ["POST", "PUT", "DELETE"]
-
+        # Note: FastAPI's root_path already strips the base path from request.url.path,
+        # so we should check paths without the base_path prefix
+        # All /targets operations now require authentication (GET requires admin, POST/PUT/DELETE are mutating)
         path_needs_auth = (
-            request.url.path.startswith(f"/{base_path}/user" if base_path else "/user") or
-            request.url.path.startswith(f"/{base_path}/tenants" if base_path else "/tenants") or
-            is_mutating_targets
+            request.url.path.startswith("/user") or
+            request.url.path.startswith("/tenants") or
+            request.url.path.startswith("/targets")
         )
 
         if path_needs_auth:
@@ -86,14 +85,18 @@ async def log_and_time_requests(request: Request, call_next):
             # Check cookies
             if not auth_token:
                 auth_token = request.cookies.get('idToken') or request.cookies.get('accessToken')
-            
+                if auth_token:
+                    logger.info(f"Found auth token in cookies for {request.url.path}")
+                else:
+                    logger.info(f"No auth token in cookies for {request.url.path}. Available cookies: {list(request.cookies.keys())}")
+
             # If authentication is configured, require valid token
             if os.environ.get('COGNITO_USER_POOL_ID'):
                 if not auth_token:
                     # No token found - redirect to login
                     logger.warning(f"No authentication token found for {request.url.path}")
-                    if request.url.path.startswith(f"/{base_path}/app" if base_path else "/app"):
-                        return RedirectResponse(url=f"/{base_path}/" if base_path else "/")
+                    if request.url.path.startswith("/app"):
+                        return RedirectResponse(url="/")
                     else:
                         from fastapi.responses import JSONResponse
                         return JSONResponse(
@@ -105,12 +108,13 @@ async def log_and_time_requests(request: Request, call_next):
                 try:
                     from .cognito_auth import get_token_verifier
                     verifier = get_token_verifier()
+                    logger.info(f"Verifying token for {request.url.path}")
                     claims = verifier.verify_token(auth_token)
                     if not claims:
                         # Token verification failed - redirect to login for /app, return 401 for API
-                        logger.warning(f"Invalid token for {request.url.path}")
-                        if request.url.path.startswith(f"/{base_path}/app" if base_path else "/app"):
-                            return RedirectResponse(url=f"/{base_path}/" if base_path else "/")
+                        logger.warning(f"Token verification returned None for {request.url.path}")
+                        if request.url.path.startswith("/app"):
+                            return RedirectResponse(url="/")
                         else:
                             from fastapi.responses import JSONResponse
                             return JSONResponse(
@@ -118,6 +122,7 @@ async def log_and_time_requests(request: Request, call_next):
                                 content={"detail": "Invalid or expired token"}
                             )
                     # Token is valid, attach user info to request
+                    logger.info(f"Token verified successfully for {request.url.path}. User: {claims.get('email', 'unknown')}")
                     request.state.user = claims
                 except ImportError:
                     # Cognito auth not available, proceed without authentication
@@ -126,8 +131,8 @@ async def log_and_time_requests(request: Request, call_next):
                 except Exception as e:
                     logger.error(f"Token verification error: {e}")
                     # Redirect to login on error
-                    if request.url.path.startswith(f"/{base_path}/app" if base_path else "/app"):
-                        return RedirectResponse(url=f"/{base_path}/" if base_path else "/")
+                    if request.url.path.startswith("/app"):
+                        return RedirectResponse(url="/")
                     else:
                         from fastapi.responses import JSONResponse
                         return JSONResponse(
