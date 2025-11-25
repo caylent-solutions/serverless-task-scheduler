@@ -2,32 +2,50 @@ import React, { useState } from 'react';
 
 const ExecutionModal = ({ schedule, onClose }) => {
   const [executions] = useState([
-    { 
-      id: 'exec-001', 
-      startDate: '2025-11-04 08:00:00', 
+    {
+      id: 'exec-001',
+      startDate: '2025-11-04 08:00:00',
       endDate: '2025-11-04 08:05:23',
       status: 'SUCCESS',
       cloudWatchLink: 'https://console.aws.amazon.com/cloudwatch/...'
     },
-    { 
-      id: 'exec-002', 
-      startDate: '2025-11-03 08:00:00', 
+    {
+      id: 'exec-002',
+      startDate: '2025-11-03 08:00:00',
       endDate: '2025-11-03 08:04:15',
       status: 'SUCCESS',
       cloudWatchLink: 'https://console.aws.amazon.com/cloudwatch/...'
     },
-    { 
-      id: 'exec-003', 
-      startDate: '2025-11-02 08:00:00', 
+    {
+      id: 'exec-003',
+      startDate: '2025-11-02 08:00:00',
       endDate: '2025-11-02 08:10:45',
       status: 'FAILED',
       cloudWatchLink: 'https://console.aws.amazon.com/cloudwatch/...'
     },
   ]);
 
+  // Safe URL navigation handler - validates URL before opening
+  const handleLinkClick = (e, url) => {
+    e.preventDefault();
+    if (!url) return;
+
+    try {
+      // Use URL constructor to validate and parse the URL
+      const urlObj = new URL(url);
+      // Only allow http and https protocols
+      if (urlObj.protocol === 'http:' || urlObj.protocol === 'https:') {
+        window.open(urlObj.href, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err) {
+      // Invalid URL, do nothing
+      console.error('Invalid URL:', err);
+    }
+  };
+
   const [filter, setFilter] = useState('');
 
-  const filteredExecutions = executions.filter(exec => 
+  const filteredExecutions = executions.filter(exec =>
     exec.id.toLowerCase().includes(filter.toLowerCase()) ||
     exec.status.toLowerCase().includes(filter.toLowerCase())
   );
@@ -80,14 +98,13 @@ const ExecutionModal = ({ schedule, onClose }) => {
                       </span>
                     </td>
                     <td>
-                      <a 
-                        href={execution.cloudWatchLink} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={(e) => handleLinkClick(e, execution.cloudWatchLink)}
                         className="btn-link"
+                        style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', textDecoration: 'underline' }}
                       >
                         🔗 View Logs
-                      </a>
+                      </button>
                     </td>
                   </tr>
                 ))}

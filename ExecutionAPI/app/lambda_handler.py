@@ -1,9 +1,11 @@
 import json
+import os
 from mangum import Mangum
 from .main import app
 
 # Create Mangum handler for API Gateway events
-mangum_handler = Mangum(app)
+# Let FastAPI's root_path handle the base path instead of Mangum
+mangum_handler = Mangum(app, lifespan="off")
 
 def handler(event, context):
     """
@@ -13,7 +15,8 @@ def handler(event, context):
     """
 
     # Log the event for debugging
-    print(f"Received event: {json.dumps(event, default=str)[:500]}...")
+    print(f"Received event: {json.dumps(event, default=str)[:1000]}...")
+    print(f"API_BASE_PATH env var: {os.environ.get('API_BASE_PATH', 'NOT SET')}")
 
     # Check if this is already in API Gateway v2 format
     # API Gateway v2 format has 'version', 'routeKey', and 'requestContext'
