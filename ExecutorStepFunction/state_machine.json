@@ -70,8 +70,9 @@
             },
             "ExecuteECSTarget": {
               "Type": "Task",
-              "Comment": "Execute ECS task with payload in environment variable",
-              "Resource": "arn:aws:states:::ecs:runTask.sync",
+              "Comment": "Execute ECS task with payload and task token for result callback",
+              "Resource": "arn:aws:states:::ecs:runTask.waitForTaskToken",
+              "HeartbeatSeconds": 300,
               "Parameters": {
                 "Cluster.$": "$.target_config.cluster",
                 "TaskDefinition.$": "$.target_config.task_definition",
@@ -82,6 +83,10 @@
                     {
                       "Name.$": "$.target_config.container_name",
                       "Environment": [
+                        {
+                          "Name": "TASK_TOKEN",
+                          "Value.$": "$$.Task.Token"
+                        },
                         {
                           "Name": "EXECUTION_PAYLOAD",
                           "Value.$": "States.JsonToString($.merged_payload)"

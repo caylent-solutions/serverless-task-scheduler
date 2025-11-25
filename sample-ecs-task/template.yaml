@@ -1,0 +1,262 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Sample ECS Task for Serverless Task Scheduler - Calculator
+
+Parameters:
+  Owner:
+    Type: String
+    Description: Owner responsible for this stack (use your current email address)
+    AllowedPattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+
+  Environment:
+    Type: String
+    Description: Deployment environment name (e.g., dev, staging, prod)
+    Default: 'dev'
+    AllowedPattern: '^[a-zA-Z0-9-]+$'
+
+  VpcId:
+    Type: String
+    Description: VPC ID where ECS tasks will run
+    Default: ''
+
+  SubnetIds:
+    Type: CommaDelimitedList
+    Description: Comma-delimited list of subnet IDs where ECS tasks will run
+    Default: ''
+
+  ImageUri:
+    Type: String
+    Description: ECR image URI (will be populated by deploy script)
+    Default: 'placeholder'
+
+  ClusterName:
+    Type: String
+    Description: ECS Cluster name (optional - will create new cluster if not provided)
+    Default: 'serverless-task-scheduler-cluster'
+
+Conditions:
+  UseExistingVpc: !Not [!Equals [!Ref VpcId, '']]
+
+Resources:
+  # ECR Repository for the calculator container
+  CalculatorRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: serverless-task-scheduler/calculator
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+
+  # ECS Cluster (only if cluster name is provided and doesn't exist)
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref ClusterName
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+          Base: 0
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+
+  # IAM Role for ECS Task Execution
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: CloudWatchLogsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt TaskLogGroup.Arn
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+
+  # IAM Role for ECS Task (for application-level permissions)
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: TaskPermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt TaskLogGroup.Arn
+              - Effect: Allow
+                Action:
+                  - states:SendTaskSuccess
+                  - states:SendTaskFailure
+                  - states:SendTaskHeartbeat
+                Description: Allow ECS task to send Step Functions task token callbacks
+                Resource: '*'
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+
+  # CloudWatch Log Group for ECS Task
+  TaskLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/calculator-task
+      RetentionInDays: 7
+
+  # ECS Task Definition
+  CalculatorTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: calculator-task
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: '256'
+      Memory: '512'
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+      ContainerDefinitions:
+        - Name: calculator
+          Image: !Ref ImageUri
+          Essential: true
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref TaskLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+          Environment:
+            - Name: LOG_LEVEL
+              Value: INFO
+          # EXECUTION_PAYLOAD will be provided as an override by Step Functions
+
+  # Security Group for ECS Tasks (if VPC is provided)
+  TaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: UseExistingVpc
+    Properties:
+      GroupDescription: Security group for calculator ECS tasks
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: Name
+          Value: !Sub '${ClusterName}-calculator-sg'
+
+Outputs:
+  RepositoryUri:
+    Description: ECR Repository URI
+    Value: !GetAtt CalculatorRepository.RepositoryUri
+    Export:
+      Name: !Sub '${AWS::StackName}-RepositoryUri'
+
+  TaskDefinitionArn:
+    Description: ECS Task Definition ARN
+    Value: !Ref CalculatorTaskDefinition
+    Export:
+      Name: !Sub '${AWS::StackName}-TaskDefinitionArn'
+
+  ClusterArn:
+    Description: ECS Cluster ARN
+    Value: !GetAtt ECSCluster.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ClusterArn'
+
+  ClusterName:
+    Description: ECS Cluster Name
+    Value: !Ref ClusterName
+    Export:
+      Name: !Sub '${AWS::StackName}-ClusterName'
+
+  TaskSecurityGroupId:
+    Description: Security Group ID for ECS Tasks
+    Value: !If [UseExistingVpc, !Ref TaskSecurityGroup, 'N/A - No VPC provided']
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroupId'
+
+  SampleTargetConfig:
+    Description: Sample target configuration for Serverless Task Scheduler
+    Value: !Sub |
+      {
+        "target_type": "ecs",
+        "target_alias": "calculator-ecs",
+        "target_config": {
+          "cluster": "${ECSCluster.Arn}",
+          "task_definition": "${CalculatorTaskDefinition}",
+          "launch_type": "FARGATE",
+          "container_name": "calculator",
+          "network_configuration": {
+            "awsvpcConfiguration": {
+              "subnets": ["subnet-xxxxx", "subnet-yyyyy"],
+              "securityGroups": ["${TaskSecurityGroup}"],
+              "assignPublicIp": "ENABLED"
+            }
+          }
+        }
+      }

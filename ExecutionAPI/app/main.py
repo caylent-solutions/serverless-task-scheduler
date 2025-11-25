@@ -192,31 +192,47 @@ async def serve_react_app(file_path: str):
     Serve React app static files.
     For directory requests or unknown files, serve index.html (SPA routing).
     """
-    # Normalize the file path to prevent directory traversal
-    file_path = file_path.strip("/")
+    # Security: Validate and sanitize file path to prevent directory traversal
+    # Strip leading/trailing slashes and whitespace
+    file_path = file_path.strip().strip("/")
 
     # If no file path or ends with /, serve index.html
     if not file_path or file_path.endswith("/"):
-        full_path = os.path.join(wwwroot_path, "index.html")
-        logger.info(f"Serving index.html for path: {file_path}")
-    else:
-        full_path = os.path.join(wwwroot_path, file_path)
-        logger.info(f"Attempting to serve: {full_path}")
+        file_path = "index.html"
+        logger.info(f"Serving index.html for empty or directory path")
 
-    # Security: ensure the path is within wwwroot and prevent directory traversal
+    # Reject any path containing directory traversal patterns
+    # This includes ., .., encoded variants, and backslashes
+    dangerous_patterns = ['..', '/./', '/../', '\\', '%2e', '%2f', '%5c']
+    if any(pattern in file_path.lower() for pattern in dangerous_patterns):
+        logger.warning(f"Path traversal attempt blocked: {file_path}")
+        return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
+
+    # Additional check: ensure path doesn't start with dangerous characters
+    if file_path.startswith(('.', '/')):
+        logger.warning(f"Invalid path rejected: {file_path}")
+        return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
+
     try:
-        # Normalize path components to prevent traversal attempts
-        path_parts = [part for part in file_path.split('/') if part and part != '.' and part != '..']
-        safe_file_path = '/'.join(path_parts)
-        
-        full_path = os.path.join(wwwroot_path, safe_file_path)
-        full_path = os.path.realpath(full_path)
+        # Build the full path using os.path.join
+        full_path = os.path.normpath(os.path.join(wwwroot_path, file_path))
+
+        # Security check: Ensure the resolved path is within wwwroot directory
+        # Use os.path.commonpath to verify the file is in the allowed directory
         wwwroot_realpath = os.path.realpath(wwwroot_path)
-        
-        if not full_path.startswith(wwwroot_realpath + os.sep) and full_path != wwwroot_realpath:
-            logger.warning(f"Path traversal attempt blocked: {file_path}")
+        full_realpath = os.path.realpath(full_path)
+
+        # Ensure common path is exactly the wwwroot (prevents traversal)
+        if os.path.commonpath([wwwroot_realpath, full_realpath]) != wwwroot_realpath:
+            logger.warning(f"Path outside wwwroot blocked: {file_path}")
             return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
-    except Exception as e:
+
+        # Additional security: Ensure full_realpath actually starts with wwwroot_realpath
+        if not full_realpath.startswith(wwwroot_realpath + os.sep) and full_realpath != wwwroot_realpath:
+            logger.warning(f"Path traversal attempt blocked after resolution: {file_path}")
+            return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
+
+    except (ValueError, OSError) as e:
         logger.error(f"Error resolving path: {e}")
         return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
 
@@ -224,7 +240,7 @@ async def serve_react_app(file_path: str):
     if os.path.isfile(full_path):
         # Determine media type
         media_type, _ = mimetypes.guess_type(full_path)
-        logger.info(f"Serving file: {full_path} with media_type: {media_type}")
+        logger.info(f"Serving file: {os.path.basename(full_path)} with media_type: {media_type}")
         return FileResponse(full_path, media_type=media_type)
 
     # If file doesn't exist, serve index.html (for SPA client-side routing)

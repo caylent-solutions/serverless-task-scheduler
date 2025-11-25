@@ -1,7 +1,0 @@
-2010-09-09	Function Execution Service ? SAM template for a FastAPI Lambda behind API Gateway with DynamoDB persistence and permissions to invoke Lambdas, manage EventBridge Schedules, and read AWS Secrets Manager. All resources are parameterized by the provided environment name.
-
-APIURL	API base URL
-VALUE	https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/
-COGNITOHOSTEDUIURL	URL for Cognito Hosted UI Login
-
-'str' object has no attribute 'items'
