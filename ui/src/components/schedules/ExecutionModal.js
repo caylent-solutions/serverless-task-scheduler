@@ -33,9 +33,28 @@ const ExecutionModal = ({ schedule, onClose }) => {
     try {
       // Use URL constructor to validate and parse the URL
       const urlObj = new URL(url);
-      // Only allow http and https protocols
-      if (urlObj.protocol === 'http:' || urlObj.protocol === 'https:') {
+
+      // Only allow https protocol
+      if (urlObj.protocol !== 'https:') {
+        console.error('Only HTTPS URLs are allowed');
+        return;
+      }
+
+      // Allowlist for CloudWatch and AWS Console domains
+      const allowedDomains = [
+        'console.aws.amazon.com',
+        'console.amazonaws-us-gov.com', // GovCloud
+      ];
+
+      // Check if hostname matches allowed domains
+      const isAllowed = allowedDomains.some(domain =>
+        urlObj.hostname === domain || urlObj.hostname.endsWith('.' + domain)
+      );
+
+      if (isAllowed) {
         window.open(urlObj.href, '_blank', 'noopener,noreferrer');
+      } else {
+        console.error('URL domain not allowed:', urlObj.hostname);
       }
     } catch (err) {
       // Invalid URL, do nothing

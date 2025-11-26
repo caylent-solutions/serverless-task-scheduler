@@ -5,6 +5,24 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Starting Quick Deploy Process" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
+# Read stack name from samconfig.toml
+Write-Host "`nReading configuration from samconfig.toml..." -ForegroundColor Yellow
+$stackName = $null
+
+if (Test-Path "samconfig.toml") {
+    $samConfig = Get-Content "samconfig.toml" -Raw
+    if ($samConfig -match 'stack_name\s*=\s*"([^"]+)"') {
+        $stackName = $matches[1]
+        Write-Host "Found stack name: $stackName" -ForegroundColor Green
+    } else {
+        Write-Host "Error: Could not find stack_name in samconfig.toml" -ForegroundColor Red
+        exit 1
+    }
+} else {
+    Write-Host "Error: samconfig.toml not found" -ForegroundColor Red
+    exit 1
+}
+
 # Step 1: Build the UI
 Write-Host "`n[1/5] Building UI..." -ForegroundColor Yellow
 Push-Location ui
@@ -58,7 +76,7 @@ if ($deployExitCode -ne 0) {
 
 # Step 5: Deploy React app to S3
 Write-Host "`n[5/6] Deploying React app to S3..." -ForegroundColor Yellow
-$bucketName = aws cloudformation describe-stacks --stack-name jyelle-sts-dev --query "Stacks[0].Outputs[?OutputKey=='StaticFilesBucketName'].OutputValue" --output text
+$bucketName = aws cloudformation describe-stacks --stack-name $stackName --query "Stacks[0].Outputs[?OutputKey=='StaticFilesBucketName'].OutputValue" --output text
 
 if ($bucketName) {
     Write-Host "Deploying to bucket: $bucketName" -ForegroundColor Gray
@@ -101,9 +119,9 @@ Write-Host "========================================" -ForegroundColor Cyan
 
 # Get stack outputs
 Write-Host "`nGetting deployment information..." -ForegroundColor Yellow
-$apiUrl = aws cloudformation describe-stacks --stack-name jyelle-sts-dev --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text
-$userPoolId = aws cloudformation describe-stacks --stack-name jyelle-sts-dev --query "Stacks[0].Outputs[?OutputKey=='CognitoUserPoolId'].OutputValue" --output text
-$clientId = aws cloudformation describe-stacks --stack-name jyelle-sts-dev --query "Stacks[0].Outputs[?OutputKey=='CognitoUserPoolClientId'].OutputValue" --output text
+$apiUrl = aws cloudformation describe-stacks --stack-name $stackName --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text
+$userPoolId = aws cloudformation describe-stacks --stack-name $stackName --query "Stacks[0].Outputs[?OutputKey=='CognitoUserPoolId'].OutputValue" --output text
+$clientId = aws cloudformation describe-stacks --stack-name $stackName --query "Stacks[0].Outputs[?OutputKey=='CognitoUserPoolClientId'].OutputValue" --output text
 
 if ($apiUrl -and $userPoolId -and $clientId) {
     Write-Host "`nApplication URL: " -NoNewline -ForegroundColor Green
