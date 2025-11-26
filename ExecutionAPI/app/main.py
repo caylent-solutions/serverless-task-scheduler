@@ -13,8 +13,7 @@ import os
 from fastapi_events.middleware import EventHandlerASGIMiddleware
 from fastapi_events.handlers.local import local_handler
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, Response, FileResponse, HTMLResponse
-import mimetypes
+from fastapi.responses import RedirectResponse
 
 # Configure logging - use the custom handler from __init__.py
 logger = logging.getLogger("app")
@@ -25,17 +24,22 @@ logger.setLevel(logging.DEBUG)
 # os.environ['DB_TARGET'] = 'local'
 
 # Get base path from environment (for API Gateway stage routing)
+# Note: API Gateway strips the stage prefix before passing to Lambda,
+# so we only need to set root_path to /api (the proxy path prefix)
 base_path = os.environ.get('API_BASE_PATH', '')
 
-# Create FastAPI app with base path
+# Create FastAPI app with /api prefix
+# All routes are now under /api, React app is served from S3 at root
+# API Gateway passes path like "/api/user/info" after stripping stage,
+# so root_path should be "/api" to match the incoming paths
 app = FastAPI(
     title="Target Execution Service",
     description="API for managing and executing targets",
     version="1.0.0",
-    servers=[{"url": "/"}],
-    # docs_url=None,  # We'll create a custom docs endpoint
-    #openapi_url="openapi.json",  # Disable FastAPI's built-in OpenAPI endpoint
-    root_path=f"/{base_path}" if base_path else ""
+    servers=[{"url": "/api"}],
+    root_path="/api",
+    docs_url=None,  # Disable built-in docs
+    redoc_url=None  # Disable built-in redoc
 )
 
 # Add CORS middleware
@@ -47,75 +51,73 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add middleware for request tracking
+# Add middleware for request tracking and authentication
 @app.middleware("http")
 async def log_and_time_requests(request: Request, call_next):
-    request_id = id(request)
-    logger.info(f"Request started: {request.method} {request.url.path} (ID: {request_id})")
-    start_time = time.time()
-    
     try:
-        # Optional authentication check for API routes only (not /app/ since React handles login page)
+        # Optional authentication check for API routes
         # Check specific paths that need authentication:
         # - /user/* (user info, user management)
         # - /tenants/* (tenant management, includes all execution endpoints)
-        # - POST/PUT/DELETE /targets/* (modifying targets - admin only)
+        # - /targets/* (all target operations require authentication)
         # But NOT:
-        # - GET /targets/{id} (reading target specs should be public)
         # - /auth/* (login, signup, etc.)
+        # - /config/* (public configuration endpoints)
 
-        # Note: FastAPI's root_path already strips the base path from request.url.path,
-        # so we should check paths without the base_path prefix
-        # All /targets operations now require authentication (GET requires admin, POST/PUT/DELETE are mutating)
+        # Note: FastAPI's root_path (/api) does NOT strip the prefix from request.url.path
+        # The path is still /api/user/info, not /user/info
         path_needs_auth = (
-            request.url.path.startswith("/user") or
-            request.url.path.startswith("/tenants") or
-            request.url.path.startswith("/targets")
+            request.url.path.startswith("/api/user") or
+            request.url.path.startswith("/api/tenants") or
+            request.url.path.startswith("/api/targets")
         )
 
         if path_needs_auth:
             # Check for authentication in cookies or Authorization header
             auth_token = None
-            
+
             # Check Authorization header
             auth_header = request.headers.get('Authorization', '')
             if auth_header.startswith('Bearer '):
                 auth_token = auth_header[7:]
-            
+
             # Check cookies
             if not auth_token:
+                cookie_header = request.headers.get('cookie', '')
                 auth_token = request.cookies.get('idToken') or request.cookies.get('accessToken')
+                if not auth_token and 'idToken' in cookie_header:
+                    # Manually parse cookie header as fallback
+                    import http.cookies
+                    cookie = http.cookies.SimpleCookie()
+                    cookie.load(cookie_header)
+                    id_token_morsel = cookie.get('idToken')
+                    access_token_morsel = cookie.get('accessToken')
+                    auth_token = id_token_morsel.value if id_token_morsel else (access_token_morsel.value if access_token_morsel else None)
 
             # If authentication is configured, require valid token
             if os.environ.get('COGNITO_USER_POOL_ID'):
                 if not auth_token:
-                    # No token found - redirect to login
+                    # No token found - return 401
                     logger.warning(f"No authentication token found for {request.url.path}")
-                    if request.url.path.startswith("/app"):
-                        return RedirectResponse(url="/")
-                    else:
-                        from fastapi.responses import JSONResponse
-                        return JSONResponse(
-                            status_code=401,
-                            content={"detail": "Authentication required"}
-                        )
-                
+                    from fastapi.responses import JSONResponse
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "Authentication required"}
+                    )
+
                 # Verify the token
                 try:
                     from .cognito_auth import get_token_verifier
                     verifier = get_token_verifier()
                     claims = verifier.verify_token(auth_token)
                     if not claims:
-                        # Token verification failed - redirect to login for /app, return 401 for API
+                        # Token verification failed - return 401
                         logger.warning(f"Invalid token for {request.url.path}")
-                        if request.url.path.startswith("/app"):
-                            return RedirectResponse(url="/")
-                        else:
-                            from fastapi.responses import JSONResponse
-                            return JSONResponse(
-                                status_code=401,
-                                content={"detail": "Invalid or expired token"}
-                            )
+                        from fastapi.responses import JSONResponse
+                        return JSONResponse(
+                            status_code=401,
+                            content={"detail": "Invalid or expired token"}
+                        )
                     # Token is valid, attach user info to request
                     request.state.user = claims
                 except ImportError:
@@ -124,23 +126,16 @@ async def log_and_time_requests(request: Request, call_next):
                     pass
                 except Exception as e:
                     logger.error(f"Token verification error: {e}")
-                    # Redirect to login on error
-                    if request.url.path.startswith("/app"):
-                        return RedirectResponse(url="/")
-                    else:
-                        from fastapi.responses import JSONResponse
-                        return JSONResponse(
-                            status_code=401,
-                            content={"detail": "Authentication error"}
-                        )
+                    from fastapi.responses import JSONResponse
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "Authentication error"}
+                    )
         
         response = await call_next(request)
-        process_time = time.time() - start_time
-        logger.info(f"Request completed: {request.method} {request.url.path} (ID: {request_id}) - Status: {response.status_code} - Took: {process_time:.4f}s")
         return response
     except Exception as e:
-        process_time = time.time() - start_time
-        logger.error(f"Request failed: {request.method} {request.url.path} (ID: {request_id}) - Error: {str(e)} - Took: {process_time:.4f}s")
+        logger.error(f"Request failed: {request.method} {request.url.path} - Error: {str(e)}")
         raise
 
 app.add_middleware(EventHandlerASGIMiddleware, handlers=[local_handler])
@@ -163,95 +158,18 @@ async def get_cognito_config():
         "Region": os.environ.get('COGNITO_REGION', 'us-east-1')
     }
 
-# Root endpoint - redirect to app (React will handle showing login page if not authenticated)
-@app.get("/", include_in_schema=False)
-async def root(request: Request):
-    """Redirect to app"""
-    base_url = str(request.base_url).rstrip('/')
-    return RedirectResponse(url=f"{base_url}/app/", status_code=302)
-
-# Old logout endpoint kept for backwards compatibility - just clears cookies now
+# Logout endpoint - clear authentication cookies and redirect to React app root
 @app.get("/logout", include_in_schema=False)
-async def logout_legacy(response: Response):
-    """Clear authentication cookies (legacy endpoint)"""
+async def logout():
+    """Clear authentication cookies and redirect to root"""
+    response = RedirectResponse(url="/", status_code=302)
     response.delete_cookie("idToken")
     response.delete_cookie("accessToken")
     response.delete_cookie("refreshToken")
-    return RedirectResponse(url="/app/")
+    return response
 
-# Custom static file serving for React app (StaticFiles doesn't work well with Mangum/Lambda)
-wwwroot_path = os.path.join(os.path.dirname(__file__), "wwwroot")
-logger.info(f"Setting up custom static file serving at /app with directory: {wwwroot_path}")
-logger.info(f"Directory exists: {os.path.exists(wwwroot_path)}")
-if os.path.exists(wwwroot_path):
-    logger.info(f"Directory contents: {os.listdir(wwwroot_path)}")
-
-@app.get("/app/{file_path:path}")
-async def serve_react_app(file_path: str):
-    """
-    Serve React app static files.
-    For directory requests or unknown files, serve index.html (SPA routing).
-    """
-    # Security: Validate and sanitize file path to prevent directory traversal
-    # Strip leading/trailing slashes and whitespace
-    file_path = file_path.strip().strip("/")
-
-    # If no file path or ends with /, serve index.html
-    if not file_path or file_path.endswith("/"):
-        file_path = "index.html"
-        logger.info(f"Serving index.html for empty or directory path")
-
-    # Reject any path containing directory traversal patterns
-    # This includes ., .., encoded variants, and backslashes
-    dangerous_patterns = ['..', '/./', '/../', '\\', '%2e', '%2f', '%5c']
-    if any(pattern in file_path.lower() for pattern in dangerous_patterns):
-        logger.warning(f"Path traversal attempt blocked: {file_path}")
-        return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
-
-    # Additional check: ensure path doesn't start with dangerous characters
-    if file_path.startswith(('.', '/')):
-        logger.warning(f"Invalid path rejected: {file_path}")
-        return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
-
-    try:
-        # Build the full path using os.path.join
-        full_path = os.path.normpath(os.path.join(wwwroot_path, file_path))
-
-        # Security check: Ensure the resolved path is within wwwroot directory
-        # Use os.path.commonpath to verify the file is in the allowed directory
-        wwwroot_realpath = os.path.realpath(wwwroot_path)
-        full_realpath = os.path.realpath(full_path)
-
-        # Ensure common path is exactly the wwwroot (prevents traversal)
-        if os.path.commonpath([wwwroot_realpath, full_realpath]) != wwwroot_realpath:
-            logger.warning(f"Path outside wwwroot blocked: {file_path}")
-            return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
-
-        # Additional security: Ensure full_realpath actually starts with wwwroot_realpath
-        if not full_realpath.startswith(wwwroot_realpath + os.sep) and full_realpath != wwwroot_realpath:
-            logger.warning(f"Path traversal attempt blocked after resolution: {file_path}")
-            return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
-
-    except (ValueError, OSError) as e:
-        logger.error(f"Error resolving path: {e}")
-        return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
-
-    # If file exists, serve it
-    if os.path.isfile(full_path):
-        # Determine media type
-        media_type, _ = mimetypes.guess_type(full_path)
-        logger.info(f"Serving file: {os.path.basename(full_path)} with media_type: {media_type}")
-        return FileResponse(full_path, media_type=media_type)
-
-    # If file doesn't exist, serve index.html (for SPA client-side routing)
-    index_path = os.path.join(wwwroot_path, "index.html")
-    if os.path.isfile(index_path):
-        logger.info(f"File not found, serving index.html for SPA routing: {file_path}")
-        return FileResponse(index_path, media_type="text/html")
-
-    # If even index.html doesn't exist, return 404
-    logger.error(f"File not found and no index.html: {file_path}")
-    return HTMLResponse(content="<h1>404 Not Found</h1>", status_code=404)
+# Note: Static files (React app) are now served from S3 via API Gateway
+# React app is at root (/) and all API routes are under /api
 
 # Override FastAPI's openapi() method to inject dynamic target schemas
 def custom_openapi():

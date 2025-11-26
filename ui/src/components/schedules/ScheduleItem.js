@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../../config';
 
 export default function ScheduleItem({ schedule }) {
     const [scheduleExpression, setScheduleExpression] = useState(schedule.schedule_expression);
 
     const handleUpdate = () => {
-        fetch(`./tenants/${schedule.tenant_id}/targets/${schedule.target_alias}/schedules/${schedule.schedule_id.split('/')[schedule.schedule_id.split('/').length - 1]}`, {
+        fetch(`${API_BASE_URL}/tenants/${schedule.tenant_id}/targets/${schedule.target_alias}/schedules/${schedule.schedule_id.split('/')[schedule.schedule_id.split('/').length - 1]}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -14,7 +15,7 @@ export default function ScheduleItem({ schedule }) {
     };
 
     const handleDelete = () => {
-        fetch(`./tenants/${schedule.tenant_id}/targets/${schedule.target_alias}/schedules/${schedule.schedule_id.split('/')[schedule.schedule_id.split('/').length - 1]}`, {
+        fetch(`${API_BASE_URL}/tenants/${schedule.tenant_id}/targets/${schedule.target_alias}/schedules/${schedule.schedule_id.split('/')[schedule.schedule_id.split('/').length - 1]}`, {
             method: 'DELETE'
         })
     };

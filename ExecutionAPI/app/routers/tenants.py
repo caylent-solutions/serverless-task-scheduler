@@ -180,8 +180,8 @@ async def execute_tenant_mapping(
     }
 
     # Create a one-time schedule that runs immediately (at: now + 1 minute)
-    import datetime
-    start_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=1)
+    from datetime import datetime, timezone, timedelta
+    start_time = datetime.now(timezone.utc) + timedelta(minutes=1)
 
     # Use 'at' expression for one-time execution
     schedule_expression = f"at({start_time.strftime('%Y-%m-%dT%H:%M:%S')})"

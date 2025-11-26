@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { API_BASE_URL } from '../../config';
 
 
 export default function TenantSelector({ onSetTenant }) {
@@ -6,7 +7,7 @@ export default function TenantSelector({ onSetTenant }) {
   const [ tenants, setTenants ] = useState([]);
 
   useEffect(() => {
-    fetch('./tenants')
+    fetch(`${API_BASE_URL}/tenants`)
       .then(response => response.json())
       // Using Set to remove duplicates, then convert back to array using spread operator
       .then(data => [...new Set((data ?? []).map(tenant => tenant.tenant_id))])

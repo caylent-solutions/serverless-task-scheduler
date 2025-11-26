@@ -21,12 +21,18 @@ class OpenAPIHelpers:
 
     def swagger_ui(self):
         """Root endpoint with Swagger UI"""
+        import os
+        # Include the stage prefix in the openapi URL
+        # Full path: /{stage}/api/openapi.json (e.g., /dev/api/openapi.json)
+        stage = os.environ.get('API_BASE_PATH', '')
+        if stage:
+            openapi_path = f"/{stage}/api/openapi.json"
+        else:
+            openapi_path = "/api/openapi.json"
+
         return get_swagger_ui_html(
-            # Use a relative URL so it respects API Gateway stage/root_path (e.g., /dev)
-            openapi_url="openapi.json",
+            openapi_url=openapi_path,
             title="Target Execution Service - API Documentation",
-            swagger_js_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@4.5.0/swagger-ui-bundle.js",
-            swagger_css_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@4.5.0/swagger-ui.css",
         )
     
     def health_check(self):
@@ -362,6 +368,10 @@ helpers = OpenAPIHelpers(router)
 
 @router.get("/swagger", response_class=HTMLResponse, include_in_schema=False)
 async def root():
+    return helpers.swagger_ui()
+
+@router.get("/docs", response_class=HTMLResponse, include_in_schema=False)
+async def docs():
     return helpers.swagger_ui()
 
 @router.get("/health")

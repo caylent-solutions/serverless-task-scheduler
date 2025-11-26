@@ -6,6 +6,7 @@ import TenantMappingList from './components/tenants/TenantMappingList';
 import TenantList from './components/tenants/TenantList';
 import UserManagement from './components/users/UserManagement';
 import Login from './components/auth/Login';
+import { API_BASE_URL } from './config';
 
 function App() {
   // Initialize state from sessionStorage if available
@@ -24,8 +25,8 @@ function App() {
   const checkAuth = async () => {
     setIsLoading(true);
     try {
-      // Get user info from the backend - use ../user/info to go up from /app/
-      const response = await fetch('../user/info', {
+      // Get user info from the backend
+      const response = await fetch(`${API_BASE_URL}/user/info`, {
         credentials: 'include'
       });
 
@@ -95,6 +96,8 @@ function App() {
     } else {
       sessionStorage.removeItem('selectedTenant');
     }
+    // Reload the page to refresh all content
+    window.location.reload();
   };
 
   // Show loading state
