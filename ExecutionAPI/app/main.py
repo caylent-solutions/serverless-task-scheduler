@@ -90,7 +90,9 @@ async def log_and_time_requests(request: Request, call_next):
                     import http.cookies
                     cookie = http.cookies.SimpleCookie()
                     cookie.load(cookie_header)
-                    auth_token = cookie.get('idToken').value if 'idToken' in cookie else cookie.get('accessToken').value if 'accessToken' in cookie else None
+                    id_token_morsel = cookie.get('idToken')
+                    access_token_morsel = cookie.get('accessToken')
+                    auth_token = id_token_morsel.value if id_token_morsel else (access_token_morsel.value if access_token_morsel else None)
 
             # If authentication is configured, require valid token
             if os.environ.get('COGNITO_USER_POOL_ID'):
