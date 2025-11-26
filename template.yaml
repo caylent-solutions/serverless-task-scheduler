@@ -600,8 +600,6 @@ Resources:
                       method.response.header.Cache-Control: "'no-cache'"
                     responseTemplates:
                       text/html: |
-                    responseTemplates:
-                      text/html: |
                         #set($context.requestOverride.path.proxy = "index.html")
 
       Tags:
