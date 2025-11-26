@@ -5,7 +5,8 @@ from .main import app
 
 # Create Mangum handler for API Gateway events
 # Let FastAPI's root_path handle the base path instead of Mangum
-mangum_handler = Mangum(app, lifespan="off")
+# Enable lifespan to trigger FastAPI startup events (admin tenant initialization, etc.)
+mangum_handler = Mangum(app, lifespan="on")
 
 def handler(event, context):
     """

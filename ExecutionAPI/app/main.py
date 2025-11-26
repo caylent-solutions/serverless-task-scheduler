@@ -13,8 +13,7 @@ import os
 from fastapi_events.middleware import EventHandlerASGIMiddleware
 from fastapi_events.handlers.local import local_handler
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, Response
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
 
 # Configure logging - use the custom handler from __init__.py
 logger = logging.getLogger("app")
@@ -25,17 +24,20 @@ logger.setLevel(logging.DEBUG)
 # os.environ['DB_TARGET'] = 'local'
 
 # Get base path from environment (for API Gateway stage routing)
+# Note: API Gateway strips the stage prefix before passing to Lambda,
+# so we only need to set root_path to /api (the proxy path prefix)
 base_path = os.environ.get('API_BASE_PATH', '')
 
-# Create FastAPI app with base path
+# Create FastAPI app with /api prefix
+# All routes are now under /api, React app is served from S3 at root
+# API Gateway passes path like "/api/user/info" after stripping stage,
+# so root_path should be "/api" to match the incoming paths
 app = FastAPI(
     title="Target Execution Service",
     description="API for managing and executing targets",
     version="1.0.0",
-    servers=[{"url": "/"}],
-    # docs_url=None,  # We'll create a custom docs endpoint
-    #openapi_url="openapi.json",  # Disable FastAPI's built-in OpenAPI endpoint
-    root_path=f"/{base_path}" if base_path else ""
+    servers=[{"url": "/api"}],
+    root_path="/api"
 )
 
 # Add CORS middleware
@@ -58,67 +60,75 @@ async def log_and_time_requests(request: Request, call_next):
     start_time = time.time()
     
     try:
-        # Optional authentication check for API routes only (not /app/ since React handles login page)
+        # Optional authentication check for API routes
         # Check specific paths that need authentication:
         # - /user/* (user info, user management)
         # - /tenants/* (tenant management, includes all execution endpoints)
-        # - POST/PUT/DELETE /targets/* (modifying targets - admin only)
+        # - /targets/* (all target operations require authentication)
         # But NOT:
-        # - GET /targets/{id} (reading target specs should be public)
         # - /auth/* (login, signup, etc.)
+        # - /config/* (public configuration endpoints)
 
-        # Note: FastAPI's root_path already strips the base path from request.url.path,
-        # so we should check paths without the base_path prefix
-        # All /targets operations now require authentication (GET requires admin, POST/PUT/DELETE are mutating)
+        # Note: FastAPI's root_path (/api) does NOT strip the prefix from request.url.path
+        # The path is still /api/user/info, not /user/info
+        logger.info(f"Checking auth for path: {request.url.path}")
         path_needs_auth = (
-            request.url.path.startswith("/user") or
-            request.url.path.startswith("/tenants") or
-            request.url.path.startswith("/targets")
+            request.url.path.startswith("/api/user") or
+            request.url.path.startswith("/api/tenants") or
+            request.url.path.startswith("/api/targets")
         )
+        logger.info(f"Path needs auth: {path_needs_auth}")
 
         if path_needs_auth:
             # Check for authentication in cookies or Authorization header
             auth_token = None
-            
+
             # Check Authorization header
             auth_header = request.headers.get('Authorization', '')
             if auth_header.startswith('Bearer '):
                 auth_token = auth_header[7:]
-            
+
             # Check cookies
             if not auth_token:
+                # Debug: log what cookies we're receiving
+                cookie_header = request.headers.get('cookie', '')
+                logger.info(f"Raw cookie header length: {len(cookie_header)}")
+                logger.info(f"Available cookies: {list(request.cookies.keys())}")
+                logger.info(f"idToken in header: {'idToken' in cookie_header}")
+                logger.info(f"idToken in request.cookies: {'idToken' in request.cookies}")
                 auth_token = request.cookies.get('idToken') or request.cookies.get('accessToken')
+                if not auth_token and 'idToken' in cookie_header:
+                    # Manually parse cookie header as fallback
+                    import http.cookies
+                    cookie = http.cookies.SimpleCookie()
+                    cookie.load(cookie_header)
+                    auth_token = cookie.get('idToken').value if 'idToken' in cookie else cookie.get('accessToken').value if 'accessToken' in cookie else None
+                    logger.info(f"Manually parsed token from cookie header: {bool(auth_token)}")
 
             # If authentication is configured, require valid token
             if os.environ.get('COGNITO_USER_POOL_ID'):
                 if not auth_token:
-                    # No token found - redirect to login
+                    # No token found - return 401
                     logger.warning(f"No authentication token found for {request.url.path}")
-                    if request.url.path.startswith("/app"):
-                        return RedirectResponse(url="/")
-                    else:
-                        from fastapi.responses import JSONResponse
-                        return JSONResponse(
-                            status_code=401,
-                            content={"detail": "Authentication required"}
-                        )
-                
+                    from fastapi.responses import JSONResponse
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "Authentication required"}
+                    )
+
                 # Verify the token
                 try:
                     from .cognito_auth import get_token_verifier
                     verifier = get_token_verifier()
                     claims = verifier.verify_token(auth_token)
                     if not claims:
-                        # Token verification failed - redirect to login for /app, return 401 for API
+                        # Token verification failed - return 401
                         logger.warning(f"Invalid token for {request.url.path}")
-                        if request.url.path.startswith("/app"):
-                            return RedirectResponse(url="/")
-                        else:
-                            from fastapi.responses import JSONResponse
-                            return JSONResponse(
-                                status_code=401,
-                                content={"detail": "Invalid or expired token"}
-                            )
+                        from fastapi.responses import JSONResponse
+                        return JSONResponse(
+                            status_code=401,
+                            content={"detail": "Invalid or expired token"}
+                        )
                     # Token is valid, attach user info to request
                     request.state.user = claims
                 except ImportError:
@@ -127,15 +137,11 @@ async def log_and_time_requests(request: Request, call_next):
                     pass
                 except Exception as e:
                     logger.error(f"Token verification error: {e}")
-                    # Redirect to login on error
-                    if request.url.path.startswith("/app"):
-                        return RedirectResponse(url="/")
-                    else:
-                        from fastapi.responses import JSONResponse
-                        return JSONResponse(
-                            status_code=401,
-                            content={"detail": "Authentication error"}
-                        )
+                    from fastapi.responses import JSONResponse
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "Authentication error"}
+                    )
         
         response = await call_next(request)
         process_time = time.time() - start_time
@@ -166,33 +172,18 @@ async def get_cognito_config():
         "Region": os.environ.get('COGNITO_REGION', 'us-east-1')
     }
 
-# Root endpoint - redirect to app (React will handle showing login page if not authenticated)
-@app.get("/", include_in_schema=False)
-async def root(request: Request):
-    """Redirect to app"""
-    base_url = str(request.base_url).rstrip('/')
-    return RedirectResponse(url=f"{base_url}/app/", status_code=302)
-
-# Old logout endpoint kept for backwards compatibility - just clears cookies now
+# Logout endpoint - clear authentication cookies and redirect to React app root
 @app.get("/logout", include_in_schema=False)
-async def logout_legacy(response: Response):
-    """Clear authentication cookies (legacy endpoint)"""
+async def logout():
+    """Clear authentication cookies and redirect to root"""
+    response = RedirectResponse(url="/", status_code=302)
     response.delete_cookie("idToken")
     response.delete_cookie("accessToken")
     response.delete_cookie("refreshToken")
-    return RedirectResponse(url="/app/")
+    return response
 
-# Static file serving for React app using FastAPI's StaticFiles
-# Mount at /dev/app since root_path is /dev and the path after stripping is /app
-wwwroot_path = os.path.join(os.path.dirname(__file__), "wwwroot")
-api_base_path = os.environ.get('API_BASE_PATH', '')
-mount_path = f"/{api_base_path}/app" if api_base_path else "/app"
-logger.info(f"Setting up StaticFiles at {mount_path} with directory: {wwwroot_path}")
-logger.info(f"Directory exists: {os.path.exists(wwwroot_path)}")
-if os.path.exists(wwwroot_path):
-    logger.info(f"Directory contents: {os.listdir(wwwroot_path)}")
-    # Mount StaticFiles - html=True enables serving index.html for directory requests and SPA routing
-    app.mount(mount_path, StaticFiles(directory=wwwroot_path, html=True), name="static")
+# Note: Static files (React app) are now served from S3 via API Gateway
+# React app is at root (/) and all API routes are under /api
 
 # Override FastAPI's openapi() method to inject dynamic target schemas
 def custom_openapi():
