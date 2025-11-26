@@ -37,7 +37,9 @@ app = FastAPI(
     description="API for managing and executing targets",
     version="1.0.0",
     servers=[{"url": "/api"}],
-    root_path="/api"
+    root_path="/api",
+    docs_url=None,  # Disable built-in docs
+    redoc_url=None  # Disable built-in redoc
 )
 
 # Add CORS middleware
@@ -49,16 +51,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add middleware for request tracking
+# Add middleware for request tracking and authentication
 @app.middleware("http")
 async def log_and_time_requests(request: Request, call_next):
-    request_id = id(request)
-    logger.info(f"Request started: {request.method} {request.url.path} (ID: {request_id})")
-    logger.info(f"Request full URL: {request.url}")
-    logger.info(f"Request headers: {dict(request.headers)}")
-    logger.info(f"Root path: {request.scope.get('root_path', 'NOT SET')}")
-    start_time = time.time()
-    
     try:
         # Optional authentication check for API routes
         # Check specific paths that need authentication:
@@ -71,13 +66,11 @@ async def log_and_time_requests(request: Request, call_next):
 
         # Note: FastAPI's root_path (/api) does NOT strip the prefix from request.url.path
         # The path is still /api/user/info, not /user/info
-        logger.info(f"Checking auth for path: {request.url.path}")
         path_needs_auth = (
             request.url.path.startswith("/api/user") or
             request.url.path.startswith("/api/tenants") or
             request.url.path.startswith("/api/targets")
         )
-        logger.info(f"Path needs auth: {path_needs_auth}")
 
         if path_needs_auth:
             # Check for authentication in cookies or Authorization header
@@ -90,12 +83,7 @@ async def log_and_time_requests(request: Request, call_next):
 
             # Check cookies
             if not auth_token:
-                # Debug: log what cookies we're receiving
                 cookie_header = request.headers.get('cookie', '')
-                logger.info(f"Raw cookie header length: {len(cookie_header)}")
-                logger.info(f"Available cookies: {list(request.cookies.keys())}")
-                logger.info(f"idToken in header: {'idToken' in cookie_header}")
-                logger.info(f"idToken in request.cookies: {'idToken' in request.cookies}")
                 auth_token = request.cookies.get('idToken') or request.cookies.get('accessToken')
                 if not auth_token and 'idToken' in cookie_header:
                     # Manually parse cookie header as fallback
@@ -103,7 +91,6 @@ async def log_and_time_requests(request: Request, call_next):
                     cookie = http.cookies.SimpleCookie()
                     cookie.load(cookie_header)
                     auth_token = cookie.get('idToken').value if 'idToken' in cookie else cookie.get('accessToken').value if 'accessToken' in cookie else None
-                    logger.info(f"Manually parsed token from cookie header: {bool(auth_token)}")
 
             # If authentication is configured, require valid token
             if os.environ.get('COGNITO_USER_POOL_ID'):
@@ -144,12 +131,9 @@ async def log_and_time_requests(request: Request, call_next):
                     )
         
         response = await call_next(request)
-        process_time = time.time() - start_time
-        logger.info(f"Request completed: {request.method} {request.url.path} (ID: {request_id}) - Status: {response.status_code} - Took: {process_time:.4f}s")
         return response
     except Exception as e:
-        process_time = time.time() - start_time
-        logger.error(f"Request failed: {request.method} {request.url.path} (ID: {request_id}) - Error: {str(e)} - Took: {process_time:.4f}s")
+        logger.error(f"Request failed: {request.method} {request.url.path} - Error: {str(e)}")
         raise
 
 app.add_middleware(EventHandlerASGIMiddleware, handlers=[local_handler])

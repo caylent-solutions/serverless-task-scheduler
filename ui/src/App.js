@@ -96,6 +96,8 @@ function App() {
     } else {
       sessionStorage.removeItem('selectedTenant');
     }
+    // Reload the page to refresh all content
+    window.location.reload();
   };
 
   // Show loading state
