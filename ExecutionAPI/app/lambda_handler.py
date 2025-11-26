@@ -1,5 +1,7 @@
 import json
-import os
+import json
+from mangum import Mangum
+from .main import app
 from mangum import Mangum
 from .main import app
 
