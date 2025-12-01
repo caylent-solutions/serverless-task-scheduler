@@ -1,0 +1,304 @@
+name: Terraform Apply from Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy from'
+        required: true
+        type: string
+      task_name:
+        description: 'Name of the ECS task to deploy (e.g., basic-calculator)'
+        required: true
+        type: string
+      environment:
+        description: 'Environment to deploy to'
+        required: false
+        type: choice
+        default: 'dev'
+        options:
+          - dev
+          - staging
+          - prod
+      auto_approve:
+        description: 'Auto-approve apply (use with caution!)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+  actions: write
+
+jobs:
+  validate-inputs:
+    name: Validate Inputs
+    runs-on: ubuntu-latest
+    outputs:
+      task_exists: ${{ steps.check.outputs.task_exists }}
+      tfvars_file: ${{ steps.check.outputs.tfvars_file }}
+    steps:
+      - name: Checkout code from specified branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Validate task exists
+        id: check
+        run: |
+          TASK_PATH="iac/live_infra/ecs/tasks/${{ inputs.task_name }}/infrastructure"
+
+          if [ ! -d "$TASK_PATH" ]; then
+            echo "❌ Task '${{ inputs.task_name }}' not found at $TASK_PATH"
+            echo "task_exists=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          echo "✅ Task '${{ inputs.task_name }}' found at $TASK_PATH"
+          echo "task_exists=true" >> $GITHUB_OUTPUT
+
+          # Determine tfvars file
+          TFVARS_FILE="${{ inputs.environment }}.tfvars"
+          if [ ! -f "$TASK_PATH/$TFVARS_FILE" ]; then
+            echo "⚠️  Warning: $TFVARS_FILE not found, will use default variables"
+          fi
+          echo "tfvars_file=$TFVARS_FILE" >> $GITHUB_OUTPUT
+
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    needs: validate-inputs
+    outputs:
+      plan_exitcode: ${{ steps.plan.outputs.exitcode }}
+    steps:
+      - name: Checkout code from specified branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: GitHubActions-TerraformPlanBranch
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ~1.5
+
+      - name: Terraform Init
+        working-directory: iac/live_infra/ecs/tasks/${{ inputs.task_name }}/infrastructure
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: iac/live_infra/ecs/tasks/${{ inputs.task_name }}/infrastructure
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: iac/live_infra/ecs/tasks/${{ inputs.task_name }}/infrastructure
+        run: |
+          TFVARS_FILE="${{ needs.validate-inputs.outputs.tfvars_file }}"
+
+          if [ -f "$TFVARS_FILE" ]; then
+            echo "Using tfvars file: $TFVARS_FILE"
+            terraform plan -var-file="$TFVARS_FILE" -out=tfplan -detailed-exitcode > plan_output.txt 2>&1 || EXIT_CODE=$?
+          else
+            echo "No tfvars file found, using default variables"
+            terraform plan -out=tfplan -detailed-exitcode > plan_output.txt 2>&1 || EXIT_CODE=$?
+          fi
+
+          cat plan_output.txt
+
+          # Terraform plan exit codes:
+          # 0 = No changes
+          # 1 = Error
+          # 2 = Successful plan with changes
+          echo "exitcode=${EXIT_CODE:-0}" >> $GITHUB_OUTPUT
+
+          if [ "${EXIT_CODE:-0}" -eq 1 ]; then
+            echo "❌ Terraform plan failed"
+            exit 1
+          fi
+
+      - name: Format Plan Output
+        if: always()
+        working-directory: iac/live_infra/ecs/tasks/${{ inputs.task_name }}/infrastructure
+        run: |
+          {
+            echo "PLAN_OUTPUT<<EOF"
+            cat plan_output.txt | head -n 500
+            if [ $(cat plan_output.txt | wc -l) -gt 500 ]; then
+              echo ""
+              echo "... (output truncated, see workflow logs for full output)"
+            fi
+            echo "EOF"
+          } >> $GITHUB_ENV
+
+      - name: Upload Plan File
+        if: steps.plan.outputs.exitcode == '2'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ inputs.task_name }}-${{ inputs.branch }}
+          path: iac/live_infra/ecs/tasks/${{ inputs.task_name }}/infrastructure/tfplan
+          retention-days: 1
+
+      - name: Create Plan Summary
+        if: always()
+        run: |
+          EXIT_CODE="${{ steps.plan.outputs.exitcode }}"
+
+          echo "## Terraform Plan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: \`${{ inputs.branch }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Task**: \`${{ inputs.task_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: \`${{ inputs.environment }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$EXIT_CODE" = "0" ]; then
+            echo "**Status**: ℹ️ No changes detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The infrastructure is already up to date. No apply needed." >> $GITHUB_STEP_SUMMARY
+          elif [ "$EXIT_CODE" = "2" ]; then
+            echo "**Status**: ✅ Plan successful - changes detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "<details><summary>Plan Output</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`terraform" >> $GITHUB_STEP_SUMMARY
+            cat iac/live_infra/ecs/tasks/${{ inputs.task_name }}/infrastructure/plan_output.txt | head -n 200 >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status**: ❌ Plan failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  approval-gate:
+    name: Wait for Approval
+    runs-on: ubuntu-latest
+    needs: [validate-inputs, terraform-plan]
+    if: needs.terraform-plan.outputs.plan_exitcode == '2' && inputs.auto_approve == false
+    environment:
+      name: terraform-apply-approval
+    steps:
+      - name: Manual Approval Required
+        run: |
+          echo "⏸️  Waiting for manual approval..."
+          echo ""
+          echo "Branch: ${{ inputs.branch }}"
+          echo "Task: ${{ inputs.task_name }}"
+          echo "Environment: ${{ inputs.environment }}"
+          echo ""
+          echo "Review the plan output above before approving."
+
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: [validate-inputs, terraform-plan, approval-gate]
+    if: |
+      always() &&
+      needs.terraform-plan.outputs.plan_exitcode == '2' &&
+      (needs.approval-gate.result == 'success' || inputs.auto_approve == true)
+    steps:
+      - name: Checkout code from specified branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: GitHubActions-TerraformApplyBranch
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ~1.5
+
+      - name: Terraform Init
+        working-directory: iac/live_infra/ecs/tasks/${{ inputs.task_name }}/infrastructure
+        run: terraform init
+
+      - name: Download Plan File
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ inputs.task_name }}-${{ inputs.branch }}
+          path: iac/live_infra/ecs/tasks/${{ inputs.task_name }}/infrastructure
+
+      - name: Terraform Apply
+        id: apply
+        working-directory: iac/live_infra/ecs/tasks/${{ inputs.task_name }}/infrastructure
+        run: |
+          echo "Applying Terraform plan..."
+          terraform apply tfplan > apply_output.txt 2>&1
+
+          cat apply_output.txt
+        continue-on-error: true
+
+      - name: Format Apply Output
+        if: always()
+        working-directory: iac/live_infra/ecs/tasks/${{ inputs.task_name }}/infrastructure
+        run: |
+          {
+            echo "APPLY_OUTPUT<<EOF"
+            cat apply_output.txt | tail -n 200
+            echo "EOF"
+          } >> $GITHUB_ENV
+
+      - name: Create Apply Summary
+        if: always()
+        run: |
+          echo "## Terraform Apply Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: \`${{ inputs.branch }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Task**: \`${{ inputs.task_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: \`${{ inputs.environment }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Applied by**: @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.apply.outcome }}" = "success" ]; then
+            echo "**Status**: ✅ Apply successful" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status**: ❌ Apply failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "<details><summary>Apply Output (last 200 lines)</summary>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`terraform" >> $GITHUB_STEP_SUMMARY
+          echo "$APPLY_OUTPUT" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow Run**: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if Apply Failed
+        if: steps.apply.outcome == 'failure'
+        run: exit 1
+
+  no-changes:
+    name: No Changes Detected
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: needs.terraform-plan.outputs.plan_exitcode == '0'
+    steps:
+      - name: No Changes
+        run: |
+          echo "ℹ️  No infrastructure changes detected."
+          echo ""
+          echo "The infrastructure for task '${{ inputs.task_name }}' is already up to date."
+          echo "No apply operation is needed."
+
+          echo "## ℹ️ No Changes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The infrastructure is already up to date." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: \`${{ inputs.branch }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Task**: \`${{ inputs.task_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: \`${{ inputs.environment }}\`" >> $GITHUB_STEP_SUMMARY
