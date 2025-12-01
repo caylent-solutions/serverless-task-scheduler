@@ -423,8 +423,55 @@ jobs:
         id: plan
         working-directory: iac/live_infra/ecs/tasks/${{ matrix.task }}/infrastructure
         run: |
-          terraform plan -var-file=dev.tfvars -out=tfplan -no-color > plan_output.txt 2>&1 || EXIT_CODE=$?
+          terraform plan -var-file=dev.tfvars -out=tfplan -no-color > plan_output.txt 2>&1 
+          EXIT_CODE=$?
+
+          echo "=== DEBUG: Terraform plan exit code: $EXIT_CODE ==="
+
+          # Check if plan file was created
+          if [ -f "tfplan" ]; then
+            echo "=== DEBUG: Plan file exists ==="
+          else
+            echo "=== DEBUG: Plan file NOT created ==="
+          fi
+
           cat plan_output.txt
+
+          # Check if plan output contains actual changes (not just refresh)
+          if grep -q "Plan:" plan_output.txt; then
+            PLAN_SUMMARY=$(grep -A 1 "Plan:" plan_output.txt | head -2)
+            echo "=== DEBUG: Plan summary ==="
+            echo "$PLAN_SUMMARY"
+            
+            # Check for actual resource changes (not just refresh)
+            # Look for terraform plan change indicators in various formats
+            if grep -qiE "(will be created|will be updated|will be destroyed|must be replaced|forces replacement|Plan:.*[1-9])" plan_output.txt; then
+              echo "=== DEBUG: Actual infrastructure changes detected in output ==="
+              # Count the number of changes
+              CHANGE_COUNT=$(grep -iE "(will be created|will be updated|will be destroyed|must be replaced)" plan_output.txt | wc -l)
+              echo "=== DEBUG: Found $CHANGE_COUNT change indicators in plan output ==="
+              
+              # If we see changes but exit code is 0, something is wrong
+              if [ "$EXIT_CODE" -eq 0 ]; then
+                echo "⚠️ WARNING: Plan output shows changes but exit code is 0!"
+                echo "⚠️ This might indicate a terraform bug, state sync issue, or refresh-only changes"
+                echo "⚠️ Checking plan file to verify..."
+                
+                # Use terraform show to check if plan has actual changes
+                if [ -f "tfplan" ]; then
+                  terraform show -no-color tfplan > plan_show.txt 2>&1 || true
+                  if grep -qiE "(will be created|will be updated|will be destroyed|must be replaced)" plan_show.txt; then
+                    echo "⚠️ Plan file confirms infrastructure changes - overriding exit code to 2"
+                    EXIT_CODE=2
+                  else
+                    echo "⚠️ Plan file shows no infrastructure changes (may be refresh-only)"
+                  fi
+                fi
+              fi
+            else
+              echo "=== DEBUG: Only refresh changes or no changes detected ==="
+            fi
+          fi
 
           # Check exit code (0=no changes, 1=error, 2=changes)
           if [ "${EXIT_CODE:-0}" -eq 1 ]; then
