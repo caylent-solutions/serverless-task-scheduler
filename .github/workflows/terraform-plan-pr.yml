@@ -1,0 +1,211 @@
+name: Terraform Plan on PR
+
+on:
+  pull_request:
+    paths:
+      - 'iac/live_infra/ecs/tasks/**'
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+jobs:
+  detect-changes:
+    name: Detect Changed Tasks
+    runs-on: ubuntu-latest
+    outputs:
+      tasks: ${{ steps.detect.outputs.tasks }}
+      matrix: ${{ steps.detect.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed tasks
+        id: detect
+        run: |
+          # Get changed files in the PR
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+
+          # Extract unique task names from changed paths
+          TASKS=$(echo "$CHANGED_FILES" | \
+            grep "iac/live_infra/ecs/tasks/" | \
+            sed 's|iac/live_infra/ecs/tasks/\([^/]*\)/.*|\1|' | \
+            sort -u | \
+            jq -R -s -c 'split("\n")[:-1]')
+
+          echo "tasks=$TASKS" >> $GITHUB_OUTPUT
+
+          # Create matrix for parallel execution
+          if [ "$TASKS" != "[]" ] && [ "$TASKS" != "" ]; then
+            echo "matrix={\"task\":$TASKS}" >> $GITHUB_OUTPUT
+          else
+            echo "matrix={\"task\":[]}" >> $GITHUB_OUTPUT
+          fi
+
+          echo "Detected tasks: $TASKS"
+
+  terraform-plan:
+    name: Plan for ${{ matrix.task }}
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.tasks != '[]'
+    strategy:
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: GitHubActions-TerraformPlan
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ~1.5
+
+      - name: Terraform Init
+        working-directory: iac/live_infra/ecs/tasks/${{ matrix.task }}/infrastructure
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: iac/live_infra/ecs/tasks/${{ matrix.task }}/infrastructure
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: iac/live_infra/ecs/tasks/${{ matrix.task }}/infrastructure
+        run: |
+          terraform plan -var-file=dev.tfvars -out=tfplan -no-color > plan_output.txt 2>&1
+          cat plan_output.txt
+        continue-on-error: true
+
+      - name: Format Plan Output
+        id: format-plan
+        if: always()
+        working-directory: iac/live_infra/ecs/tasks/${{ matrix.task }}/infrastructure
+        run: |
+          # Create a formatted output for PR comment
+          {
+            echo "PLAN_OUTPUT<<EOF"
+            cat plan_output.txt | head -n 500
+            if [ $(cat plan_output.txt | wc -l) -gt 500 ]; then
+              echo ""
+              echo "... (output truncated, see workflow logs for full output)"
+            fi
+            echo "EOF"
+          } >> $GITHUB_ENV
+
+      - name: Comment PR with Plan
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const task = '${{ matrix.task }}';
+            const planExitCode = '${{ steps.plan.outcome }}';
+            const planOutput = process.env.PLAN_OUTPUT;
+
+            const output = `### Terraform Plan: \`${task}\`
+
+            #### Status: ${planExitCode === 'success' ? ':white_check_mark: Success' : ':x: Failed'}
+
+            <details><summary>Show Plan Output</summary>
+
+            \`\`\`terraform
+            ${planOutput}
+            \`\`\`
+
+            </details>
+
+            **Pusher**: @${{ github.actor }}
+            **Action**: ${{ github.event_name }}
+            **Working Directory**: \`iac/live_infra/ecs/tasks/${task}/infrastructure\`
+            `;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment => {
+              return comment.user.type === 'Bot' &&
+                     comment.body.includes(`Terraform Plan: \`${task}\``);
+            });
+
+            // Update or create comment
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: output
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: output
+              });
+            }
+
+      - name: Upload Plan File
+        if: steps.plan.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ matrix.task }}
+          path: iac/live_infra/ecs/tasks/${{ matrix.task }}/infrastructure/tfplan
+          retention-days: 5
+
+      - name: Fail if Plan Failed
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+  summary:
+    name: Plan Summary
+    runs-on: ubuntu-latest
+    needs: [detect-changes, terraform-plan]
+    if: always() && needs.detect-changes.outputs.tasks != '[]'
+    steps:
+      - name: Summary Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const tasks = ${{ needs.detect-changes.outputs.tasks }};
+            const planResult = '${{ needs.terraform-plan.result }}';
+
+            const output = `## Terraform Plan Summary
+
+            **Tasks Detected**: ${tasks.length}
+            **Overall Status**: ${planResult === 'success' ? ':white_check_mark: All plans succeeded' : ':warning: Some plans failed'}
+
+            **Affected Tasks**:
+            ${tasks.map(t => `- \`${t}\``).join('\n')}
+
+            ---
+
+            :information_source: **Next Steps**:
+            - Review the individual plan outputs above
+            - Once approved and merged, an issue will be created to track the apply process
+            `;
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: output
+            });

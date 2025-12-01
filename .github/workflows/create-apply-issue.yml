@@ -1,0 +1,124 @@
+name: Create Terraform Apply Issue
+
+on:
+  pull_request:
+    types: [closed]
+    paths:
+      - 'iac/live_infra/ecs/tasks/**'
+    branches:
+      - main
+
+permissions:
+  contents: read
+  issues: write
+  id-token: write
+
+jobs:
+  create-issue:
+    name: Create Apply Approval Issue
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed tasks
+        id: detect
+        run: |
+          # Get changed files in the PR
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }})
+
+          # Extract unique task names from changed paths
+          TASKS=$(echo "$CHANGED_FILES" | \
+            grep "iac/live_infra/ecs/tasks/" | \
+            sed 's|iac/live_infra/ecs/tasks/\([^/]*\)/.*|\1|' | \
+            sort -u)
+
+          # Convert to JSON array
+          TASKS_JSON=$(echo "$TASKS" | jq -R -s -c 'split("\n")[:-1]')
+
+          # Create formatted list for issue
+          TASKS_LIST=$(echo "$TASKS" | sed 's/^/- `/' | sed 's/$/`/')
+
+          echo "tasks=$TASKS_JSON" >> $GITHUB_OUTPUT
+          echo "tasks_list<<EOF" >> $GITHUB_OUTPUT
+          echo "$TASKS_LIST" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "Detected tasks: $TASKS_JSON"
+
+      - name: Create Issue
+        if: steps.detect.outputs.tasks != '[]'
+        uses: actions/github-script@v7
+        id: create-issue
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const tasks = ${{ steps.detect.outputs.tasks }};
+            const tasksList = `${{ steps.detect.outputs.tasks_list }}`;
+            const prNumber = ${{ github.event.pull_request.number }};
+            const prTitle = `${{ github.event.pull_request.title }}`;
+            const prAuthor = `${{ github.event.pull_request.user.login }}`;
+
+            const issueBody = `## Terraform Apply Approval Request
+
+            This issue was automatically created after PR #${prNumber} was merged.
+
+            ### Pull Request Details
+            - **Title**: ${prTitle}
+            - **Author**: @${prAuthor}
+            - **Merged by**: @${{ github.actor }}
+            - **PR Link**: ${{ github.event.pull_request.html_url }}
+
+            ### Affected Tasks
+            ${tasksList}
+
+            ### Review Checklist
+            Before approving, please verify:
+            - [ ] The terraform plan output in PR #${prNumber} was reviewed
+            - [ ] All changes are expected and authorized
+            - [ ] The changes align with infrastructure requirements
+            - [ ] No sensitive data or secrets are exposed
+
+            ---
+
+            ## Approval Instructions
+
+            To **approve** and proceed with terraform apply:
+            > **Comment with one of the following**: \`Yes\`, \`LGTM\`, or \`Approve\`
+
+            To **reject** and prevent apply:
+            > **Comment with**: \`No\` or \`Reject\`
+
+            ---
+
+            :warning: **Important Notes**:
+            - Only authorized team members should approve infrastructure changes
+            - The apply will be executed automatically upon approval
+            - This issue will be closed automatically after processing
+            - You can check the apply workflow in the Actions tab
+
+            ---
+
+            **Tasks to Apply**: ${tasks.map(t => \`\\\`${t}\\\`\`).join(', ')}
+            `;
+
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[Terraform Apply] ${prTitle}`,
+              body: issueBody,
+              labels: ['terraform', 'infrastructure', 'awaiting-approval']
+            });
+
+            console.log(`Created issue #${issue.data.number}`);
+
+            return issue.data.number;
+
+      - name: Summary
+        if: steps.detect.outputs.tasks != '[]'
+        run: |
+          echo "✅ Created approval issue for terraform apply"
+          echo "Tasks: ${{ steps.detect.outputs.tasks }}"
