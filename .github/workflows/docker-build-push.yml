@@ -35,13 +35,28 @@ jobs:
       - name: Check if task exists
         id: check
         run: |
+          # Ensure we're in the repository root
+          cd "${{ github.workspace }}"
+          echo "Current working directory: $(pwd)"
+          echo "GitHub workspace: ${{ github.workspace }}"
+          
+          echo "Listing iac/live_infra/ecs/tasks/:"
+          ls -la iac/live_infra/ecs/tasks/ || echo "Directory not found"
+          
           TASK_PATH="iac/live_infra/ecs/tasks/${{ inputs.task_name }}/app"
+          echo "Checking for task at: $TASK_PATH"
+          echo "Absolute path: $(pwd)/$TASK_PATH"
+          
           if [ -d "$TASK_PATH" ]; then
             echo "task_exists=true" >> $GITHUB_OUTPUT
             echo "✅ Task '${{ inputs.task_name }}' exists at $TASK_PATH"
+            echo "Contents of $TASK_PATH:"
+            ls -la "$TASK_PATH"
           else
             echo "task_exists=false" >> $GITHUB_OUTPUT
             echo "❌ Task '${{ inputs.task_name }}' not found at $TASK_PATH"
+            echo "Available tasks in iac/live_infra/ecs/tasks/:"
+            ls -la iac/live_infra/ecs/tasks/ || true
             exit 1
           fi
 
