@@ -21,6 +21,9 @@ permissions:
   contents: read
   id-token: write
 
+env:
+  TASKS_BASE_DIR: iac/live_infra/ecs/tasks
+
 jobs:
   validate-inputs:
     name: Validate Inputs
@@ -28,6 +31,7 @@ jobs:
     outputs:
       task_exists: ${{ steps.check.outputs.task_exists }}
       version_valid: ${{ steps.validate.outputs.version_valid }}
+      task_path: ${{ steps.check.outputs.task_path }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -35,28 +39,21 @@ jobs:
       - name: Check if task exists
         id: check
         run: |
-          # Ensure we're in the repository root
-          cd "${{ github.workspace }}"
-          echo "Current working directory: $(pwd)"
-          echo "GitHub workspace: ${{ github.workspace }}"
+          TASK_PATH="${{ env.TASKS_BASE_DIR }}/${{ inputs.task_name }}/app"
           
-          echo "Listing iac/live_infra/ecs/tasks/:"
-          ls -la iac/live_infra/ecs/tasks/ || echo "Directory not found"
-          
-          TASK_PATH="iac/live_infra/ecs/tasks/${{ inputs.task_name }}/app"
           echo "Checking for task at: $TASK_PATH"
-          echo "Absolute path: $(pwd)/$TASK_PATH"
           
           if [ -d "$TASK_PATH" ]; then
             echo "task_exists=true" >> $GITHUB_OUTPUT
+            echo "task_path=$TASK_PATH" >> $GITHUB_OUTPUT
             echo "✅ Task '${{ inputs.task_name }}' exists at $TASK_PATH"
-            echo "Contents of $TASK_PATH:"
             ls -la "$TASK_PATH"
           else
             echo "task_exists=false" >> $GITHUB_OUTPUT
             echo "❌ Task '${{ inputs.task_name }}' not found at $TASK_PATH"
-            echo "Available tasks in iac/live_infra/ecs/tasks/:"
-            ls -la iac/live_infra/ecs/tasks/ || true
+            echo ""
+            echo "Available tasks:"
+            ls -la "${{ env.TASKS_BASE_DIR }}" || echo "Tasks directory not found"
             exit 1
           fi
 
@@ -64,9 +61,6 @@ jobs:
         id: validate
         run: |
           VERSION="${{ inputs.version }}"
-
-          # Regex for semantic versioning (semver 2.0.0)
-          # Supports: 1.0.0, 1.0.0-alpha, 1.0.0-beta.1, 1.0.0+build.123, etc.
           SEMVER_REGEX='^([0-9]+)\.([0-9]+)\.([0-9]+)(-([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$'
 
           if [[ $VERSION =~ $SEMVER_REGEX ]]; then
@@ -75,7 +69,7 @@ jobs:
           else
             echo "version_valid=false" >> $GITHUB_OUTPUT
             echo "❌ Version '$VERSION' is not a valid semantic version"
-            echo "Examples of valid versions: 1.0.0, 1.2.3, 2.0.0-beta.1, 1.0.0+build.123"
+            echo "Examples: 1.0.0, 1.2.3, 2.0.0-beta.1, 1.0.0+build.123"
             exit 1
           fi
 
@@ -99,149 +93,121 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Get ECR repository name
-        id: ecr-repo
+      - name: Set ECR variables
+        id: ecr-vars
         run: |
-          # ECR repository name is typically the same as task name
           REPO_NAME="${{ inputs.task_name }}"
-          echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
-
-          # Get AWS Account ID and Region from AWS credentials
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           REGION="${{ secrets.AWS_REGION }}"
-
-          echo "account_id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
-          echo "region=$REGION" >> $GITHUB_OUTPUT
-
           ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com"
+          
+          echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
           echo "ecr_registry=$ECR_REGISTRY" >> $GITHUB_OUTPUT
-
+          
           echo "ECR Registry: $ECR_REGISTRY"
           echo "Repository: $REPO_NAME"
 
-      - name: Check if ECR repository exists
-        id: check-repo
+      - name: Ensure ECR repository exists
         run: |
-          REPO_NAME="${{ steps.ecr-repo.outputs.repo_name }}"
+          REPO_NAME="${{ steps.ecr-vars.outputs.repo_name }}"
 
           if aws ecr describe-repositories --repository-names "$REPO_NAME" 2>/dev/null; then
-            echo "repo_exists=true" >> $GITHUB_OUTPUT
             echo "✅ ECR repository '$REPO_NAME' exists"
           else
-            echo "repo_exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️  ECR repository '$REPO_NAME' does not exist"
-            echo "Creating repository..."
-
+            echo "⚠️  Creating ECR repository '$REPO_NAME'..."
             aws ecr create-repository \
               --repository-name "$REPO_NAME" \
               --image-scanning-configuration scanOnPush=true \
               --image-tag-mutability MUTABLE
-
-            echo "✅ Created ECR repository '$REPO_NAME'"
+            echo "✅ Repository created"
           fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
+      - name: Build and tag Docker image
         id: build
-        working-directory: iac/live_infra/ecs/tasks/${{ inputs.task_name }}/app
+        working-directory: ${{ needs.validate-inputs.outputs.task_path }}
         run: |
-          IMAGE_TAG="${{ inputs.version }}"
-          ECR_REGISTRY="${{ steps.ecr-repo.outputs.ecr_registry }}"
-          REPO_NAME="${{ steps.ecr-repo.outputs.repo_name }}"
-
-          IMAGE_URI="$ECR_REGISTRY/$REPO_NAME:$IMAGE_TAG"
-
+          ECR_REGISTRY="${{ steps.ecr-vars.outputs.ecr_registry }}"
+          REPO_NAME="${{ steps.ecr-vars.outputs.repo_name }}"
+          VERSION="${{ inputs.version }}"
+          BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          
+          IMAGE_URI="$ECR_REGISTRY/$REPO_NAME:$VERSION"
+          
           echo "Building image: $IMAGE_URI"
-
+          
           docker build \
             --tag "$IMAGE_URI" \
-            --tag "$REPO_NAME:$IMAGE_TAG" \
-            --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
-            --build-arg VERSION="${{ inputs.version }}" \
+            --build-arg BUILD_DATE="$BUILD_DATE" \
+            --build-arg VERSION="$VERSION" \
             --build-arg VCS_REF="${{ github.sha }}" \
-            --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
-            --label "org.opencontainers.image.version=${{ inputs.version }}" \
+            --label "org.opencontainers.image.created=$BUILD_DATE" \
+            --label "org.opencontainers.image.version=$VERSION" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
             --label "org.opencontainers.image.source=${{ github.repositoryUrl }}" \
             .
-
+          
           echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
-
-          # Also tag as latest if requested
+          
+          # Tag as latest if requested
           if [ "${{ inputs.also_tag_latest }}" == "true" ]; then
             LATEST_URI="$ECR_REGISTRY/$REPO_NAME:latest"
             docker tag "$IMAGE_URI" "$LATEST_URI"
             echo "latest_uri=$LATEST_URI" >> $GITHUB_OUTPUT
-            echo "✅ Also tagged as: $LATEST_URI"
+            echo "✅ Also tagged as: latest"
           fi
 
-      - name: Push image to ECR
-        id: push
+      - name: Push images to ECR
         run: |
           IMAGE_URI="${{ steps.build.outputs.image_uri }}"
-
-          echo "Pushing image: $IMAGE_URI"
+          
+          echo "Pushing: $IMAGE_URI"
           docker push "$IMAGE_URI"
-
-          echo "✅ Successfully pushed: $IMAGE_URI"
-
-          # Push latest tag if it exists
+          echo "✅ Pushed version tag"
+          
           if [ "${{ inputs.also_tag_latest }}" == "true" ]; then
             LATEST_URI="${{ steps.build.outputs.latest_uri }}"
-            echo "Pushing latest tag: $LATEST_URI"
+            echo "Pushing: $LATEST_URI"
             docker push "$LATEST_URI"
-            echo "✅ Successfully pushed: $LATEST_URI"
+            echo "✅ Pushed latest tag"
           fi
 
       - name: Get image digest
         id: digest
         run: |
-          REPO_NAME="${{ steps.ecr-repo.outputs.repo_name }}"
-          IMAGE_TAG="${{ inputs.version }}"
-
-          # Get the image digest
           DIGEST=$(aws ecr describe-images \
-            --repository-name "$REPO_NAME" \
-            --image-ids imageTag="$IMAGE_TAG" \
+            --repository-name "${{ steps.ecr-vars.outputs.repo_name }}" \
+            --image-ids imageTag="${{ inputs.version }}" \
             --query 'imageDetails[0].imageDigest' \
             --output text)
-
+          
           echo "digest=$DIGEST" >> $GITHUB_OUTPUT
           echo "Image digest: $DIGEST"
 
-      - name: Summary
+      - name: Generate summary
         run: |
-          echo "## ✅ Docker Image Build and Push Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Task**: \`${{ inputs.task_name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Version**: \`${{ inputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Image URI**: \`${{ steps.build.outputs.image_uri }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Digest**: \`${{ steps.digest.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
-
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## ✅ Docker Image Build and Push Complete
+          
+          **Task**: \`${{ inputs.task_name }}\`
+          **Version**: \`${{ inputs.version }}\`
+          **Image URI**: \`${{ steps.build.outputs.image_uri }}\`
+          **Digest**: \`${{ steps.digest.outputs.digest }}\`
+          EOF
+          
           if [ "${{ inputs.also_tag_latest }}" == "true" ]; then
             echo "**Latest URI**: \`${{ steps.build.outputs.latest_uri }}\`" >> $GITHUB_STEP_SUMMARY
           fi
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "1. Update your Terraform \`dev.tfvars\` with the new image version" >> $GITHUB_STEP_SUMMARY
-          echo "2. Create a PR to apply the infrastructure changes" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`hcl" >> $GITHUB_STEP_SUMMARY
-          echo "image_uri = \"${{ steps.build.outputs.image_uri }}\"" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-
-      - name: Output image details
-        run: |
-          echo "✅ Build and push completed successfully!"
-          echo ""
-          echo "Image Details:"
-          echo "  Task Name: ${{ inputs.task_name }}"
-          echo "  Version: ${{ inputs.version }}"
-          echo "  Image URI: ${{ steps.build.outputs.image_uri }}"
-          echo "  Digest: ${{ steps.digest.outputs.digest }}"
-          if [ "${{ inputs.also_tag_latest }}" == "true" ]; then
-            echo "  Latest URI: ${{ steps.build.outputs.latest_uri }}"
-          fi
+          
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          
+          ### Next Steps
+          1. Update your Terraform \`dev.tfvars\` with the new image version
+          2. Create a PR to apply the infrastructure changes
+          
+          \`\`\`hcl
+          image_uri = "${{ steps.build.outputs.image_uri }}"
+          \`\`\`
+          EOF
