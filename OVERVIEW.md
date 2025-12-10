@@ -289,12 +289,12 @@ If someone hacks the waiter's account, they can't cook food directly. If they ha
 
 ```
 Step 1: Build Frontend
-├─ cd ui/
+├─ cd ui-react-react/
 ├─ npm run build
-└─ Output: ui/build/ (HTML, CSS, JS, images)
+└─ Output: ui-react/build/ (HTML, CSS, JS, images)
 
 Step 2: Bundle Frontend with Backend
-├─ Copy ui/build/* → ExecutionAPI/app/wwwroot/
+├─ Copy ui-react/build/* → api/app/wwwroot/
 └─ Result: API Lambda will serve these files
 
 Step 3: Validate Infrastructure
@@ -355,7 +355,7 @@ git clone https://github.com/your-org/serverless-task-scheduler.git
 cd serverless-task-scheduler
 
 # 2. Install UI dependencies
-cd ui
+cd ui-react
 npm install
 cd ..
 

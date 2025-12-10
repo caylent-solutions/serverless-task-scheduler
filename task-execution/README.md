@@ -1,10 +1,10 @@
-# ExecutorStepFunction
+# task-execution
 
 A Step Functions-based replacement for the LambdaExecutor Lambda function. This implementation provides better observability, error handling, and redrive capabilities for scheduled task execution.
 
 ## Overview
 
-The ExecutorStepFunction orchestrates the execution of scheduled tasks by:
+The task-execution orchestrates the execution of scheduled tasks by:
 1. **Preprocessing**: Resolving tenant target mappings and merging payloads
 2. **Target Execution**: Conditionally routing to Lambda, ECS, or Step Functions based on target type
 3. **Postprocessing**: Recording execution results to DynamoDB with redrive information
@@ -17,7 +17,7 @@ The ExecutorStepFunction orchestrates the execution of scheduled tasks by:
 EventBridge Scheduler
         ↓
 ┌─────────────────────────────────────┐
-│  ExecutorStepFunction               │
+│  task-execution               │
 │                                     │
 │  ┌─────────────────────────┐      │
 │  │  Preprocessing Lambda    │      │
@@ -292,15 +292,15 @@ To integrate with `template.yaml`, add:
    - Replace `${PostprocessingLambdaArn}` with `!GetAtt PostprocessingLambda.Arn`
 
 3. **IAM Roles**:
-   - ExecutorStepFunctionRole (for state machine execution)
+   - task-executionRole (for state machine execution)
    - Update Lambda execution roles with necessary permissions
 
 4. **EventBridge Scheduler Update**:
-   - Change target from LambdaExecutor to ExecutorStepFunction
+   - Change target from LambdaExecutor to task-execution
 
 ### Migration Path
 
-1. **Phase 1**: Deploy ExecutorStepFunction alongside LambdaExecutor
+1. **Phase 1**: Deploy task-execution alongside LambdaExecutor
 2. **Phase 2**: Test with non-critical schedules
 3. **Phase 3**: Gradually migrate schedules to use Step Functions
 4. **Phase 4**: Deprecate LambdaExecutor once all schedules migrated
@@ -366,14 +366,14 @@ docker run -p 8083:8083 amazon/aws-stepfunctions-local
 # Create state machine
 aws stepfunctions create-state-machine \
   --endpoint-url http://localhost:8083 \
-  --name ExecutorStepFunction \
+  --name task-execution \
   --definition file://state_machine.json \
   --role-arn arn:aws:iam::123456789012:role/DummyRole
 
 # Start execution
 aws stepfunctions start-execution \
   --endpoint-url http://localhost:8083 \
-  --state-machine-arn arn:aws:states:us-east-1:123456789012:stateMachine:ExecutorStepFunction \
+  --state-machine-arn arn:aws:states:us-east-1:123456789012:stateMachine:task-execution \
   --input file://test_events/execution_input.json
 ```
 

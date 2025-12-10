@@ -4,11 +4,11 @@ venv:
 
 .PHONY: install
 install: venv
-	source .venv/bin/activate && pip3 install -r ExecutionAPI/requirements.txt
+	source .venv/bin/activate && pip3 install -r api/requirements.txt
 
 .PHONY: run
 run:
-	source .venv/bin/activate && cd ExecutionAPI && uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
+	source .venv/bin/activate && cd api && uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 
 # SAM deployment
 ENV ?= dev
@@ -16,9 +16,9 @@ STACK_NAME ?= sts
 
 .PHONY: build-ui
 build-ui:
-	cd ui && npm run build
-	rm -rf ExecutionAPI/app/wwwroot/*
-	cp -r ui/build/* ExecutionAPI/app/wwwroot/
+	cd ui-react && npm run build
+	rm -rf api/app/wwwroot/*
+	cp -r ui-react/build/* api/app/wwwroot/
 
 .PHONY: sam-build
 sam-build: build-ui

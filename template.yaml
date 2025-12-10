@@ -622,7 +622,7 @@ Resources:
       FunctionName: !Sub
         - ${StackName}-${Environment}-api-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
-      CodeUri: ExecutionAPI/
+      CodeUri: api/
       Handler: app/lambda_handler.handler
       Role: !GetAtt AppLambdaRole.Arn
       Environment:
@@ -643,11 +643,11 @@ Resources:
 
   # --------------------------------------------------------------------------
   # EventBridge Scheduler IAM Role
-  # This role is assumed by EventBridge Scheduler to invoke the ExecutorStepFunction
+  # This role is assumed by EventBridge Scheduler to invoke the task-execution
   # Security Model:
   # - Can only be assumed by scheduler.amazonaws.com
-  # - Can only start the ExecutorStepFunction state machine
-  # - Cannot invoke target Lambdas directly (only through ExecutorStepFunction)
+  # - Can only start the task-execution state machine
+  # - Cannot invoke target Lambdas directly (only through task-execution)
   # --------------------------------------------------------------------------
   EventBridgeSchedulerRole:
     Type: AWS::IAM::Role
@@ -667,7 +667,7 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              # Permission to start ExecutorStepFunction
+              # Permission to start task-execution
               - Effect: Allow
                 Action:
                   - states:StartExecution
@@ -683,7 +683,7 @@ Resources:
           Value: !Ref StackName
 
   # ==========================================================================
-  # ExecutorStepFunction - Step Functions-based replacement for LambdaExecutor
+  # task-execution - Step Functions-based replacement for LambdaExecutor
   # ==========================================================================
 
   # --------------------------------------------------------------------------
@@ -696,7 +696,7 @@ Resources:
       FunctionName: !Sub
         - ${StackName}-${Environment}-executor-preprocessing-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
-      CodeUri: ExecutorStepFunction/
+      CodeUri: task-execution/
       Handler: preprocessing.handler
       Runtime: python3.13
       Timeout: 30
@@ -757,7 +757,7 @@ Resources:
       FunctionName: !Sub
         - ${StackName}-${Environment}-executor-lambda-helper-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
-      CodeUri: ExecutorStepFunction/
+      CodeUri: task-execution/
       Handler: lambda_execution_helper.handler
       Runtime: python3.13
       Timeout: 60
@@ -821,7 +821,7 @@ Resources:
       FunctionName: !Sub
         - ${StackName}-${Environment}-executor-postprocessing-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
-      CodeUri: ExecutorStepFunction/
+      CodeUri: task-execution/
       Handler: postprocessing.handler
       Runtime: python3.13
       Timeout: 30
@@ -886,7 +886,7 @@ Resources:
       Name: !Sub
         - ${StackName}-${Environment}-executor-sfn-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
-      DefinitionUri: ExecutorStepFunction/state_machine.json
+      DefinitionUri: task-execution/state_machine.json
       DefinitionSubstitutions:
         PreprocessingLambdaArn: !GetAtt PreprocessingLambda.Arn
         LambdaExecutionHelperArn: !GetAtt LambdaExecutionHelperLambda.Arn
@@ -1018,10 +1018,10 @@ Resources:
   # --------------------------------------------------------------------------
   # App Lambda IAM Role
   # Security Model:
-  # - API Lambda manages schedules in EventBridge that trigger ExecutorStepFunction
+  # - API Lambda manages schedules in EventBridge that trigger task-execution
   # - API Lambda manages DynamoDB tables (tenants, mappings, schedules, etc.)
   # - API Lambda does not invoke target Lambdas directly
-  # - All target execution is routed through ExecutorStepFunction for centralized control
+  # - All target execution is routed through task-execution for centralized control
   # --------------------------------------------------------------------------
   AppLambdaRole:
     Type: AWS::IAM::Role
@@ -1064,8 +1064,8 @@ Resources:
                   - !Sub '${TargetExecutionsTable.Arn}/index/*'
 
               # EventBridge Scheduler operations
-              # Note: API Lambda creates schedules that start ExecutorStepFunction
-              # EventBridge invokes ExecutorStepFunction directly (not the API Lambda)
+              # Note: API Lambda creates schedules that start task-execution
+              # EventBridge invokes task-execution directly (not the API Lambda)
               - Effect: Allow
                 Action:
                   - scheduler:CreateSchedule
@@ -1088,7 +1088,7 @@ Resources:
                 Resource: '*'
 
               # Step Functions Re-drive operations
-              # Allows API Lambda to re-drive failed ExecutorStepFunction executions
+              # Allows API Lambda to re-drive failed task-execution executions
               - Effect: Allow
                 Action:
                   - states:RedriveExecution
@@ -1199,7 +1199,7 @@ Outputs:
     Description: URL for accessing API documentation (Swagger UI)
     Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/api/docs'
 
-  # ExecutorStepFunction Outputs
+  # task-execution Outputs
   ExecutorStateMachineArn:
     Description: ARN of the Executor Step Functions state machine
     Value: !GetAtt ExecutorStateMachine.Arn
