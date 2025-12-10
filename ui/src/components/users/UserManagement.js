@@ -185,7 +185,7 @@ const UserManagement = ({ isAdmin }) => {
         throw new Error(errorData.detail || `Failed to invite user: ${response.status}`);
       }
 
-      const result = await response.json();
+      await response.json();
 
       // Refresh the users list
       const refreshResponse = await authenticatedFetch('../user/management');
@@ -222,17 +222,12 @@ const UserManagement = ({ isAdmin }) => {
         throw new Error(errorData.detail || `Failed to sync: ${response.status}`);
       }
 
-      const result = await response.json();
+      await response.json();
 
       // Refresh the users list
       const refreshResponse = await authenticatedFetch('../user/management');
       const refreshData = await refreshResponse.json();
       setUsers(refreshData.users || []);
-
-      let message = result.message;
-      if (result.removed_count > 0) {
-        message += ` (Removed: ${result.removed_users.join(', ')})`;
-      }
     } catch (err) {
       console.error('Error syncing IdP:', err);
       alert(`Error syncing IdP: ${err.message}`);

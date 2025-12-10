@@ -24,6 +24,8 @@ const getApiBaseUrl = () => {
 
 export const API_BASE_URL = getApiBaseUrl();
 
-export default {
+const config = {
   API_BASE_URL
 };
+
+export default config;

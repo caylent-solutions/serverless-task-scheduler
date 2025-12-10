@@ -81,6 +81,7 @@ const ExecutionHistoryModal = ({
 
   useEffect(() => {
     fetchExecutions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantName, filterType, filterValue, targetAlias, statusFilter, startTimeLower, startTimeUpper]);
 
   // Generate mock data for development/testing
