@@ -1,11 +1,6 @@
 #!/bin/bash
-# Quick Deploy Script for Agentic Functions
+# Quick Deploy Script for Serverless Task Scheduler (STS)
 # This script builds the UI, copies assets, validates, builds, and deploys the SAM application
-
-# Set AWS profile and region
-export AWS_PROFILE=cy
-export AWS_DEFAULT_REGION=us-east-1
-export STACK_NAME=ireis-sts-dev
 
 # Color codes
 CYAN='\033[0;36m'
@@ -20,8 +15,25 @@ echo -e "${CYAN}========================================${NC}"
 echo -e "${CYAN}Starting Quick Deploy Process${NC}"
 echo -e "${CYAN}========================================${NC}"
 
+# Read stack name from samconfig.toml
+echo -e "\n${YELLOW}Reading configuration from samconfig.toml...${NC}"
+STACK_NAME=""
+
+if [ -f "samconfig.toml" ]; then
+    STACK_NAME=$(grep -oP 'stack_name\s*=\s*"\K[^"]+' samconfig.toml)
+    if [ -n "$STACK_NAME" ]; then
+        echo -e "${GREEN}Found stack name: $STACK_NAME${NC}"
+    else
+        echo -e "${RED}Error: Could not find stack_name in samconfig.toml${NC}"
+        exit 1
+    fi
+else
+    echo -e "${RED}Error: samconfig.toml not found${NC}"
+    exit 1
+fi
+
 # Step 1: Build the UI
-echo -e "\n${YELLOW}[1/5] Building UI...${NC}"
+echo -e "\n${YELLOW}[1/6] Building UI...${NC}"
 (
     cd ui || exit 1
     npm run build
@@ -36,30 +48,8 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Step 2: Copy assets to wwwroot
-echo -e "\n${YELLOW}[2/5] Copying assets to wwwroot...${NC}"
-sourcePath="ui/build"
-destPath="ExecutionAPI/app/wwwroot"
-
-# Remove existing wwwroot contents completely
-if [ -d "$destPath" ]; then
-    echo -e "${GRAY}Removing existing wwwroot contents...${NC}"
-    rm -rf "${destPath:?}"/*
-else
-    echo -e "${GRAY}Creating wwwroot directory...${NC}"
-    mkdir -p "$destPath"
-fi
-
-# Copy new build
-cp -r "${sourcePath}"/* "$destPath"
-if [ $? -ne 0 ]; then
-    echo -e "${RED}Failed to copy assets!${NC}"
-    exit 1
-fi
-echo -e "${GREEN}Assets copied successfully.${NC}"
-
-# Step 3: SAM Validate
-echo -e "\n${YELLOW}[3/5] Validating SAM template...${NC}"
+# Step 2: SAM Validate
+echo -e "\n${YELLOW}[2/6] Validating SAM template...${NC}"
 sam validate --lint
 if [ $? -ne 0 ]; then
     echo -e "${RED}SAM validation failed!${NC}"
@@ -67,8 +57,8 @@ if [ $? -ne 0 ]; then
 fi
 echo -e "${GREEN}SAM validation completed successfully.${NC}"
 
-# Step 4: SAM Build
-echo -e "\n${YELLOW}[4/5] Building SAM application...${NC}"
+# Step 3: SAM Build
+echo -e "\n${YELLOW}[3/6] Building SAM application...${NC}"
 sam build
 if [ $? -ne 0 ]; then
     echo -e "${RED}SAM build failed!${NC}"
