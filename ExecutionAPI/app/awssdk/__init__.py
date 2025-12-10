@@ -1,8 +1,8 @@
 import boto3
-import os
 
 # Singleton session instance
 _session = None
+
 
 def get_session():
     global _session

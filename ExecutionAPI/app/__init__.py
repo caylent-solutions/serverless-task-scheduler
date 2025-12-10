@@ -3,9 +3,10 @@ import logging
 
 from dotenv import load_dotenv
 
+
 class CustomFormatter(logging.Formatter):
 
-    grey = "\x1b[38;20m"    
+    grey = "\x1b[38;20m"
     red = "\x1b[31;20m"
     green = "\x1b[32;20m"
     yellow = "\x1b[33;20m"
@@ -28,7 +29,8 @@ class CustomFormatter(logging.Formatter):
         log_fmt = self.FORMATS.get(record.levelno)
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
-    
+
+
 # Configure root logger with custom handler only
 root_logger = logging.getLogger()
 root_logger.setLevel(logging.INFO)

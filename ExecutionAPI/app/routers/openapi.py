@@ -1,17 +1,18 @@
-from fastapi import APIRouter, Depends
-from typing import Dict, Any, Optional, List, Union, Type
+from fastapi import APIRouter
+from typing import Dict, Any, Optional, Union, Type
 from pydantic import BaseModel, create_model, Field
 from fastapi.responses import HTMLResponse
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
-from ..models.target import Target, TargetList, TargetExecution, RouteChangedEvent, TargetWithExecutionInfo
-from .targets import create_get_target, create_execute_target
+from ..models.target import RouteChangedEvent, TargetWithExecutionInfo
+from .targets import create_get_target
 from ..awssdk.dynamodb import get_database_client
 import logging
 import json
 
 router = APIRouter()
 logger = logging.getLogger("app.routers.openapi")
+
 
 class OpenAPIHelpers:
     """Helper class for OpenAPI related functionality"""
@@ -34,7 +35,7 @@ class OpenAPIHelpers:
             openapi_url=openapi_path,
             title="Target Execution Service - API Documentation",
         )
-    
+
     def health_check(self):
         """Health check endpoint"""
         return {"status": "healthy"}
@@ -71,15 +72,15 @@ class OpenAPIHelpers:
             }
 
         return openapi_schema
-    
+
     def get_pydantic_schema(self, schema: Union[Dict[str, Any], str], model_name: str = "DynamicModel") -> Type[BaseModel]:
         """
         Convert a target parameter schema into a Pydantic model.
-        
+
         Args:
             schema: The schema definition (dict or JSON string)
             model_name: Name for the generated model
-            
+
         Returns:
             A Pydantic model class
         """
@@ -96,7 +97,7 @@ class OpenAPIHelpers:
 
             # Extract properties and required fields
             properties = {}
-            
+
             try:
                 # Handle target_parameter_schema format
                 if "parameters" in schema_obj and "properties" in schema_obj["parameters"]:
@@ -112,7 +113,7 @@ class OpenAPIHelpers:
                         field_type = str  # Default type
                         field_description = param_details.get("description", "")
                         field_default = ... if param_name in schema_obj.get("required", []) or param_details.get("required", False) else None
-                        
+
                         properties[param_name] = self._get_field_type_and_props(
                             param_details, field_type, field_description, field_default
                         )
@@ -142,7 +143,7 @@ class OpenAPIHelpers:
                 field_type = str  # Default type
                 field_description = param_details.get("description", "")
                 field_default = ... if param_details.get("required", False) else None
-                
+
                 properties[param_name] = self._get_field_type_and_props(
                     param_details, field_type, field_description, field_default
                 )
@@ -341,14 +342,13 @@ class OpenAPIHelpers:
 
         return openapi_schema
 
-
     def add_dynamic_route(self, event: RouteChangedEvent) -> APIRouter:
         # Create a Pydantic model for the request body (we use event.name here because they need unique names)
         try:
-            request_model: Type[BaseModel] = self.get_pydantic_schema(event.parameters, event.name)
+            self.get_pydantic_schema(event.parameters, event.name)
         except Exception as e:
             logger.error(f"Failed to create request model for {event.name}: {str(e)}")
-            request_model = create_model(event.name)
+            create_model(event.name)
         addrouter = APIRouter()
         addrouter.add_api_route(
             f"/targets/{event.name}",
@@ -363,16 +363,18 @@ class OpenAPIHelpers:
         return addrouter
 
 
-
 helpers = OpenAPIHelpers(router)
+
 
 @router.get("/swagger", response_class=HTMLResponse, include_in_schema=False)
 async def root():
     return helpers.swagger_ui()
 
+
 @router.get("/docs", response_class=HTMLResponse, include_in_schema=False)
 async def docs():
     return helpers.swagger_ui()
+
 
 @router.get("/health")
 async def health_check():
@@ -392,5 +394,5 @@ async def health_check():
 #             parameters=function['function_parameter_schema']
 #         )
 #         router.include_router(helpers.add_dynamic_route(event))
-    
+
 #     return helpers.get_open_api_endpoint()

@@ -1,12 +1,9 @@
 import datetime
-import json
 import os
-import uuid
 from uuid_v7.base import uuid7
-from fastapi import APIRouter, HTTPException, Query, Depends, Request
+from fastapi import APIRouter, HTTPException, Query, Depends
 import logging
 from typing import Dict, Any, List, Optional
-from fastapi_events.dispatcher import dispatch
 from ..awssdk.dynamodb import get_database_client
 from ..awssdk.targets import get_target_invoker
 from ..awssdk.schedules import get_scheduler_client
@@ -14,7 +11,7 @@ from ..awssdk.usermappings import UserMappingsDB
 from ..models.schedule import Schedule
 from ..models.tenant import Tenant, TenantList
 from ..models.tenantmapping import TenantMapping
-from ..models.usermapping import UserMapping, UserMappingList
+from ..models.usermapping import UserMappingList
 from ..authorization import require_admin, require_tenant_access
 
 router = APIRouter()
@@ -28,6 +25,7 @@ target_invoker = get_target_invoker()
 # =============================================================================
 # Tenant CRUD Endpoints
 # =============================================================================
+
 
 @router.get("/tenants", response_model=TenantList)
 async def get_all_tenants(_: dict = Depends(require_admin)):
@@ -213,6 +211,7 @@ async def execute_tenant_mapping(
         "note": "This one-time schedule will be automatically deleted by EventBridge after execution. Use the execution_query_url to poll for results and CloudWatch Logs URL."
     }
 
+
 @router.post("/tenants/{tenant_id}/mappings/{target_alias}/schedules")
 async def create_target_schedule(
     tenant_id: str,
@@ -290,12 +289,13 @@ async def create_target_schedule(
     # If EventBridge creation succeeded, save to DynamoDB
     success = db_client.create_schedule(schedule_model)
     if not success:
-        logger.error(f"Failed to save schedule to DynamoDB after EventBridge creation")
+        logger.error("Failed to save schedule to DynamoDB after EventBridge creation")
         # Attempt to clean up EventBridge schedule
         scheduler.delete_schedule(schedule_name=schedule_model.schedule_id)
         raise HTTPException(status_code=500, detail="Failed to save schedule to database")
 
     return result
+
 
 @router.put("/tenants/{tenant_id}/mappings/{target_alias}/schedules/{schedule_id}")
 async def update_target_schedule(
@@ -375,10 +375,11 @@ async def update_target_schedule(
     # If EventBridge update succeeded, update in DynamoDB
     success = db_client.update_schedule(schedule_model)
     if not success:
-        logger.error(f"Failed to update schedule in DynamoDB after EventBridge update")
+        logger.error("Failed to update schedule in DynamoDB after EventBridge update")
         raise HTTPException(status_code=500, detail="Failed to update schedule in database")
 
     return result
+
 
 @router.delete("/tenants/{tenant_id}/mappings/{target_alias}/schedules/{schedule_id}")
 async def delete_target_schedule(
@@ -405,6 +406,7 @@ async def delete_target_schedule(
 
     return result
 
+
 @router.get("/tenants/{tenant_id}/mappings/{target_alias}/schedules")
 async def get_target_schedules(
     tenant_id: str,
@@ -415,6 +417,7 @@ async def get_target_schedules(
     schedules = db_client.get_all_target_schedules(tenant_id, target_alias)
     return schedules
 
+
 @router.get("/tenants/{tenant_id}/schedules")
 async def get_tenant_schedules(
     tenant_id: str,
@@ -423,6 +426,7 @@ async def get_tenant_schedules(
     """Get all schedules for a tenant (requires tenant access)"""
     schedules = db_client.get_all_schedules(tenant_id)
     return schedules
+
 
 @router.get("/tenants/{tenant_id}/mappings/{target_alias}/schedules/{schedule_id}/executions")
 async def get_schedule_executions(
@@ -487,26 +491,26 @@ async def create_tenant_mapping(
     # Ensure tenant_id in path matches the one in the mapping
     if mapping.tenant_id != tenant_id:
         raise HTTPException(status_code=400, detail="Tenant ID in path must match tenant ID in mapping")
-    
+
     # Add audit fields
     mapping.last_update_user = current_user.get('email', current_user.get('cognito:username', 'unknown'))
     mapping.last_update_date = datetime.datetime.utcnow().isoformat()
-    
+
     # Check if mapping already exists
     existing = db_client.get_tenant_target_mapping(mapping.tenant_id, mapping.target_alias)
     if existing:
         raise HTTPException(status_code=400, detail="Tenant target mapping already exists")
-    
+
     # Check if the target_id exists
     target = db_client.get_target(mapping.target_id)
     if not target:
         raise HTTPException(status_code=404, detail=f"Target '{mapping.target_id}' not found")
-    
+
     # Create mapping in storage
     success = db_client.create_tenant_mapping(mapping)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to create tenant mapping")
-    
+
     return mapping
 
 
@@ -534,26 +538,26 @@ async def update_tenant_mapping(
     # Add audit fields
     mapping.last_update_user = current_user.get('email', current_user.get('cognito:username', 'unknown'))
     mapping.last_update_date = datetime.datetime.utcnow().isoformat()
-    
+
     # Ensure tenant_id and target_alias in path match the ones in the mapping
     if mapping.tenant_id != tenant_id or mapping.target_alias != target_alias:
         raise HTTPException(status_code=400, detail="Tenant ID and target alias in path must match those in mapping")
-    
+
     # Check if mapping exists
     existing = db_client.get_tenant_target_mapping(tenant_id, target_alias)
     if not existing:
         raise HTTPException(status_code=404, detail=f"Mapping for tenant '{tenant_id}' and target '{target_alias}' not found")
-    
+
     # Check if the target_id exists
     target = db_client.get_target(mapping.target_id)
     if not target:
         raise HTTPException(status_code=404, detail=f"Target '{mapping.target_id}' not found")
-    
+
     # Update mapping in storage
     success = db_client.update_tenant_mapping(tenant_id, target_alias, mapping)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update tenant mapping")
-    
+
     return mapping
 
 

@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 import logging
-import boto3
 import os
 from typing import Dict, List, Any, Optional
 from botocore.exceptions import ClientError
@@ -17,178 +16,147 @@ logger = logging.getLogger("app.awssdk.dynamodb")
 # Singleton database client instance
 _db_client = None
 
+
 class DatabaseClient(ABC):
     @abstractmethod
     def get_all_targets(self) -> List[Target]:
         """Get all targets from storage"""
-        pass
 
     @abstractmethod
     def get_target(self, target_id: str) -> Optional[Target]:
         """Get a specific target by id"""
-        pass
 
     @abstractmethod
     def create_target(self, target: Target) -> bool:
         """Create a new target"""
-        pass
 
     @abstractmethod
     def update_target(self, target_id: str, target: Target) -> bool:
         """Update an existing target"""
-        pass
-            
+
     @abstractmethod
     def delete_target(self, target_id: str) -> bool:
         """Delete a target"""
-        pass
 
     @abstractmethod
     def get_all_tenants(self) -> List[Tenant]:
         """Get all tenants from storage"""
-        pass
 
     @abstractmethod
     def get_tenant(self, tenant_id: str) -> Optional[Tenant]:
         """Get a specific tenant by id"""
-        pass
 
     @abstractmethod
     def create_tenant(self, tenant: Tenant) -> bool:
         """Create a new tenant"""
-        pass
 
     @abstractmethod
     def update_tenant(self, tenant_id: str, tenant: Tenant) -> bool:
         """Update an existing tenant"""
-        pass
 
     @abstractmethod
     def delete_tenant_record(self, tenant_id: str) -> bool:
         """Delete a tenant record"""
-        pass
 
     @abstractmethod
     def execute_target(self, target_id: str, execution_params: Dict[str, Any], is_async: bool = False) -> Dict[str, Any]:
         """Execute a target with the given parameters
-        
+
         Args:
             target_id: The ID of the target to execute
             execution_params: The parameters to pass to the target
             is_async: Whether to execute the target asynchronously
-            
+
         Returns:
             The response from the target execution
         """
-        pass
-        
+
     @abstractmethod
     def get_all_tenant_mappings(self) -> List[TenantMapping]:
         """Get all tenant mappings from storage"""
-        pass
-        
+
     @abstractmethod
     def get_tenant_mappings(self, tenant_id: str) -> List[TenantMapping]:
         """Get all mappings for a specific tenant"""
-        pass
-        
+
     @abstractmethod
     def get_tenant_target_mapping(self, tenant_id: str, target_alias: str) -> Optional[TenantMapping]:
         """Get a specific tenant target mapping"""
-        pass
-        
+
     @abstractmethod
     def create_tenant_mapping(self, mapping: TenantMapping) -> bool:
         """Create a new tenant target mapping"""
-        pass
-        
+
     @abstractmethod
     def update_tenant_mapping(self, tenant_id: str, target_alias: str, mapping: TenantMapping) -> bool:
         """Update an existing tenant target mapping"""
-        pass
-        
+
     @abstractmethod
     def delete_tenant_mapping(self, tenant_id: str, target_alias: str) -> bool:
         """Delete a tenant target mapping"""
-        pass
-        
+
     @abstractmethod
     def delete_tenant(self, tenant_id: str) -> bool:
         """Delete all mappings for a tenant"""
-        pass
 
     @abstractmethod
     def create_schedule(self, schedule: Schedule) -> bool:
         """Create a new target schedule in DynamoDB"""
-        pass
 
     @abstractmethod
     def update_schedule(self, schedule: Schedule) -> bool:
         """Update an existing target schedule in DynamoDB"""
-        pass
 
     @abstractmethod
     def delete_schedule(self, tenant_id: str, schedule_id: str) -> bool:
         """Delete a target schedule from DynamoDB"""
-        pass
 
     @abstractmethod
     def get_schedule(self, tenant_id: str, schedule_id: str) -> Optional[Schedule]:
         """Get a target schedule"""
-        pass
 
     @abstractmethod
     @abstractmethod
     def get_all_schedules(self, tenant_id: str) -> List[Schedule]:
         """Get all target schedules for a tenant"""
-        pass
 
     @abstractmethod
     def get_all_target_schedules(self, tenant_id: str, target_alias: str) -> List[Schedule]:
         """Get all schedules for a specific target"""
-        pass
 
     @abstractmethod
     def get_user_tenants(self, user_id: str) -> List[str]:
         """Get all tenants a user has access to"""
-        pass
 
     @abstractmethod
     def create_user_mapping(self, user_id: str, tenant_id: str, create_user: str):
         """Create a new user-tenant mapping"""
-        pass
 
     @abstractmethod
     def delete_user_mapping(self, user_id: str, tenant_id: str) -> bool:
         """Delete a user-tenant mapping"""
-        pass
 
     @abstractmethod
     def get_user_mapping(self, user_id: str, tenant_id: str):
         """Get a specific user-tenant mapping"""
-        pass
 
     @abstractmethod
     def get_tenant_users(self, tenant_id: str) -> List:
         """Get all users that have access to a tenant"""
-        pass
 
     @abstractmethod
     def get_all_user_mappings(self) -> List:
         """Get all user-tenant mappings"""
-        pass
 
     @abstractmethod
     def get_execution_by_schedule_id(self, tenant_id: str, schedule_id: str, execution_id: str = None) -> Optional[Dict[str, Any]]:
         """Get execution record by tenant_id + schedule_id and optionally execution_id"""
-        pass
 
     @abstractmethod
     def list_target_executions(self, tenant_id: str, target_alias: str, limit: int = 20) -> List[Dict[str, Any]]:
         """List executions for a specific tenant target"""
-        pass
-    
-    
+
+
 class DynamoDBClient(DatabaseClient):
     def __init__(self, db_target='local'):
 
@@ -255,7 +223,7 @@ class DynamoDBClient(DatabaseClient):
         except ClientError as e:
             print(f"Error updating target {target_id}: {e}")
             return False
-            
+
     def delete_target(self, target_id: str) -> bool:
         """Delete a target"""
         try:
@@ -328,7 +296,7 @@ class DynamoDBClient(DatabaseClient):
                 "status": "ERROR",
                 "error": f"Target {target_id} not found"
             }
-            
+
         # In a real implementation, this would use the target ARN
         # For now, we'll just return a mock response
         if is_async:
@@ -345,7 +313,7 @@ class DynamoDBClient(DatabaseClient):
                 "status": "STARTED",
                 "parameters": execution_params
             }
-            
+
     def get_all_tenant_mappings(self) -> List[TenantMapping]:
         """Get all tenant mappings from storage"""
         try:
@@ -354,7 +322,7 @@ class DynamoDBClient(DatabaseClient):
         except ClientError as e:
             print(f"Error getting tenant mappings: {e}")
             return []
-        
+
     def get_tenant_mappings(self, tenant_id: str) -> List[TenantMapping]:
         """Get all mappings for a specific tenant"""
         try:
@@ -366,7 +334,7 @@ class DynamoDBClient(DatabaseClient):
         except ClientError as e:
             print(f"Error getting tenant mappings for {tenant_id}: {e}")
             return []
-        
+
     def get_tenant_target_mapping(self, tenant_id: str, target_alias: str) -> Optional[TenantMapping]:
         """Get a specific tenant target mapping"""
         try:
@@ -381,7 +349,7 @@ class DynamoDBClient(DatabaseClient):
         except ClientError as e:
             print(f"Error getting tenant mapping {tenant_id}:{target_alias}: {e}")
             return None
-        
+
     def create_tenant_mapping(self, mapping: TenantMapping) -> bool:
         """Create a new tenant target mapping"""
         try:
@@ -390,7 +358,7 @@ class DynamoDBClient(DatabaseClient):
         except ClientError as e:
             print(f"Error creating tenant mapping: {e}")
             return False
-        
+
     def update_tenant_mapping(self, tenant_id: str, target_alias: str, mapping: TenantMapping) -> bool:
         """Update an existing tenant target mapping"""
         try:
@@ -399,7 +367,7 @@ class DynamoDBClient(DatabaseClient):
         except ClientError as e:
             print(f"Error updating tenant mapping {tenant_id}:{target_alias}: {e}")
             return False
-        
+
     def delete_tenant_mapping(self, tenant_id: str, target_alias: str) -> bool:
         """Delete a tenant target mapping"""
         try:
@@ -414,22 +382,22 @@ class DynamoDBClient(DatabaseClient):
         except ClientError as e:
             print(f"Error deleting tenant mapping {tenant_id}:{target_alias}: {e}")
             return False
-            
+
     def delete_tenant(self, tenant_id: str) -> bool:
         """Delete all mappings for a tenant"""
         try:
             # First get all mappings for this tenant
             mappings = self.get_tenant_mappings(tenant_id)
-            
+
             if not mappings:
                 return False
-                
+
             # Delete each mapping
             success = True
             for mapping in mappings:
                 result = self.delete_tenant_mapping(tenant_id, mapping.target_alias)
                 success = success and result
-                
+
             return success
         except ClientError as e:
             print(f"Error deleting tenant {tenant_id}: {e}")
@@ -461,7 +429,7 @@ class DynamoDBClient(DatabaseClient):
         except ClientError as e:
             print(f"Error deleting target schedule: {e}")
             return False
-        
+
     def get_schedule(self, tenant_id: str, schedule_id: str) -> Optional[Schedule]:
         """Get a target schedule"""
         try:
@@ -470,7 +438,7 @@ class DynamoDBClient(DatabaseClient):
         except ClientError as e:
             print(f"Error getting target schedule: {e}")
             return None
-        
+
     def get_all_schedules(self, tenant_id: str) -> List[Schedule]:
         """Get all target schedules for a tenant"""
         try:
@@ -479,7 +447,7 @@ class DynamoDBClient(DatabaseClient):
         except ClientError as e:
             print(f"Error getting target schedules for {tenant_id}: {e}")
             return []
-        
+
     def get_all_target_schedules(self, tenant_id: str, target_alias: str) -> List[Schedule]:
         """Get all schedules for a specific target"""
         try:
@@ -760,26 +728,27 @@ class DynamoDBClient(DatabaseClient):
             logger.error(f"Error listing executions for {tenant_id}/{target_alias}: {e}")
             return []
 
+
 def get_database_client() -> DatabaseClient:
     """
     Get the appropriate database client based on availability and configuration.
     Returns a singleton instance of the database client.
     """
     global _db_client
-    
+
     # If we already have a client instance, return it
     if _db_client is not None:
         return _db_client
-    
+
     # Check DB_TARGET environment variable
     db_target = os.environ.get('DB_TARGET', 'local').lower()
-    
+
     # Use in-memory database
     if db_target == 'memory':
         logger.info("Using in-memory database")
         _db_client = LocalClient()
         return _db_client
-    
+
     # Use DynamoDB (local or AWS)
     logger.info(f"Attempting to connect to DynamoDB ({db_target})")
     _db_client = DynamoDBClient(db_target)
@@ -787,13 +756,14 @@ def get_database_client() -> DatabaseClient:
     logger.info(f"Successfully connected to DynamoDB ({db_target})")
     return _db_client
 
+
 class LocalClient(DatabaseClient):
     def __init__(self):
         self.local_storage: Dict[str, Target] = {}
         self.tenants_storage: Dict[str, Tenant] = {}
         self.tenant_mappings: Dict[str, TenantMapping] = {}
         self.user_mappings: Dict[str, Any] = {}  # Key: "user_id:tenant_id"
-        
+
     def get_all_targets(self) -> List[Dict[str, Target]]:
         """Get all targets from storage"""
         return list(self.local_storage.values())
@@ -812,7 +782,7 @@ class LocalClient(DatabaseClient):
         target['target_id'] = target_id
         self.local_storage[target_id] = target
         return True
-            
+
     def delete_target(self, target_id: str) -> bool:
         """Delete a target"""
         if target_id in self.local_storage:
@@ -862,32 +832,32 @@ class LocalClient(DatabaseClient):
             "status": "STARTED",
             "parameters": execution_params
         }
-        
+
     def get_all_tenant_mappings(self) -> List[TenantMapping]:
         """Get all tenant mappings from storage"""
         return list(self.tenant_mappings.values())
-        
+
     def get_tenant_mappings(self, tenant_id: str) -> List[TenantMapping]:
         """Get all mappings for a specific tenant"""
         return [m for m in self.tenant_mappings.values() if m.tenant_id == tenant_id]
-        
+
     def get_tenant_target_mapping(self, tenant_id: str, target_alias: str) -> Optional[TenantMapping]:
         """Get a specific tenant target mapping"""
         key = f"{tenant_id}:{target_alias}"
         return self.tenant_mappings.get(key)
-        
+
     def create_tenant_mapping(self, mapping: TenantMapping) -> bool:
         """Create a new tenant target mapping"""
         key = f"{mapping.tenant_id}:{mapping.target_alias}"
         self.tenant_mappings[key] = mapping
         return True
-        
+
     def update_tenant_mapping(self, tenant_id: str, target_alias: str, mapping: TenantMapping) -> bool:
         """Update an existing tenant target mapping"""
         key = f"{tenant_id}:{target_alias}"
         self.tenant_mappings[key] = mapping
         return True
-        
+
     def delete_tenant_mapping(self, tenant_id: str, target_alias: str) -> bool:
         """Delete a tenant target mapping"""
         key = f"{tenant_id}:{target_alias}"
@@ -895,12 +865,12 @@ class LocalClient(DatabaseClient):
             del self.tenant_mappings[key]
             return True
         return False
-        
+
     def delete_tenant(self, tenant_id: str) -> bool:
         """Delete all mappings for a tenant"""
         # Find all keys for this tenant
         keys_to_delete = [key for key in self.tenant_mappings.keys()
-                         if key.startswith(f"{tenant_id}:")]
+                          if key.startswith(f"{tenant_id}:")]
 
         if not keys_to_delete:
             return False

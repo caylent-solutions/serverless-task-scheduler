@@ -1,6 +1,5 @@
 from pydantic import BaseModel, field_validator
 from typing import Optional, Dict, Any
-from datetime import datetime
 from app.validation import validate_url_safe_identifier
 
 

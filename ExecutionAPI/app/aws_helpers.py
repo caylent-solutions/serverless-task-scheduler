@@ -1,6 +1,7 @@
 import boto3
 import os
 
+
 def get_aws_credentials():
     """Get AWS credentials from SSO or environment variables"""
     try:

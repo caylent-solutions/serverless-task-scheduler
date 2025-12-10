@@ -8,7 +8,7 @@ import logging
 import os
 from ..awssdk.dynamodb import get_database_client
 from ..awssdk.cognito import get_cognito_client
-from ..models.usermapping import UserMapping, UserMappingCreate, UserMappingList
+from ..models.usermapping import UserMapping, UserMappingList
 
 logger = logging.getLogger("app")
 
@@ -109,7 +109,7 @@ async def get_current_user(request: Request) -> dict:
 async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
     """
     Dependency to require admin access
-    
+
     Raises:
         HTTPException: If user is not admin
     """
@@ -124,7 +124,7 @@ async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
 async def get_user_info(current_user: dict = Depends(get_current_user)):
     """
     Get authenticated user information
-    
+
     Returns user details including admin status and accessible tenants
     """
     try:
@@ -145,7 +145,7 @@ async def get_user_info(current_user: dict = Depends(get_current_user)):
             isAdmin=user_is_admin,
             tenants=tenants if tenants else []
         )
-        
+
     except Exception as e:
         logger.error(f"Error getting user info: {e}")
         raise HTTPException(status_code=500, detail="Error retrieving user information")

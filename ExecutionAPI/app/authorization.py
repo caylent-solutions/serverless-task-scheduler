@@ -7,7 +7,6 @@ Provides flexible authorization checks that can be extended for:
 """
 import os
 import logging
-from typing import Optional
 from fastapi import HTTPException, Depends
 from .routers.user import get_current_user
 

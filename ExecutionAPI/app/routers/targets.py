@@ -5,12 +5,11 @@ from typing import Optional
 
 from ..awssdk.schedules import get_scheduler_client
 
-from ..models.schedule import Schedule
 
 from ..awssdk.dynamodb import get_database_client
 from ..awssdk.lambdas import get_lambda_runner
 from ..awssdk.targets import get_target_invoker
-from ..models.target import TargetBase, Target, TargetList, RouteChangedEvent, TargetWithExecutionInfo
+from ..models.target import TargetBase, Target, TargetList, RouteChangedEvent
 from ..authorization import require_admin
 
 router = APIRouter()
@@ -21,6 +20,7 @@ db_client = get_database_client()
 lambda_runner = get_lambda_runner()
 target_invoker = get_target_invoker()
 scheduler = get_scheduler_client()
+
 
 def create_get_target(target_id):
     async def get_target():
@@ -52,6 +52,7 @@ def create_get_target(target_id):
     get_target.__doc__ = f"Get information about the {target_id} target including how to execute it"
     return get_target
 
+
 def create_execute_target(target_id, execution_data_schema):
     async def execute_target(
         execution_data: execution_data_schema,  # type: ignore
@@ -59,7 +60,7 @@ def create_execute_target(target_id, execution_data_schema):
     ):
         """
         Execute a target with the given parameters
-        
+
         Modes:
         - sync: Invoke and wait for the output/response
         - async: Create a one-time EventBridge schedule that will execute the target in ~10 seconds
@@ -68,11 +69,11 @@ def create_execute_target(target_id, execution_data_schema):
         target = db_client.get_target(target_id)
         if not target:
             raise HTTPException(status_code=404, detail=f"Target '{target_id}' not found")
-        
+
         # Record logical execution in DB (mocked by current implementation)
-        result = db_client.execute_target(target_id, execution_data)
+        db_client.execute_target(target_id, execution_data)
         logger.info(f"executing target with arn: {target['target_arn']} in mode: {mode}")
-        
+
         try:
             if mode == "sync":
                 # Synchronous execution: invoke and wait for response
@@ -85,7 +86,7 @@ def create_execute_target(target_id, execution_data_schema):
             elif mode == "async":
                 # Asynchronous execution: create one-time EventBridge schedule
                 invoke_response = target_invoker.create_scheduled_invocation(
-                    target["target_arn"], 
+                    target["target_arn"],
                     execution_data.dict(),
                     delay_seconds=10
                 )
@@ -96,23 +97,25 @@ def create_execute_target(target_id, execution_data_schema):
                 }
             else:
                 raise HTTPException(
-                    status_code=400, 
+                    status_code=400,
                     detail=f"Invalid mode '{mode}'. Must be 'sync' or 'async'"
                 )
         except Exception as e:
             logger.exception("Target invocation failed")
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     # Set the function name and docstring
     execute_target.__name__ = f"execute_{target_id}"
     execute_target.__doc__ = f"Execute the {target_id} target"
     return execute_target
+
 
 @router.get("/targets", response_model=TargetList)
 async def get_targets(_: dict = Depends(require_admin)):
     """Get all targets - Admin only"""
     targets = db_client.get_all_targets()
     return {"targets": targets}
+
 
 @router.post("/targets", response_model=TargetBase)
 async def create_target(target: Target, _: dict = Depends(require_admin)):
@@ -136,6 +139,7 @@ async def create_target(target: Target, _: dict = Depends(require_admin)):
     ))
 
     return target
+
 
 @router.put("/targets/{target_id}", response_model=TargetBase)
 async def update_target(target_id: str, target: Target, _: dict = Depends(require_admin)):
@@ -163,6 +167,7 @@ async def update_target(target_id: str, target: Target, _: dict = Depends(requir
     ))
 
     return target
+
 
 @router.delete("/targets/{target_id}", response_model=TargetBase)
 async def delete_target(target_id: str, _: dict = Depends(require_admin)):

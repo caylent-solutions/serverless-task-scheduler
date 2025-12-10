@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Request
-import pydantic
 from .routers.targets import router as targets_router
 from .routers.openapi import router as openapi_router
 from .routers.tenants import router as tenants_router
@@ -52,6 +51,8 @@ app.add_middleware(
 )
 
 # Add middleware for request tracking and authentication
+
+
 @app.middleware("http")
 async def log_and_time_requests(request: Request, call_next):
     try:
@@ -123,7 +124,6 @@ async def log_and_time_requests(request: Request, call_next):
                 except ImportError:
                     # Cognito auth not available, proceed without authentication
                     logger.warning("Cognito auth module not available")
-                    pass
                 except Exception as e:
                     logger.error(f"Token verification error: {e}")
                     from fastapi.responses import JSONResponse
@@ -131,7 +131,7 @@ async def log_and_time_requests(request: Request, call_next):
                         status_code=401,
                         content={"detail": "Authentication error"}
                     )
-        
+
         response = await call_next(request)
         return response
     except Exception as e:
@@ -149,6 +149,8 @@ app.include_router(tenants_router)
 app.include_router(user_router)
 
 # Cognito configuration endpoint
+
+
 @app.get("/config/cognito", include_in_schema=False)
 async def get_cognito_config():
     """Return Cognito configuration for the frontend"""
@@ -159,6 +161,8 @@ async def get_cognito_config():
     }
 
 # Logout endpoint - clear authentication cookies and redirect to React app root
+
+
 @app.get("/logout", include_in_schema=False)
 async def logout():
     """Clear authentication cookies and redirect to root"""
@@ -172,6 +176,8 @@ async def logout():
 # React app is at root (/) and all API routes are under /api
 
 # Override FastAPI's openapi() method to inject dynamic target schemas
+
+
 def custom_openapi():
     """Custom OpenAPI schema generator that injects dynamic target schemas"""
     if app.openapi_schema:
@@ -200,6 +206,7 @@ def custom_openapi():
             "components": {}
         }
 
+
 # Replace FastAPI's openapi method with our custom one
 app.openapi = custom_openapi
 
@@ -213,9 +220,10 @@ def handle_route_added_event(event: RouteChangedEvent):
 
     app.include_router(helpers.add_dynamic_route(event[1]))
     for route in app.routes:
-        print(f"path: {route.path}, name: {route.name}, methods: {list(route.methods)}")    
-        
+        print(f"path: {route.path}, name: {route.name}, methods: {list(route.methods)}")
+
     helpers.get_open_api_endpoint()  # Ensure OpenAPI is updated
+
 
 @local_handler.register(event_name="route-deleted")
 def handle_route_deleted_event(event: RouteChangedEvent):
@@ -229,12 +237,13 @@ def handle_route_deleted_event(event: RouteChangedEvent):
     helpers = OpenAPIHelpers(app.router)
 
     for route in app.routes:
-        print(f"path: {route.path}, name: {route.name}, methods: {list(route.methods)}")    
-        
+        print(f"path: {route.path}, name: {route.name}, methods: {list(route.methods)}")
+
     helpers.get_open_api_endpoint()  # Ensure OpenAPI is updated
 
 
 _init_done = False
+
 
 def initialize_admin_tenant():
     """Initialize the admin tenant, create owner in Cognito, and assign the owner to it"""
@@ -251,7 +260,6 @@ def initialize_admin_tenant():
         admin_tenant = db_client.get_tenant('admin')
         if not admin_tenant:
             logger.info("Creating 'admin' tenant...")
-            from .models.tenant import Tenant
             db_client.create_tenant({
                 'tenant_id': 'admin',
                 'tenant_name': 'admin',
@@ -310,7 +318,6 @@ def initialize_admin_tenant():
     except Exception as e:
         logger.error(f"Error initializing admin tenant: {e}")
         # Don't fail startup if admin initialization fails
-        pass
 
 
 @app.on_event("startup")

@@ -1,7 +1,7 @@
 """
 Authentication router for Cognito-based login/signup
 """
-from fastapi import APIRouter, HTTPException, Response, Depends
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, EmailStr
 import boto3
 import os
@@ -59,12 +59,12 @@ async def login(credentials: LoginRequest, response: Response):
     Authenticate user with email and password using Cognito
     """
     client_id = os.environ.get('COGNITO_CLIENT_ID')
-    
+
     if not client_id:
         raise HTTPException(status_code=500, detail="Cognito not configured")
-    
+
     client = get_cognito_client()
-    
+
     try:
         # Initiate auth with USER_PASSWORD_AUTH flow
         auth_response = client.initiate_auth(
@@ -75,12 +75,12 @@ async def login(credentials: LoginRequest, response: Response):
                 'PASSWORD': credentials.password
             }
         )
-        
+
         # Extract tokens
         tokens = auth_response['AuthenticationResult']
-        
+
         logger.info(f"User {credentials.email} logged in successfully")
-        
+
         # Set tokens as HTTP-only cookies
         response.set_cookie(
             key="idToken",
@@ -112,19 +112,19 @@ async def login(credentials: LoginRequest, response: Response):
                 path="/",
                 max_age=2592000  # 30 days
             )
-        
+
         return LoginResponse(
             access_token=tokens['AccessToken'],
             id_token=tokens['IdToken'],
             refresh_token=tokens.get('RefreshToken', ''),
             token_type="Bearer"
         )
-        
+
     except ClientError as e:
         error_code = e.response['Error']['Code']
         error_message = e.response['Error'].get('Message', '')
         logger.error(f"Login failed for {credentials.email}: {error_code} - {error_message}")
-        
+
         if error_code == 'NotAuthorizedException':
             raise HTTPException(status_code=401, detail="Invalid email or password")
         elif error_code == 'UserNotConfirmedException':
@@ -158,27 +158,27 @@ async def confirm_signup(confirmation: ConfirmSignupRequest):
     Confirm user email with verification code sent during signup
     """
     client_id = os.environ.get('COGNITO_CLIENT_ID')
-    
+
     if not client_id:
         raise HTTPException(status_code=500, detail="Cognito not configured")
-    
+
     client = get_cognito_client()
-    
+
     try:
         client.confirm_sign_up(
             ClientId=client_id,
             Username=confirmation.email,
             ConfirmationCode=confirmation.confirmation_code
         )
-        
+
         logger.info(f"User {confirmation.email} confirmed successfully")
-        
+
         return MessageResponse(message="Email verified successfully. You can now log in.")
-        
+
     except ClientError as e:
         error_code = e.response['Error']['Code']
         logger.error(f"Confirmation failed for {confirmation.email}: {error_code}")
-        
+
         if error_code == 'CodeMismatchException':
             raise HTTPException(status_code=400, detail="Invalid verification code")
         elif error_code == 'ExpiredCodeException':
@@ -195,30 +195,30 @@ async def resend_confirmation(user: dict):
     Resend verification code to user's email
     """
     client_id = os.environ.get('COGNITO_CLIENT_ID')
-    
+
     if not client_id:
         raise HTTPException(status_code=500, detail="Cognito not configured")
-    
+
     email = user.get('email')
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
-    
+
     client = get_cognito_client()
-    
+
     try:
         client.resend_confirmation_code(
             ClientId=client_id,
             Username=email
         )
-        
+
         logger.info(f"Verification code resent to {email}")
-        
+
         return MessageResponse(message="Verification code sent to your email.")
-        
+
     except ClientError as e:
         error_code = e.response['Error']['Code']
         logger.error(f"Resend confirmation failed for {email}: {error_code}")
-        
+
         if error_code == 'UserNotFoundException':
             raise HTTPException(status_code=404, detail="User not found")
         elif error_code == 'InvalidParameterException':

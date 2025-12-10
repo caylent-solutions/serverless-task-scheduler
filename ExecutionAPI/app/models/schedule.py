@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from datetime import datetime
 from app.validation import validate_url_safe_identifier
 
@@ -54,7 +54,7 @@ class Schedule(BaseModel):
         if v not in ("ENABLED", "DISABLED"):
             raise ValueError("State must be either 'ENABLED' or 'DISABLED'")
         return v
-    
+
     def to_eventbridge_config(self) -> Dict[str, Any]:
         """Convert to EventBridge Scheduler configuration."""
         config = {
@@ -69,24 +69,24 @@ class Schedule(BaseModel):
             },
             'GroupName': 'default'  # Could be made configurable
         }
-        
+
         if self.description:
             config['Description'] = self.description
-            
+
         if self.timezone:
             config['ScheduleExpressionTimezone'] = self.timezone
-            
+
         if self.target_input:
             config['Target']['Input'] = self.target_input
-            
+
         if self.start_date:
             config['StartDate'] = self.start_date.isoformat()
-            
+
         if self.end_date:
             config['EndDate'] = self.end_date.isoformat()
-            
+
         return config
-    
+
     def to_dynamodb_item(self) -> Dict[str, Any]:
         """Convert to DynamoDB item format with proper datetime serialization."""
         item = {
@@ -98,13 +98,12 @@ class Schedule(BaseModel):
             'timezone': self.timezone,
             'state': self.state
         }
-        
+
         # Convert datetime objects to ISO strings for DynamoDB
         if self.start_date:
             item['start_date'] = self.start_date.isoformat()
-        
+
         if self.end_date:
             item['end_date'] = self.end_date.isoformat()
-            
+
         return item
-    
