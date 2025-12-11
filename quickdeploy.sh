@@ -33,9 +33,9 @@ else
 fi
 
 # Step 1: Build the UI
-echo -e "\n${YELLOW}[1/6] Building UI...${NC}"
+echo -e "\n${YELLOW}[1/7] Building UI (Vite)...${NC}"
 (
-    cd ui-react || exit 1
+    cd ui-vite || exit 1
     npm run build
     if [ $? -ne 0 ]; then
         echo -e "${RED}UI build failed!${NC}"
@@ -49,7 +49,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Step 2: SAM Validate
-echo -e "\n${YELLOW}[2/6] Validating SAM template...${NC}"
+echo -e "\n${YELLOW}[2/7] Validating SAM template...${NC}"
 sam validate --lint
 if [ $? -ne 0 ]; then
     echo -e "${RED}SAM validation failed!${NC}"
@@ -58,7 +58,7 @@ fi
 echo -e "${GREEN}SAM validation completed successfully.${NC}"
 
 # Step 3: SAM Build
-echo -e "\n${YELLOW}[3/6] Building SAM application...${NC}"
+echo -e "\n${YELLOW}[3/7] Building SAM application...${NC}"
 sam build
 if [ $? -ne 0 ]; then
     echo -e "${RED}SAM build failed!${NC}"
@@ -66,8 +66,8 @@ if [ $? -ne 0 ]; then
 fi
 echo -e "${GREEN}SAM build completed successfully.${NC}"
 
-# Step 5: SAM Deploy
-echo -e "\n${YELLOW}[5/5] Deploying SAM application...${NC}"
+# Step 4: SAM Deploy
+echo -e "\n${YELLOW}[4/7] Deploying SAM application...${NC}"
 # The --no-fail-on-empty-changeset flag will prevent deployment error if no changes detected
 sam deploy --no-confirm-changeset --no-fail-on-empty-changeset
 if [ $? -ne 0 ]; then
@@ -75,6 +75,26 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 echo -e "${GREEN}SAM deployment completed successfully.${NC}"
+
+# Step 5: Upload UI files to S3
+echo -e "\n${YELLOW}[5/7] Uploading UI files to S3...${NC}"
+s3Bucket=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='StaticFilesBucketName'].OutputValue" --output text)
+
+if [ -n "$s3Bucket" ]; then
+    echo -e "${GRAY}S3 Bucket: $s3Bucket${NC}"
+    aws s3 sync ui-vite/build/ s3://$s3Bucket/ --delete --cache-control "public, max-age=31536000" --exclude "index.html"
+    aws s3 cp ui-vite/build/index.html s3://$s3Bucket/index.html --cache-control "no-cache, no-store, must-revalidate"
+
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}UI files uploaded successfully to S3.${NC}"
+    else
+        echo -e "${RED}Failed to upload UI files to S3!${NC}"
+        exit 1
+    fi
+else
+    echo -e "${RED}Could not retrieve S3 bucket name from stack outputs.${NC}"
+    exit 1
+fi
 
 echo -e "\n${CYAN}========================================${NC}"
 echo -e "${CYAN}Quick Deploy Completed Successfully!${NC}"
@@ -88,9 +108,9 @@ clientId=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query
 
 if [ -n "$apiUrl" ] && [ -n "$userPoolId" ] && [ -n "$clientId" ]; then
     echo -e "\n${GREEN}Application URL: ${NC}${CYAN}${apiUrl}${NC}"
-    
+
     # Step 6: Configure Cognito logout URLs
-    echo -e "\n${YELLOW}[6/6] Configuring Cognito logout and callback URLs...${NC}"
+    echo -e "\n${YELLOW}[6/7] Configuring Cognito logout and callback URLs...${NC}"
     
     callbackUrl="${apiUrl}callback"
     logoutUrl="${apiUrl}app/"
