@@ -1,0 +1,29 @@
+meta {
+  name: Get Users
+  type: http
+  seq: 27
+}
+
+get {
+  url: {{baseUrl}}/user/management
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  ## Get All Users (Admin Only)
+
+  Lists all users in the Cognito user pool.
+
+  Returns user information including:
+  - User ID (Cognito sub)
+  - Email
+  - Status (CONFIRMED, UNCONFIRMED, etc.)
+  - Creation date
+
+  Admin users only.
+}

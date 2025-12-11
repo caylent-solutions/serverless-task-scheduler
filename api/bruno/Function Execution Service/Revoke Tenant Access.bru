@@ -1,0 +1,28 @@
+meta {
+  name: Revoke Tenant Access
+  type: http
+  seq: 30
+}
+
+delete {
+  url: {{baseUrl}}/users/{{user_id}}/tenants/{{tenant_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  ## Revoke User Access to Tenant (Admin Only)
+
+  Removes a user's access to a specific tenant.
+
+  The user will no longer be able to:
+  - View tenant mappings
+  - Execute tenant targets
+  - Manage schedules for that tenant
+
+  Admin users only.
+}

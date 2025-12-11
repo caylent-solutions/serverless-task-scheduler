@@ -1,0 +1,23 @@
+meta {
+  name: Get Targets
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/targets
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  ## Get All Targets (Admin Only)
+
+  Lists all available targets (AWS service definitions).
+
+  Admin users only.
+}

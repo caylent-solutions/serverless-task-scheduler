@@ -1,11 +1,11 @@
 meta {
-  name: Execute Tenant Function
+  name: Execute Target Mapping
   type: http
-  seq: 12
+  seq: 15
 }
 
 post {
-  url: {{baseUrl}}/tenants/:tenant_id/mappings/:target_alias/_execute
+  url: {{baseUrl}}/tenants/{{tenant_id}}/mappings/{{target_alias}}/_execute?async=false
   body: json
   auth: bearer
 }
@@ -14,32 +14,32 @@ auth:bearer {
   token: {{authToken}}
 }
 
-params:query {
-  ~async: false
-}
-
-params:path {
-  tenant_id: my-tenant
-  target_alias: my-function-alias
-}
-
-headers {
-  Content-Type: application/json
-}
-
 body:json {
   {
-    "param1": "value1",
-    "param2": "value2"
+    "message": "Hello from Bruno!",
+    "data": {
+      "key": "value"
+    }
   }
 }
 
 docs {
-  Execute a tenant function mapping. Requires authentication and tenant access.
+  ## Execute Target Mapping
 
-  The user must be either:
-  - An admin user (member of 'admin' tenant)
-  - A user with explicit access to the specified tenant
+  Executes a target mapping on-demand.
 
-  Set async=true in query params for asynchronous execution.
+  ### Query Parameters
+  - `async=true` - Execute asynchronously (for long-running tasks)
+  - `async=false` - Execute synchronously (default, waits for result)
+
+  ### Request Body
+  The body should match the target's parameter schema.
+
+  ### Response
+  - Sync: Returns execution result immediately
+  - Async: Returns execution ID, check status later
+
+  ### Variables
+  - `tenant_id` - Your tenant identifier
+  - `target_alias` - The target mapping alias
 }

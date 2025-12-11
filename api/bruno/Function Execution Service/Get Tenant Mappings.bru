@@ -5,17 +5,13 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/tenants/:tenant_id/mappings
+  url: {{baseUrl}}/tenants/{{tenant_id}}/mappings
   body: none
   auth: bearer
 }
 
 auth:bearer {
   token: {{authToken}}
-}
-
-params:path {
-  tenant_id: my-tenant
 }
 
 docs {

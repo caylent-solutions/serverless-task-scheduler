@@ -1,0 +1,26 @@
+meta {
+  name: Delete Target
+  type: http
+  seq: 33
+}
+
+delete {
+  url: {{baseUrl}}/targets/{{target_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  ## Delete Target (Admin Only)
+
+  Deletes a target definition.
+
+  **Warning:** This will affect all tenant mappings using this target.
+  Consider updating mappings to point to a different target first.
+
+  Admin users only.
+}

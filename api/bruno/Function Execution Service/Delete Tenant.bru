@@ -1,0 +1,29 @@
+meta {
+  name: Delete Tenant
+  type: http
+  seq: 25
+}
+
+delete {
+  url: {{baseUrl}}/tenants/{{tenant_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  ## Delete Tenant (Admin Only)
+
+  Deletes a tenant and all associated resources.
+
+  **Warning:** This will delete:
+  - All tenant mappings
+  - All schedules
+  - All execution history
+  - All user-tenant relationships
+
+  Admin users only.
+}

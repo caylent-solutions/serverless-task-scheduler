@@ -1,0 +1,23 @@
+meta {
+  name: Get User Tenants
+  type: http
+  seq: 31
+}
+
+get {
+  url: {{baseUrl}}/users/{{user_id}}/tenants
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  ## Get User's Tenant Access (Admin Only)
+
+  Lists all tenants a specific user has access to.
+
+  Admin users only.
+}

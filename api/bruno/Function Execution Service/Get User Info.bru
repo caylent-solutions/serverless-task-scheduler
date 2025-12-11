@@ -1,0 +1,27 @@
+meta {
+  name: Get User Info
+  type: http
+  seq: 26
+}
+
+get {
+  url: {{baseUrl}}/user/info
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  ## Get Current User Info
+
+  Returns information about the currently authenticated user.
+
+  Includes:
+  - User ID (Cognito sub)
+  - Email
+  - Tenant memberships
+  - Admin status
+}

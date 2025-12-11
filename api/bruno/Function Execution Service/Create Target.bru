@@ -1,0 +1,55 @@
+meta {
+  name: Create Target
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/targets
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "target_id": "my-lambda-v1",
+    "target_description": "My Lambda function",
+    "target_arn": "arn:aws:lambda:us-east-1:123456789:function:my-function",
+    "target_type": "lambda",
+    "target_parameter_schema": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string",
+          "description": "Message to process"
+        }
+      },
+      "required": ["message"]
+    }
+  }
+}
+
+docs {
+  ## Create Target (Admin Only)
+
+  Creates a new target (AWS service definition) that can be mapped to tenants.
+
+  ### Target Types
+  - `lambda` - AWS Lambda function
+  - `ecs` - ECS task
+  - `stepfunctions` - Step Functions state machine
+
+  ### Required Fields
+  - `target_id` - Unique identifier
+  - `target_arn` - AWS ARN of the resource
+  - `target_type` - One of: lambda, ecs, stepfunctions
+
+  ### Optional Fields
+  - `target_description` - Human-readable description
+  - `target_parameter_schema` - JSON Schema for input validation
+  - `target_response_schema` - JSON Schema for output validation
+}

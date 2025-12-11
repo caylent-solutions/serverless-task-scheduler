@@ -1,0 +1,23 @@
+meta {
+  name: Get Tenants
+  type: http
+  seq: 21
+}
+
+get {
+  url: {{baseUrl}}/tenants
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  ## Get All Tenants (Admin Only)
+
+  Lists all tenants in the system.
+
+  Admin users only.
+}

@@ -1,0 +1,36 @@
+meta {
+  name: Auth - Login
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "admin@example.com",
+    "password": "YourPassword123!"
+  }
+}
+
+docs {
+  ## Login
+
+  Authenticate with AWS Cognito and receive JWT tokens.
+
+  ### Response
+  Returns tokens and sets cookies:
+  - `idToken` - JWT identity token (use as Bearer token)
+  - `accessToken` - Access token
+  - `refreshToken` - Refresh token
+
+  ### Usage
+  1. Send login request
+  2. Copy the `idToken` from response
+  3. Set it as `authToken` variable in collection
+  4. Use for subsequent authenticated requests
+}

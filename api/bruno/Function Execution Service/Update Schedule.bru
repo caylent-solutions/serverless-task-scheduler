@@ -5,19 +5,13 @@ meta {
 }
 
 put {
-  url: {{baseUrl}}/tenants/:tenant_id/mappings/:target_alias/schedules/:schedule_id
+  url: {{baseUrl}}/tenants/{{tenant_id}}/mappings/{{target_alias}}/schedules/{{schedule_id}}
   body: json
   auth: bearer
 }
 
 auth:bearer {
   token: {{authToken}}
-}
-
-params:path {
-  tenant_id: my-tenant
-  target_alias: my-function-alias
-  schedule_id: schedule-uuid
 }
 
 headers {
