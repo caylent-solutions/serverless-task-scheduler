@@ -45,35 +45,21 @@ A **schedule** automatically runs a mapping at specified times using AWS EventBr
 
 ## Architecture
 
-```
-┌─────────┐    JWT     ┌─────────────┐         ┌──────────────┐
-│  User   │──────────>│  API Gateway │────────>│  API Lambda  │
-│(Browser)│           │              │         │  (FastAPI)   │
-└─────────┘           └─────────────┘         └──────┬───────┘
-                                                      │
-                 ┌────────────────────────────────────┼────────────────┐
-                 │                                    │                │
-                 v                                    v                v
-          ┌──────────┐                        ┌─────────────┐  ┌─────────────┐
-          │ DynamoDB │                        │ EventBridge │  │   Cognito   │
-          │  Tables  │                        │  Scheduler  │  │(Auth/Users) │
-          └──────────┘                        └──────┬──────┘  └─────────────┘
-          • Targets                                  │
-          • Tenants                                  │ (scheduled)
-          • Mappings                                 │
-          • Schedules                                v
-          • Executions                    ┌─────────────────────┐
-          • Users                         │  Step Functions     │
-                                         │  Executor           │
-                                         └──────────┬──────────┘
-                                                    │
-                        ┌───────────────────────────┼───────────────────┐
-                        │                           │                   │
-                        v                           v                   v
-                 ┌──────────┐              ┌──────────────┐     ┌──────────────┐
-                 │  Lambda  │              │  ECS Tasks   │     │Step Functions│
-                 │ Functions│              │ (Containers) │     │  (Workflows) │
-                 └──────────┘              └──────────────┘     └──────────────┘
+```mermaid
+graph TD
+    User["User<br/>(Browser)"] -->|JWT| APIGateway["API Gateway"]
+    APIGateway --> APILambda["API Lambda<br/>(FastAPI)"]
+
+    APILambda --> DynamoDB["DynamoDB Tables<br/>• Targets<br/>• Tenants<br/>• Mappings<br/>• Schedules<br/>• Executions<br/>• Users"]
+    APILambda --> EventBridge["EventBridge<br/>Scheduler"]
+    APILambda --> Cognito["Cognito<br/>(Auth/Users)"]
+
+    EventBridge -->|scheduled| Executor["Step Functions<br/>Executor"]
+    APILambda --> Executor
+
+    Executor --> Lambda["Lambda<br/>Functions"]
+    Executor --> ECS["ECS Tasks<br/>(Containers)"]
+    Executor --> StepFunctions["Step Functions<br/>(Workflows)"]
 ```
 
 ### How Execution Works
