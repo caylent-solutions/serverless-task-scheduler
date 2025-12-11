@@ -85,6 +85,8 @@ Resources:
       KeySchema:
         - AttributeName: target_id
           KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
       Tags:
         - Key: caylent:owner
           Value: !Ref Owner
@@ -110,6 +112,8 @@ Resources:
       KeySchema:
         - AttributeName: tenant_id
           KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
       Tags:
         - Key: caylent:owner
           Value: !Ref Owner
@@ -139,6 +143,8 @@ Resources:
           KeyType: HASH
         - AttributeName: target_alias
           KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
       Tags:
         - Key: caylent:owner
           Value: !Ref Owner
@@ -188,6 +194,8 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
       Tags:
         - Key: caylent:owner
           Value: !Ref Owner
@@ -224,6 +232,8 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
       Tags:
         - Key: caylent:owner
           Value: !Ref Owner
@@ -264,6 +274,8 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
       Tags:
         - Key: caylent:owner
           Value: !Ref Owner

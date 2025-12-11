@@ -24,8 +24,8 @@ if (Test-Path "samconfig.toml") {
 }
 
 # Step 1: Build the UI
-Write-Host "`n[1/5] Building UI..." -ForegroundColor Yellow
-Push-Location ui
+Write-Host "`n[1/7] Building UI (Vite)..." -ForegroundColor Yellow
+Push-Location ui-vite
 try {
     npm run build
     if ($LASTEXITCODE -ne 0) {
@@ -39,7 +39,7 @@ try {
 }
 
 # Step 2: SAM Validate
-Write-Host "`n[2/6] Validating SAM template..." -ForegroundColor Yellow
+Write-Host "`n[2/7] Validating SAM template..." -ForegroundColor Yellow
 sam validate --lint
 if ($LASTEXITCODE -ne 0) {
     Write-Host "SAM validation failed!" -ForegroundColor Red
@@ -48,7 +48,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "SAM validation completed successfully." -ForegroundColor Green
 
 # Step 3: SAM Build
-Write-Host "`n[3/6] Building SAM application..." -ForegroundColor Yellow
+Write-Host "`n[3/7] Building SAM application..." -ForegroundColor Yellow
 sam build
 if ($LASTEXITCODE -ne 0) {
     Write-Host "SAM build failed!" -ForegroundColor Red
@@ -57,7 +57,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "SAM build completed successfully." -ForegroundColor Green
 
 # Step 4: SAM Deploy
-Write-Host "`n[4/6] Deploying SAM application..." -ForegroundColor Yellow
+Write-Host "`n[4/7] Deploying SAM application..." -ForegroundColor Yellow
 $deployOutput = sam deploy --no-confirm-changeset 2>&1
 $deployExitCode = $LASTEXITCODE
 
@@ -74,43 +74,37 @@ if ($deployExitCode -ne 0) {
     Write-Host "SAM deployment completed successfully." -ForegroundColor Green
 }
 
-# Step 5: Deploy React app to S3
-Write-Host "`n[5/6] Deploying React app to S3..." -ForegroundColor Yellow
+# Step 5: Upload UI files to S3
+Write-Host "`n[5/7] Uploading UI files to S3..." -ForegroundColor Yellow
 $bucketName = aws cloudformation describe-stacks --stack-name $stackName --query "Stacks[0].Outputs[?OutputKey=='StaticFilesBucketName'].OutputValue" --output text
 
 if ($bucketName) {
-    Write-Host "Deploying to bucket: $bucketName" -ForegroundColor Gray
+    Write-Host "S3 Bucket: $bucketName" -ForegroundColor Gray
 
-    # Sync all files with long cache (except HTML and manifest)
-    Write-Host "Syncing assets with long cache..." -ForegroundColor Gray
-    aws s3 sync ui-react/build/ "s3://$bucketName/" `
+    # Sync all files with long cache except index.html
+    aws s3 sync ui-vite/build/ "s3://$bucketName/" `
         --delete `
         --cache-control "public, max-age=31536000" `
-        --exclude "*.html" `
-        --exclude "manifest.json"
+        --exclude "index.html"
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "S3 sync failed for assets!" -ForegroundColor Red
+        Write-Host "Failed to upload UI files to S3!" -ForegroundColor Red
         exit 1
     }
 
-    # Sync HTML files with shorter cache
-    Write-Host "Syncing HTML files with short cache..." -ForegroundColor Gray
-    aws s3 sync ui-react/build/ "s3://$bucketName/" `
-        --cache-control "public, max-age=300" `
-        --exclude "*" `
-        --include "*.html" `
-        --include "manifest.json"
+    # Upload index.html with no-cache
+    aws s3 cp ui-vite/build/index.html "s3://$bucketName/index.html" `
+        --cache-control "no-cache, no-store, must-revalidate"
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "S3 sync failed for HTML!" -ForegroundColor Red
+        Write-Host "Failed to upload index.html to S3!" -ForegroundColor Red
         exit 1
     }
 
-    Write-Host "React app deployed to S3 successfully." -ForegroundColor Green
+    Write-Host "UI files uploaded successfully to S3." -ForegroundColor Green
 } else {
-    Write-Host "Warning: Could not retrieve S3 bucket name from stack outputs." -ForegroundColor Yellow
-    Write-Host "Static files were not deployed to S3." -ForegroundColor Yellow
+    Write-Host "Could not retrieve S3 bucket name from stack outputs." -ForegroundColor Red
+    exit 1
 }
 
 Write-Host "`n========================================" -ForegroundColor Cyan
@@ -128,10 +122,10 @@ if ($apiUrl -and $userPoolId -and $clientId) {
     Write-Host "$apiUrl" -ForegroundColor Cyan
 
     # Step 6: Configure Cognito logout URLs
-    Write-Host "`n[6/6] Configuring Cognito logout and callback URLs..." -ForegroundColor Yellow
+    Write-Host "`n[6/7] Configuring Cognito logout and callback URLs..." -ForegroundColor Yellow
 
     $callbackUrl = "${apiUrl}callback"
-    $logoutUrl = "${apiUrl}"  # React app now at root
+    $logoutUrl = "${apiUrl}app/"
     
     Write-Host "Callback URL: $callbackUrl" -ForegroundColor Gray
     Write-Host "Logout URL: $logoutUrl" -ForegroundColor Gray
