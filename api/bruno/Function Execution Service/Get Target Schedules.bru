@@ -1,0 +1,21 @@
+meta {
+  name: Get Target Schedules
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{baseUrl}}/tenants/{{tenant_id}}/mappings/{{target_alias}}/schedules
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Get all schedules for a specific target mapping. Requires authentication and tenant access.
+
+  Returns a list of all schedules configured for the specified tenant and target alias.
+}

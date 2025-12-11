@@ -1,0 +1,32 @@
+meta {
+  name: Redrive Execution
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/tenants/{{tenant_id}}/mappings/{{target_alias}}/executions/{{execution_id}}/redrive
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  ## Redrive Failed Execution
+
+  Re-executes a failed execution with the same input payload.
+
+  Useful for retrying failed executions after fixing the underlying issue.
+  Creates a new execution with the same input as the original.
+
+  ### Requires
+  - Authentication (JWT token)
+  - Tenant access
+  - Original execution must exist (typically a failed execution)
+
+  ### Response
+  Returns the new execution ID for tracking the retry.
+}

@@ -83,7 +83,7 @@ if ($bucketName) {
 
     # Sync all files with long cache (except HTML and manifest)
     Write-Host "Syncing assets with long cache..." -ForegroundColor Gray
-    aws s3 sync ui/build/ "s3://$bucketName/" `
+    aws s3 sync ui-react/build/ "s3://$bucketName/" `
         --delete `
         --cache-control "public, max-age=31536000" `
         --exclude "*.html" `
@@ -96,7 +96,7 @@ if ($bucketName) {
 
     # Sync HTML files with shorter cache
     Write-Host "Syncing HTML files with short cache..." -ForegroundColor Gray
-    aws s3 sync ui/build/ "s3://$bucketName/" `
+    aws s3 sync ui-react/build/ "s3://$bucketName/" `
         --cache-control "public, max-age=300" `
         --exclude "*" `
         --include "*.html" `

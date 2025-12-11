@@ -1,0 +1,53 @@
+vars:pre-request {
+  baseUrl: https://y4ne2vk0hf.execute-api.us-east-2.amazonaws.com/dev/api
+  authToken: your-jwt-token-here
+  tenant_id: test-tenant
+  target_alias: test-target
+  target_id: my-lambda-v1
+  schedule_id: schedule-uuid
+  execution_id: execution-uuid
+  user_id: user-cognito-sub
+}
+
+docs {
+  # Serverless Task Scheduler API
+
+  This collection contains requests for the Serverless Task Scheduler API.
+
+  ## Base URL
+  Update the `baseUrl` variable to match your deployment:
+  - Local: {{baseUrl}}/api
+  - AWS: https://{api-id}.execute-api.{region}.amazonaws.com/{stage}/api
+
+  ## Authentication
+
+  Most endpoints require authentication using a JWT token from AWS Cognito.
+  Set the `authToken` variable with your JWT token.
+
+  To get a token:
+  1. Use the POST /auth/login endpoint
+  2. Copy the JWT token from the response
+  3. Set it as the `authToken` variable
+
+  ## Authorization
+
+  - **Admin users** (members of 'admin' tenant) can manage all resources
+  - **Regular users** can only access tenants they've been granted access to
+
+  ## Quick Start
+
+  1. Login (POST /auth/login)
+  2. Create a target (POST /targets) - Admin only
+  3. Create a tenant mapping (POST /tenants/{tenant_id}/mappings)
+  4. Execute the mapping (POST /tenants/{tenant_id}/mappings/{target_alias}/_execute)
+  5. Or create a schedule (POST /tenants/{tenant_id}/mappings/{target_alias}/schedules)
+
+  ## Common Variables
+
+  - `tenant_id` - Your tenant identifier
+  - `target_alias` - The friendly name for a target within your tenant
+  - `target_id` - The target definition ID (for admin operations)
+  - `schedule_id` - UUID of a schedule
+  - `execution_id` - UUID of an execution
+  - `user_id` - User's Cognito sub (for user management)
+}

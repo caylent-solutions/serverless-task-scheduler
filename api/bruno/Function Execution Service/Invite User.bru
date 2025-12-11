@@ -1,0 +1,39 @@
+meta {
+  name: Invite User
+  type: http
+  seq: 28
+}
+
+post {
+  url: {{baseUrl}}/user/management/invite
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "email": "newuser@example.com",
+    "tenant_ids": ["test-tenant"]
+  }
+}
+
+docs {
+  ## Invite User (Admin Only)
+
+  Creates a new user and sends an invitation email.
+
+  ### Required Fields
+  - `email` - User's email address
+
+  ### Optional Fields
+  - `tenant_ids` - Array of tenant IDs to grant access to
+
+  The user will receive an email with a temporary password.
+  They must change it on first login.
+
+  Admin users only.
+}

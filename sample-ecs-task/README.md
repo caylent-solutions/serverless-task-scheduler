@@ -13,7 +13,7 @@ The sample demonstrates:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Step Function (ExecutorStepFunction)                        │
+│ Step Function (task-execution)                        │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  1. Preprocessing                                           │

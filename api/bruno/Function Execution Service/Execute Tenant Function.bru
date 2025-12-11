@@ -1,0 +1,45 @@
+meta {
+  name: Execute Target Mapping
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/tenants/{{tenant_id}}/mappings/{{target_alias}}/_execute?async=false
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "message": "Hello from Bruno!",
+    "data": {
+      "key": "value"
+    }
+  }
+}
+
+docs {
+  ## Execute Target Mapping
+
+  Executes a target mapping on-demand.
+
+  ### Query Parameters
+  - `async=true` - Execute asynchronously (for long-running tasks)
+  - `async=false` - Execute synchronously (default, waits for result)
+
+  ### Request Body
+  The body should match the target's parameter schema.
+
+  ### Response
+  - Sync: Returns execution result immediately
+  - Async: Returns execution ID, check status later
+
+  ### Variables
+  - `tenant_id` - Your tenant identifier
+  - `target_alias` - The target mapping alias
+}

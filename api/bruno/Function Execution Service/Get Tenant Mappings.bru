@@ -1,0 +1,21 @@
+meta {
+  name: Get Tenant Mappings
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/tenants/{{tenant_id}}/mappings
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Get all target mappings for a tenant. Requires authentication and tenant access.
+
+  Returns a list of all function mappings configured for the specified tenant.
+}

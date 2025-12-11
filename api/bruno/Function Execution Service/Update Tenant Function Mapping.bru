@@ -1,0 +1,31 @@
+meta {
+  name: Update Tenant Function Mapping
+  type: http
+  seq: 10
+}
+
+put {
+  url: {{baseUrl}}/tenants/{{tenant_id}}/mappings/{{target_alias}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "target_id": "my-lambda-v1"
+  }
+}
+
+docs {
+  Update an existing tenant target mapping. Requires authentication and tenant access.
+
+  The last_update_user and last_update_date will be automatically updated from the authenticated user.
+}

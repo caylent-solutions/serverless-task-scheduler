@@ -8,7 +8,7 @@ The Serverless Task Scheduler (STS) is a multi-tenant AWS serverless application
 
 ## Top-Level Artifacts
 
-### 1. **ExecutionAPI/** - REST API Service
+### 1. **api/** - REST API Service
 
 The FastAPI-based REST API that provides the management interface for the entire platform.
 
@@ -20,13 +20,13 @@ The FastAPI-based REST API that provides the management interface for the entire
 - Dynamic OpenAPI schema generation based on available targets
 
 #### Key Files
-- [app/main.py](ExecutionAPI/app/main.py) - FastAPI application with middleware, routing, and authentication
-- [app/lambda_handler.py](ExecutionAPI/app/lambda_handler.py) - AWS Lambda handler using Mangum adapter
-- [app/routers/](ExecutionAPI/app/routers/) - API route handlers (targets, tenants, schedules, auth, user)
-- [app/models/](ExecutionAPI/app/models/) - Pydantic models for request/response validation
-- [app/awssdk/](ExecutionAPI/app/awssdk/) - AWS SDK wrappers (DynamoDB, Cognito, EventBridge)
-- [app/wwwroot/](ExecutionAPI/app/wwwroot/) - Built React UI static files (populated during deployment)
-- [requirements.txt](ExecutionAPI/requirements.txt) - Python dependencies
+- [app/main.py](api/app/main.py) - FastAPI application with middleware, routing, and authentication
+- [app/lambda_handler.py](api/app/lambda_handler.py) - AWS Lambda handler using Mangum adapter
+- [app/routers/](api/app/routers/) - API route handlers (targets, tenants, schedules, auth, user)
+- [app/models/](api/app/models/) - Pydantic models for request/response validation
+- [app/awssdk/](api/app/awssdk/) - AWS SDK wrappers (DynamoDB, Cognito, EventBridge)
+- [app/wwwroot/](api/app/wwwroot/) - Built React UI static files (populated during deployment)
+- [requirements.txt](api/requirements.txt) - Python dependencies
 
 #### Related AWS Resources (from template.yaml)
 
@@ -44,7 +44,7 @@ The FastAPI-based REST API that provides the management interface for the entire
 - **Configuration**:
   - Handler: `app/lambda_handler.handler`
   - Runtime: Python 3.13
-  - CodeUri: `ExecutionAPI/`
+  - CodeUri: `api/`
   - Timeout: 30 seconds, Memory: 512 MB
   - Role: `AppLambdaRole` (Lines 794-898)
 - **Environment Variables**:
@@ -118,7 +118,7 @@ The FastAPI-based REST API that provides the management interface for the entire
 
 ---
 
-### 2. **ExecutorStepFunction/** - Execution Orchestration Engine
+### 2. **task-execution/** - Execution Orchestration Engine
 
 The Step Functions-based execution engine that handles all target invocations with proper error handling and logging.
 
@@ -131,10 +131,10 @@ The Step Functions-based execution engine that handles all target invocations wi
 - Records execution history to DynamoDB
 
 #### Key Files
-- [state_machine.json](ExecutorStepFunction/state_machine.json) - Step Functions ASL definition
-- [preprocessing.py](ExecutorStepFunction/preprocessing.py) - Resolves targets and merges payloads
-- [lambda_execution_helper.py](ExecutorStepFunction/lambda_execution_helper.py) - Invokes Lambda targets and captures logs
-- [postprocessing.py](ExecutorStepFunction/postprocessing.py) - Records execution results to DynamoDB
+- [state_machine.json](task-execution/state_machine.json) - Step Functions ASL definition
+- [preprocessing.py](task-execution/preprocessing.py) - Resolves targets and merges payloads
+- [lambda_execution_helper.py](task-execution/lambda_execution_helper.py) - Invokes Lambda targets and captures logs
+- [postprocessing.py](task-execution/postprocessing.py) - Records execution results to DynamoDB
 
 #### Related AWS Resources (from template.yaml)
 
@@ -142,7 +142,7 @@ The Step Functions-based execution engine that handles all target invocations wi
 - **Resource**: `ExecutorStateMachine` - AWS::Serverless::StateMachine
 - **Configuration**:
   - Type: STANDARD (long-running, full history)
-  - DefinitionUri: `ExecutorStepFunction/state_machine.json`
+  - DefinitionUri: `task-execution/state_machine.json`
   - DefinitionSubstitutions: Injects Lambda ARNs at deployment
   - Role: `ExecutorStateMachineRole` (Lines 670-744)
   - X-Ray tracing enabled
@@ -172,7 +172,7 @@ The Step Functions-based execution engine that handles all target invocations wi
 - **Resource**: `PreprocessingLambda` - AWS::Serverless::Function
 - **Configuration**:
   - Handler: `preprocessing.handler`
-  - CodeUri: `ExecutorStepFunction/`
+  - CodeUri: `task-execution/`
   - Runtime: Python 3.13
   - Timeout: 30 seconds, Memory: 256 MB
   - Role: `PreprocessingLambdaRole` (Lines 485-518)
@@ -186,7 +186,7 @@ The Step Functions-based execution engine that handles all target invocations wi
 - **Resource**: `LambdaExecutionHelperLambda` - AWS::Serverless::Function
 - **Configuration**:
   - Handler: `lambda_execution_helper.handler`
-  - CodeUri: `ExecutorStepFunction/`
+  - CodeUri: `task-execution/`
   - Runtime: Python 3.13
   - Timeout: 60 seconds (longer to wait for target execution)
   - Memory: 256 MB
@@ -199,7 +199,7 @@ The Step Functions-based execution engine that handles all target invocations wi
 - **Resource**: `PostprocessingLambda` - AWS::Serverless::Function
 - **Configuration**:
   - Handler: `postprocessing.handler`
-  - CodeUri: `ExecutorStepFunction/`
+  - CodeUri: `task-execution/`
   - Runtime: Python 3.13
   - Timeout: 30 seconds, Memory: 256 MB
   - Role: `PostprocessingLambdaRole` (Lines 607-646)
@@ -229,7 +229,7 @@ The Step Functions-based execution engine that handles all target invocations wi
 
 ---
 
-### 3. **ui/** - React Web Application
+### 3. **ui-react/** - React Web Application
 
 The React-based single-page application for browser-based management.
 
@@ -241,7 +241,7 @@ The React-based single-page application for browser-based management.
 
 #### Build Process
 - Built using `npm run build` (see [quickdeploy.ps1](quickdeploy.ps1) lines 8-21)
-- Output from `ui/build/*` copied to `ExecutionAPI/app/wwwroot/` (lines 23-39)
+- Output from `ui-react/build/*` copied to `api/app/wwwroot/` (lines 23-39)
 - Static files served by AppLambda via custom file handler (main.py lines 189-254)
 
 #### Deployment Integration
@@ -297,8 +297,8 @@ PowerShell script for one-command deployment.
 - Configures Cognito post-deployment
 
 #### Deployment Flow (Lines 1-115)
-1. **Build UI** (Lines 8-21): `npm run build` in ui/
-2. **Copy Assets** (Lines 23-39): `ui/build/*` → `ExecutionAPI/app/wwwroot/`
+1. **Build UI** (Lines 8-21): `npm run build` in ui-react/
+2. **Copy Assets** (Lines 23-39): `ui-react/build/*` → `api/app/wwwroot/`
 3. **SAM Validate** (Lines 41-48): `sam validate --lint`
 4. **SAM Build** (Lines 50-57): `sam build`
 5. **SAM Deploy** (Lines 59-66): `sam deploy --no-confirm-changeset`

@@ -196,7 +196,7 @@ cython_debug/
 .aws-sam
 
 # React build output copied to wwwroot
-ExecutionAPI/app/wwwroot/
+api/app/wwwroot/
 
 samconfig.toml
 

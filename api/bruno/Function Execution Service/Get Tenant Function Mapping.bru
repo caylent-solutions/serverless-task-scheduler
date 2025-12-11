@@ -1,0 +1,21 @@
+meta {
+  name: Get Tenant Function Mapping
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/tenants/{{tenant_id}}/mappings/{{target_alias}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Get a specific target mapping for a tenant. Requires authentication and tenant access.
+
+  Returns details about a single function mapping by its alias.
+}

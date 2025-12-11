@@ -1,0 +1,30 @@
+meta {
+  name: Update Tenant
+  type: http
+  seq: 24
+}
+
+put {
+  url: {{baseUrl}}/tenants/{{tenant_id}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "tenant_name": "Updated Tenant Name",
+    "tenant_description": "Updated description"
+  }
+}
+
+docs {
+  ## Update Tenant (Admin Only)
+
+  Updates tenant information.
+
+  Admin users only.
+}

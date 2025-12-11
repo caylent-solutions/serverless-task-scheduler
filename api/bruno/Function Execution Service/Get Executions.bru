@@ -1,0 +1,28 @@
+meta {
+  name: Get Executions
+  type: http
+  seq: 18
+}
+
+get {
+  url: {{baseUrl}}/tenants/{{tenant_id}}/mappings/{{target_alias}}/executions
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  ## Get Execution History
+
+  Retrieves execution history for a specific tenant mapping.
+
+  Returns a list of all executions for the specified tenant and target alias,
+  including status, start/end times, input/output payloads, and error details.
+
+  ### Requires
+  - Authentication (JWT token)
+  - Tenant access
+}

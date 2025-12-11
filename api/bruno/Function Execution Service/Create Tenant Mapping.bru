@@ -1,0 +1,36 @@
+meta {
+  name: Create Tenant Mapping
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/tenants/{{tenant_id}}/mappings
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "target_alias": "my-function-alias",
+    "target_id": "my-lambda-v1"
+  }
+}
+
+docs {
+  Create a new tenant target mapping. Requires authentication and tenant access.
+
+  The user must be either:
+  - An admin user (member of 'admin' tenant)
+  - A user with explicit access to the specified tenant
+
+  The last_update_user and last_update_date will be automatically set from the authenticated user.
+}

@@ -1,0 +1,38 @@
+meta {
+  name: Create Tenant
+  type: http
+  seq: 22
+}
+
+post {
+  url: {{baseUrl}}/tenants
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "tenant_id": "acme-corp",
+    "tenant_name": "Acme Corporation",
+    "tenant_description": "Main corporate tenant"
+  }
+}
+
+docs {
+  ## Create Tenant (Admin Only)
+
+  Creates a new tenant in the system.
+
+  ### Required Fields
+  - `tenant_id` - Unique identifier (alphanumeric with hyphens)
+  - `tenant_name` - Display name
+
+  ### Optional Fields
+  - `tenant_description` - Human-readable description
+
+  Admin users only.
+}

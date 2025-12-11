@@ -35,7 +35,7 @@ fi
 # Step 1: Build the UI
 echo -e "\n${YELLOW}[1/6] Building UI...${NC}"
 (
-    cd ui || exit 1
+    cd ui-react || exit 1
     npm run build
     if [ $? -ne 0 ]; then
         echo -e "${RED}UI build failed!${NC}"

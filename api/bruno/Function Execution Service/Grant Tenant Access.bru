@@ -1,0 +1,28 @@
+meta {
+  name: Grant Tenant Access
+  type: http
+  seq: 29
+}
+
+post {
+  url: {{baseUrl}}/users/{{user_id}}/tenants/{{tenant_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  ## Grant User Access to Tenant (Admin Only)
+
+  Grants a user access to a specific tenant.
+
+  After this, the user can:
+  - View tenant mappings
+  - Execute tenant targets
+  - Create/manage schedules for that tenant
+
+  Admin users only.
+}
