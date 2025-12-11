@@ -109,6 +109,7 @@ Three IAM roles provide defense-in-depth:
 - AWS SAM CLI installed
 - Python 3.13+
 - Node.js 18+ (for UI)
+- **Windows users:** WSL2 or Docker (required for building Python cryptography packages)
 
 ### Deploy
 
@@ -131,133 +132,36 @@ The deploy creates:
 
 ### First-Time Setup
 
-1. **Create an admin user in Cognito:**
-   ```bash
-   aws cognito-idp admin-create-user \
-     --user-pool-id <pool-id> \
-     --username admin@example.com \
-     --user-attributes Name=email,Value=admin@example.com
-   ```
+After deployment, an initial admin user is automatically created in Cognito with the email from the `*:owner` tag.
 
-2. **Get a JWT token:**
-   - Log in via the web UI (served at API Gateway URL)
-   - Or use the Cognito API to get tokens programmatically
+1. **Log in to the web UI:**
+   - Navigate to your API Gateway URL
+   - Use the email address from the `*:owner` tag as your username
+   - Complete the password reset process (first login requires password change)
 
-3. **Create your first target:**
-   ```bash
-   curl -X POST https://your-api-gateway.com/targets \
-     -H "Authorization: Bearer <jwt-token>" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "target_id": "hello-world",
-       "target_arn": "arn:aws:lambda:us-east-1:123456789:function:my-function",
-       "target_type": "lambda",
-       "target_description": "My first Lambda target"
-     }'
-   ```
-
-## API Workflows
-
-### Workflow 1: Schedule a Daily Report
-
-**Step 1: Admin creates a target (Lambda definition)**
-```bash
-POST /targets
-{
-  "target_id": "daily-report-v1",
-  "target_arn": "arn:aws:lambda:us-east-1:123456:function:generate-report",
-  "target_type": "lambda",
-  "target_description": "Generates daily sales reports"
-}
-```
-
-**Step 2: Tenant creates a mapping (friendly alias)**
-```bash
-POST /tenants/acme-corp/mappings
-{
-  "target_alias": "sales-report",
-  "target_id": "daily-report-v1"
-}
-```
-
-**Step 3: Create schedule**
-```bash
-POST /tenants/acme-corp/mappings/sales-report/schedules
-{
-  "schedule_expression": "cron(0 9 * * ? *)",
-  "description": "Daily at 9 AM UTC",
-  "state": "ENABLED",
-  "target_input": {
-    "report_type": "sales",
-    "format": "pdf"
-  }
-}
-```
-
-### Workflow 2: On-Demand Execution
-
-Execute immediately without a schedule:
-```bash
-POST /tenants/acme-corp/mappings/sales-report/_execute
-{
-  "report_type": "sales",
-  "format": "pdf"
-}
-```
-
-For long-running tasks, use async mode:
-```bash
-POST /tenants/acme-corp/mappings/sales-report/_execute?async=true
-{
-  "report_type": "sales",
-  "format": "pdf"
-}
-```
+2. **Start using the application:**
+   - Create additional users via the Users page
+   - Create tenants and grant users access
+   - Define targets (Lambda, ECS, or Step Functions)
+   - Create tenant mappings and schedules
 
 ## API Reference
 
+For complete API documentation, interactive testing, and detailed request/response schemas, visit:
+
+- **`/swagger`** - Swagger UI with live API testing
+- **`/redoc`** - ReDoc documentation (alternative view)
+- **`/openapi.json`** - OpenAPI 3.0 specification
+
 ### Authentication
-All endpoints require JWT token from Cognito (except `/health` and `/`):
+
+All endpoints require a JWT token from Cognito (except `/health`, `/`, `/swagger`, `/redoc`, and `/openapi.json`):
+
 ```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Authorization: Bearer <your-jwt-token>
 ```
 
-### Endpoints
-
-**Targets** (Admin only)
-- `GET /targets` - List all targets
-- `POST /targets` - Create target
-- `PUT /targets/{id}` - Update target
-- `DELETE /targets/{id}` - Delete target
-
-**Tenants** (Admin only)
-- `GET /tenants` - List tenants
-- `POST /tenants` - Create tenant
-- `GET /tenants/{id}/users` - List tenant users
-
-**Mappings** (Requires tenant access)
-- `GET /tenants/{id}/mappings` - List mappings
-- `POST /tenants/{id}/mappings` - Create mapping
-- `DELETE /tenants/{id}/mappings/{alias}` - Delete mapping
-
-**Execution** (Requires tenant access)
-- `POST /tenants/{id}/mappings/{alias}/_execute` - Execute (sync/async)
-
-**Schedules** (Requires tenant access)
-- `GET /tenants/{id}/schedules` - List all schedules
-- `POST /tenants/{id}/mappings/{alias}/schedules` - Create schedule
-- `PUT /tenants/{id}/mappings/{alias}/schedules/{schedule_id}` - Update
-- `DELETE /tenants/{id}/mappings/{alias}/schedules/{schedule_id}` - Delete
-
-**Users** (Admin only)
-- `GET /users` - List users
-- `POST /users` - Create user & send invitation
-- `POST /users/{user_id}/tenants/{tenant_id}` - Grant access
-- `DELETE /users/{user_id}/tenants/{tenant_id}` - Revoke access
-
-**Utility**
-- `GET /health` - Health check (no auth)
-- `GET /openapi.json` - OpenAPI spec
+Get your JWT token by logging into the web UI at your API Gateway URL.
 
 ## Testing
 
@@ -317,41 +221,6 @@ serverless-task-scheduler/
 │
 └── template.yaml            # AWS SAM template
 ```
-
-## Environment Variables
-
-**API Lambda:**
-- `DYNAMODB_*_TABLE` - DynamoDB table names (6 tables)
-- `COGNITO_USER_POOL_ID` - Cognito user pool
-- `COGNITO_CLIENT_ID` - Cognito app client
-- `SCHEDULER_ROLE_ARN` - EventBridge scheduler IAM role
-- `STEP_FUNCTIONS_EXECUTOR_ARN` - Executor state machine ARN
-- `ADMIN_USER_EMAIL` - Bootstrap admin email
-
-**Execution Lambdas:**
-- `DYNAMODB_TABLE` - Targets table
-- `DYNAMODB_TENANT_TABLE` - Mappings table
-- `DYNAMODB_EXECUTIONS_TABLE` - Executions table
-- `APP_ENV` - Environment (dev/qa/prod) - controls logging verbosity
-
-## Common Issues
-
-### "Access denied" errors
-- Verify JWT token is valid (check expiration)
-- Ensure user has access to the tenant
-- Admin operations require `admin` tenant membership
-
-### Schedules not executing
-1. Check schedule is `ENABLED` in EventBridge
-2. Verify EventBridgeSchedulerRole has permission to invoke executor
-3. Check Step Functions execution logs in AWS Console
-4. Review execution records in DynamoDB executions table
-
-### Target execution failures
-1. Verify tenant mapping exists and points to valid target
-2. Check target ARN and type are correct
-3. Ensure executor role has permission to invoke target service
-4. Review error details in executions table
 
 ## Why These Technologies?
 
