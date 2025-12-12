@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
 import { API_BASE_URL } from '../../config';
 
 
@@ -36,3 +37,7 @@ export default function TenantSelector({ onSetTenant }) {
     </div>
   );
 }
+
+TenantSelector.propTypes = {
+  onSetTenant: PropTypes.func.isRequired
+};

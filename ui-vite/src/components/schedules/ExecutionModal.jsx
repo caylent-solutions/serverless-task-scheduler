@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 
 const ExecutionModal = ({ schedule, onClose }) => {
   const [executions] = useState([
@@ -141,6 +142,11 @@ const ExecutionModal = ({ schedule, onClose }) => {
       </div>
     </div>
   );
+};
+
+ExecutionModal.propTypes = {
+  schedule: PropTypes.object.isRequired,
+  onClose: PropTypes.func.isRequired
 };
 
 export default ExecutionModal;

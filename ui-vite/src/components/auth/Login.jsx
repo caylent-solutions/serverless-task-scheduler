@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PropTypes from 'prop-types';
 import { API_BASE_URL } from '../../config';
 
 // Shared styles for consistency
@@ -645,5 +646,9 @@ function Login({ onLoginSuccess }) {
     </div>
   );
 }
+
+Login.propTypes = {
+  onLoginSuccess: PropTypes.func.isRequired
+};
 
 export default Login;

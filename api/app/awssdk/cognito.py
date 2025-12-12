@@ -9,6 +9,10 @@ from . import get_session
 
 logger = logging.getLogger("app.awssdk.cognito")
 
+# Constants
+ERROR_UNEXPECTED = 'An unexpected error occurred'
+
+
 # Singleton client instance
 _cognito_client = None
 
@@ -228,7 +232,7 @@ class CognitoClient:
             logger.error(f"Unexpected error initiating password reset: {e}")
             return {
                 'status': 'ERROR',
-                'error': 'An unexpected error occurred'
+                'error': ERROR_UNEXPECTED
             }
 
     def confirm_forgot_password(self, username: str, confirmation_code: str, new_password: str) -> Dict[str, str]:
@@ -295,8 +299,69 @@ class CognitoClient:
             logger.error(f"Unexpected error confirming password reset: {e}")
             return {
                 'status': 'ERROR',
-                'error': 'An unexpected error occurred'
+                'error': ERROR_UNEXPECTED
             }
+
+    def _generate_secure_password(self) -> str:
+        """Generate a secure random password for Cognito"""
+        import secrets
+        import string
+
+        alphabet = string.ascii_uppercase + string.ascii_lowercase + string.digits + '!@#$%^&*'
+        return (
+            secrets.choice(string.ascii_uppercase) +
+            secrets.choice(string.ascii_lowercase) +
+            secrets.choice(string.digits) +
+            secrets.choice('!@#$%^&*') +
+            ''.join(secrets.choice(alphabet) for _ in range(12))
+        )
+
+    def _build_create_user_params(self, email: str, temporary_password: str = None) -> Dict:
+        """Build parameters for admin_create_user API call"""
+        params = {
+            'UserPoolId': self.user_pool_id,
+            'Username': email,
+            'UserAttributes': [
+                {'Name': 'email', 'Value': email},
+                {'Name': 'email_verified', 'Value': 'true'}
+            ],
+            'DesiredDeliveryMediums': ['EMAIL'],
+            'MessageAction': 'SUPPRESS'
+        }
+
+        if temporary_password:
+            params['TemporaryPassword'] = temporary_password
+
+        return params
+
+    def _set_user_to_confirmed(self, email: str) -> None:
+        """Set user to CONFIRMED state by setting a random permanent password"""
+        random_password = self._generate_secure_password()
+        self.client.admin_set_user_password(
+            UserPoolId=self.user_pool_id,
+            Username=email,
+            Password=random_password,
+            Permanent=True
+        )
+        logger.info(f"User set to CONFIRMED state: {email}")
+
+    def _handle_create_user_error(self, email: str, error: ClientError) -> Dict[str, str]:
+        """Handle ClientError exceptions from user creation"""
+        error_code = error.response['Error']['Code']
+        error_message = error.response['Error']['Message']
+
+        logger.error(f"Error creating user {email}: {error_code} - {error_message}")
+
+        error_map = {
+            'UsernameExistsException': 'A user with this email already exists',
+            'InvalidParameterException': 'Invalid email format',
+            'InvalidPasswordException': 'Password does not meet requirements'
+        }
+
+        return {
+            'status': 'ERROR',
+            'error': error_map.get(error_code, error_message)
+        }
 
     def create_user(self, email: str, temporary_password: str = None, send_invite: bool = True) -> Dict[str, str]:
         """
@@ -314,31 +379,7 @@ class CognitoClient:
             Dict with 'status', 'message', and optionally 'temporary_password'
         """
         try:
-            # Build the parameters for admin_create_user
-            create_user_params = {
-                'UserPoolId': self.user_pool_id,
-                'Username': email,
-                'UserAttributes': [
-                    {
-                        'Name': 'email',
-                        'Value': email
-                    },
-                    {
-                        'Name': 'email_verified',
-                        'Value': 'true'  # Mark email as verified since admin is creating
-                    }
-                ],
-                'DesiredDeliveryMediums': ['EMAIL'],
-                'MessageAction': 'SUPPRESS'  # Always suppress the welcome email
-            }
-
-            # Only include TemporaryPassword if one was explicitly provided
-            # Otherwise, let Cognito generate a compliant password automatically
-            if temporary_password:
-                create_user_params['TemporaryPassword'] = temporary_password
-
-            # Create the user with admin_create_user
-            # If no TemporaryPassword is provided, Cognito generates one automatically
+            create_user_params = self._build_create_user_params(email, temporary_password)
             response = self.client.admin_create_user(**create_user_params)
 
             logger.info(f"Successfully created user: {email}")
@@ -349,71 +390,22 @@ class CognitoClient:
                 'user_id': response['User']['Username']
             }
 
-            # Update message with instructions for the invited user
             if send_invite:
-                import secrets
-                import string
-
-                # Generate a secure random password and set user to CONFIRMED state
-                # User doesn't know this password, so they must use "Forgot Password"
-                alphabet = string.ascii_uppercase + string.ascii_lowercase + string.digits + '!@#$%^&*'
-                random_pass = (
-                    secrets.choice(string.ascii_uppercase) +
-                    secrets.choice(string.ascii_lowercase) +
-                    secrets.choice(string.digits) +
-                    secrets.choice('!@#$%^&*') +
-                    ''.join(secrets.choice(alphabet) for _ in range(12))
-                )
-
-                # Set a permanent password to move user to CONFIRMED state
-                # This allows forgot_password to work
-                self.client.admin_set_user_password(
-                    UserPoolId=self.user_pool_id,
-                    Username=email,
-                    Password=random_pass,
-                    Permanent=True
-                )
-                logger.info(f"User set to CONFIRMED state: {email}")
+                self._set_user_to_confirmed(email)
                 result['message'] = f'User {email} created successfully. The user should visit the login page and click "Forgot Password" to receive a password reset email.'
-            else:
-                if temporary_password:
-                    result['temporary_password'] = temporary_password
+            elif temporary_password:
+                result['temporary_password'] = temporary_password
 
             return result
 
         except ClientError as e:
-            error_code = e.response['Error']['Code']
-            error_message = e.response['Error']['Message']
-
-            logger.error(f"Error creating user {email}: {error_code} - {error_message}")
-
-            # Provide user-friendly error messages
-            if error_code == 'UsernameExistsException':
-                return {
-                    'status': 'ERROR',
-                    'error': 'A user with this email already exists'
-                }
-            elif error_code == 'InvalidParameterException':
-                return {
-                    'status': 'ERROR',
-                    'error': 'Invalid email format'
-                }
-            elif error_code == 'InvalidPasswordException':
-                return {
-                    'status': 'ERROR',
-                    'error': 'Password does not meet requirements'
-                }
-            else:
-                return {
-                    'status': 'ERROR',
-                    'error': error_message
-                }
+            return self._handle_create_user_error(email, e)
 
         except Exception as e:
             logger.error(f"Unexpected error creating user: {e}")
             return {
                 'status': 'ERROR',
-                'error': 'An unexpected error occurred'
+                'error': ERROR_UNEXPECTED
             }
 
 

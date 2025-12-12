@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 
 const TargetList = ({ isAdmin }) => {
@@ -289,8 +290,9 @@ const TargetList = ({ isAdmin }) => {
             <h3>{targets.find(t => t.target_id === selectedTarget.target_id) ? 'Edit Target' : 'Add Target'}</h3>
             <form onSubmit={handleSave}>
               <div className="form-group">
-                <label>Target ID</label>
+                <label htmlFor="target-id-input">Target ID</label>
                 <input
+                  id="target-id-input"
                   type="text"
                   value={selectedTarget.target_id}
                   onChange={(e) => setSelectedTarget({...selectedTarget, target_id: e.target.value})}
@@ -300,8 +302,9 @@ const TargetList = ({ isAdmin }) => {
                 />
               </div>
               <div className="form-group">
-                <label>Description</label>
+                <label htmlFor="target-description">Description</label>
                 <input
+                  id="target-description"
                   type="text"
                   value={selectedTarget.target_description}
                   onChange={(e) => setSelectedTarget({...selectedTarget, target_description: e.target.value})}
@@ -310,8 +313,9 @@ const TargetList = ({ isAdmin }) => {
                 />
               </div>
               <div className="form-group">
-                <label>Target ARN</label>
+                <label htmlFor="target-arn">Target ARN</label>
                 <input
+                  id="target-arn"
                   type="text"
                   value={selectedTarget.target_arn}
                   onChange={(e) => setSelectedTarget({...selectedTarget, target_arn: e.target.value})}
@@ -320,8 +324,9 @@ const TargetList = ({ isAdmin }) => {
                 />
               </div>
               <div className="form-group">
-                <label>Parameter Schema (OpenAPI JSON Format)</label>
+                <label htmlFor="target-parameter-schema">Parameter Schema (OpenAPI JSON Format)</label>
                 <textarea
+                  id="target-parameter-schema"
                   value={selectedTarget.target_parameter_schema}
                   onChange={(e) => setSelectedTarget({...selectedTarget, target_parameter_schema: e.target.value})}
                   rows={8}
@@ -363,6 +368,10 @@ const TargetList = ({ isAdmin }) => {
       )}
     </div>
   );
+};
+
+TargetList.propTypes = {
+  isAdmin: PropTypes.bool.isRequired
 };
 
 export default TargetList;

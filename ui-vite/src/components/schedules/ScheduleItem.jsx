@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { API_BASE_URL } from '../../config';
 
 export default function ScheduleItem({ schedule }) {
@@ -82,3 +83,15 @@ export default function ScheduleItem({ schedule }) {
         </div>
     );
 }
+
+ScheduleItem.propTypes = {
+  schedule: PropTypes.shape({
+    tenant_id: PropTypes.string.isRequired,
+    target_alias: PropTypes.string.isRequired,
+    schedule_id: PropTypes.string.isRequired,
+    schedule_expression: PropTypes.string.isRequired,
+    description: PropTypes.string,
+    start_date: PropTypes.string,
+    end_date: PropTypes.string
+  }).isRequired
+};

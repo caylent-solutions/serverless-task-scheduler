@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 
 export default function ScheduleDialog({ 
@@ -108,10 +109,11 @@ export default function ScheduleDialog({
                 <form onSubmit={handleCreateSchedule} className="space-y-4">
                     {/* Tenant */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="schedule-tenant" className="block text-sm font-medium text-gray-700 mb-2">
                             Tenant
                         </label>
                         <input
+                            id="schedule-tenant"
                             type="text"
                             value={tenantName}
                             readOnly
@@ -123,7 +125,7 @@ export default function ScheduleDialog({
                     {/* Schedule Expression */}
                     <div>
                         <div className="flex justify-between items-center mb-2">
-                            <label className="block text-sm font-medium text-gray-700">
+                            <label htmlFor="schedule-expression" className="block text-sm font-medium text-gray-700">
                                 Schedule Expression *
                             </label>
                             <a
@@ -136,6 +138,7 @@ export default function ScheduleDialog({
                             </a>
                         </div>
                         <input
+                            id="schedule-expression"
                             type="text"
                             value={scheduleForm.schedule_expression}
                             onChange={(e) => handleScheduleFormChange('schedule_expression', e.target.value)}
@@ -150,10 +153,11 @@ export default function ScheduleDialog({
 
                     {/* Target Input */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="schedule-target-input" className="block text-sm font-medium text-gray-700 mb-2">
                             Target Input (JSON) *
                         </label>
                         <textarea
+                            id="schedule-target-input"
                             value={targetInputText}
                             onChange={(e) => setTargetInputText(e.target.value)}
                             className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 focus:outline-none focus:border-blue-500 font-mono text-sm"
@@ -168,10 +172,11 @@ export default function ScheduleDialog({
 
                     {/* Description */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="schedule-description" className="block text-sm font-medium text-gray-700 mb-2">
                             Description
                         </label>
                         <input
+                            id="schedule-description"
                             type="text"
                             value={scheduleForm.description}
                             onChange={(e) => handleScheduleFormChange('description', e.target.value)}
@@ -182,10 +187,11 @@ export default function ScheduleDialog({
 
                     {/* Timezone */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="schedule-timezone" className="block text-sm font-medium text-gray-700 mb-2">
                             Timezone
                         </label>
                         <select
+                            id="schedule-timezone"
                             value={scheduleForm.timezone}
                             onChange={(e) => handleScheduleFormChange('timezone', e.target.value)}
                             className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 focus:outline-none focus:border-blue-500"
@@ -201,10 +207,11 @@ export default function ScheduleDialog({
 
                     {/* Start Date */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="schedule-start-date" className="block text-sm font-medium text-gray-700 mb-2">
                             Start Date
                         </label>
                         <input
+                            id="schedule-start-date"
                             type="datetime-local"
                             value={scheduleForm.start_date}
                             onChange={(e) => handleScheduleFormChange('start_date', e.target.value)}
@@ -214,10 +221,11 @@ export default function ScheduleDialog({
 
                     {/* End Date */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="schedule-end-date" className="block text-sm font-medium text-gray-700 mb-2">
                             End Date
                         </label>
                         <input
+                            id="schedule-end-date"
                             type="datetime-local"
                             value={scheduleForm.end_date}
                             onChange={(e) => handleScheduleFormChange('end_date', e.target.value)}
@@ -227,10 +235,11 @@ export default function ScheduleDialog({
 
                     {/* State */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="schedule-state" className="block text-sm font-medium text-gray-700 mb-2">
                             State
                         </label>
                         <select
+                            id="schedule-state"
                             value={scheduleForm.state}
                             onChange={(e) => handleScheduleFormChange('state', e.target.value)}
                             className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 focus:outline-none focus:border-blue-500"
@@ -262,3 +271,12 @@ export default function ScheduleDialog({
         </div>
     );
 }
+
+ScheduleDialog.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  targetAlias: PropTypes.string.isRequired,
+  tenantName: PropTypes.string.isRequired,
+  onScheduleCreated: PropTypes.func.isRequired,
+  exampleJson: PropTypes.string
+};

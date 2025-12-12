@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 import './ExecutionHistoryModal.css';
 
@@ -112,7 +113,7 @@ const ExecutionHistoryModal = ({
 
   // Handle re-drive execution
   const handleRedrive = async (execution) => {
-    if (!window.confirm('Are you sure you want to re-drive this failed execution? This will restart the execution from the point of failure.')) {
+    if (!globalThis.confirm('Are you sure you want to re-drive this failed execution? This will restart the execution from the point of failure.')) {
       return;
     }
 
@@ -276,6 +277,10 @@ const ExecutionHistoryModal = ({
                   ) : (
                     filteredExecutions.map((execution, index) => {
                       const timestamp = execution.timestamp || execution.executed_at;
+                      const isRedriving = redrivingExecutions.has(execution.execution_id);
+                      const redriveButtonTitle = isRedriving
+                        ? "Redrive in progress..."
+                        : "Re-drive this failed execution from the point of failure";
 
                       return (
                         <tr key={execution.execution_id || index}>
@@ -301,7 +306,7 @@ const ExecutionHistoryModal = ({
                               onClick={(e) => {
                                 if (getCloudWatchUrl(execution) === '#') {
                                   e.preventDefault();
-                                  alert('CloudWatch logs URL not available for this execution');
+                                  globalThis.alert('CloudWatch logs URL not available for this execution');
                                 }
                               }}
                             >
@@ -313,16 +318,14 @@ const ExecutionHistoryModal = ({
                               <button
                                 className="btn btn-warning btn-sm"
                                 onClick={() => handleRedrive(execution)}
-                                disabled={redrivingExecutions.has(execution.execution_id)}
-                                title={redrivingExecutions.has(execution.execution_id)
-                                  ? "Redrive in progress..."
-                                  : "Re-drive this failed execution from the point of failure"}
+                                disabled={isRedriving}
+                                title={redriveButtonTitle}
                                 style={{
-                                  opacity: redrivingExecutions.has(execution.execution_id) ? 0.5 : 1,
-                                  cursor: redrivingExecutions.has(execution.execution_id) ? 'not-allowed' : 'pointer'
+                                  opacity: isRedriving ? 0.5 : 1,
+                                  cursor: isRedriving ? 'not-allowed' : 'pointer'
                                 }}
                               >
-                                {redrivingExecutions.has(execution.execution_id) ? '⏳ Redriving...' : '🔄 Re-drive'}
+                                {isRedriving ? '⏳ Redriving...' : '🔄 Re-drive'}
                               </button>
                             ) : (
                               <span className="text-muted">—</span>
@@ -340,6 +343,15 @@ const ExecutionHistoryModal = ({
       </div>
     </div>
   );
+};
+
+ExecutionHistoryModal.propTypes = {
+  tenantName: PropTypes.string.isRequired,
+  filterType: PropTypes.oneOf(['schedule', 'alias']).isRequired,
+  filterValue: PropTypes.string.isRequired,
+  targetAlias: PropTypes.string,
+  title: PropTypes.string.isRequired,
+  onClose: PropTypes.func.isRequired
 };
 
 export default ExecutionHistoryModal;

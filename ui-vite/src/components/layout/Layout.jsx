@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import Header from './Header';
 import Sidebar from './Sidebar';
 
@@ -25,6 +26,17 @@ const Layout = ({ children, currentView, onNavigate, tenantName, onTenantChange,
       </div>
     </div>
   );
+};
+
+Layout.propTypes = {
+  children: PropTypes.node.isRequired,
+  currentView: PropTypes.string.isRequired,
+  onNavigate: PropTypes.func.isRequired,
+  tenantName: PropTypes.string,
+  onTenantChange: PropTypes.func.isRequired,
+  isAdmin: PropTypes.bool,
+  availableTenants: PropTypes.arrayOf(PropTypes.string),
+  userEmail: PropTypes.string
 };
 
 export default Layout;

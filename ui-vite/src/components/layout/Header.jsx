@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 
 const Header = ({ userEmail }) => {
@@ -42,6 +43,10 @@ const Header = ({ userEmail }) => {
       </div>
     </header>
   );
+};
+
+Header.propTypes = {
+  userEmail: PropTypes.string
 };
 
 export default Header;
