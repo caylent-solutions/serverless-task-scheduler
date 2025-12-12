@@ -258,7 +258,14 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
       </div>
 
       {selectedSchedule && (
-        <div className="modal-overlay" onClick={() => setSelectedSchedule(null)}>
+        <div
+          className="modal-overlay"
+          onClick={() => setSelectedSchedule(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setSelectedSchedule(null)}
+          role="button"
+          tabIndex={0}
+          aria-label="Close modal"
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>{schedules.find(s => s.schedule_id === selectedSchedule.schedule_id) ? 'Edit Schedule' : 'Add Schedule'}</h3>
             <form onSubmit={handleSave}>

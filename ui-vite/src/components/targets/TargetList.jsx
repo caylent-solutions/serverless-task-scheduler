@@ -277,7 +277,14 @@ const TargetList = ({ isAdmin }) => {
       </div>
 
       {selectedTarget && (
-        <div className="modal-overlay" onClick={() => setSelectedTarget(null)}>
+        <div
+          className="modal-overlay"
+          onClick={() => setSelectedTarget(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setSelectedTarget(null)}
+          role="button"
+          tabIndex={0}
+          aria-label="Close modal"
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>{targets.find(t => t.target_id === selectedTarget.target_id) ? 'Edit Target' : 'Add Target'}</h3>
             <form onSubmit={handleSave}>

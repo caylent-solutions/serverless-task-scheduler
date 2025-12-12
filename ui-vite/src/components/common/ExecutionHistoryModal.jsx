@@ -72,8 +72,7 @@ const ExecutionHistoryModal = ({
     } catch (err) {
       console.error('Error fetching executions:', err);
       setError(err.message);
-      // Set mock data for development if API not available
-      setExecutions(generateMockExecutions(filterValue));
+      setExecutions([]);
     } finally {
       setLoading(false);
     }
@@ -83,29 +82,6 @@ const ExecutionHistoryModal = ({
     fetchExecutions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantName, filterType, filterValue, targetAlias, statusFilter, startTimeLower, startTimeUpper]);
-
-  // Generate mock data for development/testing
-  const generateMockExecutions = (id) => {
-    const mockData = [];
-    const now = new Date();
-
-    for (let i = 0; i < 10; i++) {
-      const timestamp = new Date(now.getTime() - i * 3600000); // 1 hour intervals
-      // Generate a mock UUIDv7-like ID (simplified for testing)
-      const executionId = `${Math.random().toString(36).substring(2, 15)}-${Math.random().toString(36).substring(2, 15)}`;
-
-      mockData.push({
-        execution_id: executionId,
-        timestamp: timestamp.toISOString(),
-        status: i % 5 === 0 ? 'FAILED' : 'SUCCESS',
-        result: {
-          cloudwatch_logs_url: `https://console.aws.amazon.com/cloudwatch/home#logsV2:log-groups/log-group/$252Faws$252Flambda$252FLambdaCalculator/log-events/${timestamp.getFullYear()}$252F${(timestamp.getMonth() + 1).toString().padStart(2, '0')}$252F${timestamp.getDate().toString().padStart(2, '0')}$252F$255B$2524LATEST$255D${executionId}`
-        }
-      });
-    }
-
-    return mockData;
-  };
 
   // Format timestamp for display
   const formatTimestamp = (timestamp) => {
@@ -190,7 +166,14 @@ const ExecutionHistoryModal = ({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      onKeyDown={(e) => e.key === 'Escape' && onClose()}
+      role="button"
+      tabIndex={0}
+      aria-label="Close modal"
+    >
       <div className="execution-history-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Execution History - {title}</h2>
@@ -268,7 +251,7 @@ const ExecutionHistoryModal = ({
             <div className="loading-state">Loading executions...</div>
           ) : error ? (
             <div className="error-state">
-              <p>Unable to load executions from API. Showing sample data.</p>
+              <p>Unable to load executions from API.</p>
               <p className="error-message">{error}</p>
             </div>
           ) : (

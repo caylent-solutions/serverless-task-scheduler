@@ -278,9 +278,6 @@ code {
   align-items: center;
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 2px solid transparent;
-  background: linear-gradient(white, white) padding-box,
-              linear-gradient(90deg, var(--color-green-primary), var(--color-teal)) border-box;
   border-bottom: 2px solid;
   border-image-slice: 1;
   border-image-source: linear-gradient(90deg, var(--color-green-primary), var(--color-teal));

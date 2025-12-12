@@ -361,7 +361,14 @@ const UserManagement = ({ isAdmin }) => {
       </div>
 
       {selectedUser && (
-        <div className="modal-overlay" onClick={() => setSelectedUser(null)}>
+        <div
+          className="modal-overlay"
+          onClick={() => setSelectedUser(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setSelectedUser(null)}
+          role="button"
+          tabIndex={0}
+          aria-label="Close modal"
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{maxWidth: '800px', width: '90%'}}>
             <h3>Edit User Access</h3>
             <form onSubmit={handleSave}>
@@ -463,7 +470,14 @@ const UserManagement = ({ isAdmin }) => {
 
       {/* Invite User Modal */}
       {showInviteModal && (
-        <div className="modal-overlay" onClick={() => setShowInviteModal(false)}>
+        <div
+          className="modal-overlay"
+          onClick={() => setShowInviteModal(false)}
+          onKeyDown={(e) => e.key === 'Escape' && setShowInviteModal(false)}
+          role="button"
+          tabIndex={0}
+          aria-label="Close modal"
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{maxWidth: '800px', width: '90%'}}>
             <h3>Invite New User</h3>
             <form onSubmit={handleInviteUser}>

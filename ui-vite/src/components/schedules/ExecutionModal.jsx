@@ -70,7 +70,14 @@ const ExecutionModal = ({ schedule, onClose }) => {
   );
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      onKeyDown={(e) => e.key === 'Escape' && onClose()}
+      role="button"
+      tabIndex={0}
+      aria-label="Close modal"
+    >
       <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>Executions - {schedule.name}</h3>

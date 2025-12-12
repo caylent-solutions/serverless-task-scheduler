@@ -273,7 +273,14 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
       </div>
 
       {selectedMapping && (
-        <div className="modal-overlay" onClick={() => setSelectedMapping(null)}>
+        <div
+          className="modal-overlay"
+          onClick={() => setSelectedMapping(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setSelectedMapping(null)}
+          role="button"
+          tabIndex={0}
+          aria-label="Close modal"
+        >
           <div className="modal" style={{ maxWidth: '900px' }} onClick={(e) => e.stopPropagation()}>
             <h3>{mappings.find(m => m.tenant_id === selectedMapping.tenant_id && m.target_alias === selectedMapping.target_alias) ? 'Edit Link' : 'Add Link'}</h3>
             <form onSubmit={handleSave}>
