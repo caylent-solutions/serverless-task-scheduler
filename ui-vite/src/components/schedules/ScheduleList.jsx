@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 import ExecutionHistoryModal from '../common/ExecutionHistoryModal';
 
@@ -258,13 +259,21 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
       </div>
 
       {selectedSchedule && (
-        <div className="modal-overlay" onClick={() => setSelectedSchedule(null)}>
+        <div
+          className="modal-overlay"
+          onClick={() => setSelectedSchedule(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setSelectedSchedule(null)}
+          role="button"
+          tabIndex={0}
+          aria-label="Close modal"
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>{schedules.find(s => s.schedule_id === selectedSchedule.schedule_id) ? 'Edit Schedule' : 'Add Schedule'}</h3>
             <form onSubmit={handleSave}>
               <div className="form-group">
-                <label>Target Alias</label>
+                <label htmlFor="schedule-target-alias">Target Alias</label>
                 <select
+                  id="schedule-target-alias"
                   value={selectedSchedule.target_alias}
                   onChange={(e) => setSelectedSchedule({...selectedSchedule, target_alias: e.target.value})}
                   disabled={!!schedules.find(s => s.schedule_id === selectedSchedule.schedule_id)}
@@ -279,8 +288,9 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
                 </select>
               </div>
               <div className="form-group">
-                <label>Schedule Expression</label>
+                <label htmlFor="schedule-expression-input">Schedule Expression</label>
                 <input
+                  id="schedule-expression-input"
                   type="text"
                   value={selectedSchedule.schedule_expression}
                   onChange={(e) => setSelectedSchedule({...selectedSchedule, schedule_expression: e.target.value})}
@@ -292,8 +302,9 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
                 </small>
               </div>
               <div className="form-group">
-                <label>Description</label>
+                <label htmlFor="schedule-description">Description</label>
                 <input
+                  id="schedule-description"
                   type="text"
                   value={selectedSchedule.description}
                   onChange={(e) => setSelectedSchedule({...selectedSchedule, description: e.target.value})}
@@ -302,8 +313,9 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
                 />
               </div>
               <div className="form-group">
-                <label>State</label>
+                <label htmlFor="schedule-state">State</label>
                 <select
+                  id="schedule-state"
                   value={selectedSchedule.state}
                   onChange={(e) => setSelectedSchedule({...selectedSchedule, state: e.target.value})}
                   required
@@ -337,6 +349,10 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
       )}
     </div>
   );
+};
+
+ScheduleList.propTypes = {
+  tenantName: PropTypes.string
 };
 
 export default ScheduleList;

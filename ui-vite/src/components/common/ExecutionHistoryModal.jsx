@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 import './ExecutionHistoryModal.css';
 
@@ -72,8 +73,7 @@ const ExecutionHistoryModal = ({
     } catch (err) {
       console.error('Error fetching executions:', err);
       setError(err.message);
-      // Set mock data for development if API not available
-      setExecutions(generateMockExecutions(filterValue));
+      setExecutions([]);
     } finally {
       setLoading(false);
     }
@@ -83,29 +83,6 @@ const ExecutionHistoryModal = ({
     fetchExecutions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantName, filterType, filterValue, targetAlias, statusFilter, startTimeLower, startTimeUpper]);
-
-  // Generate mock data for development/testing
-  const generateMockExecutions = (id) => {
-    const mockData = [];
-    const now = new Date();
-
-    for (let i = 0; i < 10; i++) {
-      const timestamp = new Date(now.getTime() - i * 3600000); // 1 hour intervals
-      // Generate a mock UUIDv7-like ID (simplified for testing)
-      const executionId = `${Math.random().toString(36).substring(2, 15)}-${Math.random().toString(36).substring(2, 15)}`;
-
-      mockData.push({
-        execution_id: executionId,
-        timestamp: timestamp.toISOString(),
-        status: i % 5 === 0 ? 'FAILED' : 'SUCCESS',
-        result: {
-          cloudwatch_logs_url: `https://console.aws.amazon.com/cloudwatch/home#logsV2:log-groups/log-group/$252Faws$252Flambda$252FLambdaCalculator/log-events/${timestamp.getFullYear()}$252F${(timestamp.getMonth() + 1).toString().padStart(2, '0')}$252F${timestamp.getDate().toString().padStart(2, '0')}$252F$255B$2524LATEST$255D${executionId}`
-        }
-      });
-    }
-
-    return mockData;
-  };
 
   // Format timestamp for display
   const formatTimestamp = (timestamp) => {
@@ -136,7 +113,7 @@ const ExecutionHistoryModal = ({
 
   // Handle re-drive execution
   const handleRedrive = async (execution) => {
-    if (!window.confirm('Are you sure you want to re-drive this failed execution? This will restart the execution from the point of failure.')) {
+    if (!globalThis.confirm('Are you sure you want to re-drive this failed execution? This will restart the execution from the point of failure.')) {
       return;
     }
 
@@ -190,7 +167,14 @@ const ExecutionHistoryModal = ({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      onKeyDown={(e) => e.key === 'Escape' && onClose()}
+      role="button"
+      tabIndex={0}
+      aria-label="Close modal"
+    >
       <div className="execution-history-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Execution History - {title}</h2>
@@ -268,7 +252,7 @@ const ExecutionHistoryModal = ({
             <div className="loading-state">Loading executions...</div>
           ) : error ? (
             <div className="error-state">
-              <p>Unable to load executions from API. Showing sample data.</p>
+              <p>Unable to load executions from API.</p>
               <p className="error-message">{error}</p>
             </div>
           ) : (
@@ -293,6 +277,10 @@ const ExecutionHistoryModal = ({
                   ) : (
                     filteredExecutions.map((execution, index) => {
                       const timestamp = execution.timestamp || execution.executed_at;
+                      const isRedriving = redrivingExecutions.has(execution.execution_id);
+                      const redriveButtonTitle = isRedriving
+                        ? "Redrive in progress..."
+                        : "Re-drive this failed execution from the point of failure";
 
                       return (
                         <tr key={execution.execution_id || index}>
@@ -318,7 +306,7 @@ const ExecutionHistoryModal = ({
                               onClick={(e) => {
                                 if (getCloudWatchUrl(execution) === '#') {
                                   e.preventDefault();
-                                  alert('CloudWatch logs URL not available for this execution');
+                                  globalThis.alert('CloudWatch logs URL not available for this execution');
                                 }
                               }}
                             >
@@ -330,16 +318,14 @@ const ExecutionHistoryModal = ({
                               <button
                                 className="btn btn-warning btn-sm"
                                 onClick={() => handleRedrive(execution)}
-                                disabled={redrivingExecutions.has(execution.execution_id)}
-                                title={redrivingExecutions.has(execution.execution_id)
-                                  ? "Redrive in progress..."
-                                  : "Re-drive this failed execution from the point of failure"}
+                                disabled={isRedriving}
+                                title={redriveButtonTitle}
                                 style={{
-                                  opacity: redrivingExecutions.has(execution.execution_id) ? 0.5 : 1,
-                                  cursor: redrivingExecutions.has(execution.execution_id) ? 'not-allowed' : 'pointer'
+                                  opacity: isRedriving ? 0.5 : 1,
+                                  cursor: isRedriving ? 'not-allowed' : 'pointer'
                                 }}
                               >
-                                {redrivingExecutions.has(execution.execution_id) ? '⏳ Redriving...' : '🔄 Re-drive'}
+                                {isRedriving ? '⏳ Redriving...' : '🔄 Re-drive'}
                               </button>
                             ) : (
                               <span className="text-muted">—</span>
@@ -357,6 +343,15 @@ const ExecutionHistoryModal = ({
       </div>
     </div>
   );
+};
+
+ExecutionHistoryModal.propTypes = {
+  tenantName: PropTypes.string.isRequired,
+  filterType: PropTypes.oneOf(['schedule', 'alias']).isRequired,
+  filterValue: PropTypes.string.isRequired,
+  targetAlias: PropTypes.string,
+  title: PropTypes.string.isRequired,
+  onClose: PropTypes.func.isRequired
 };
 
 export default ExecutionHistoryModal;

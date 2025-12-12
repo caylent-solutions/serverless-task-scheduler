@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import PropTypes from 'prop-types';
 import { API_BASE_URL } from '../../config';
 
 // Shared styles for consistency
@@ -343,6 +344,8 @@ function Login({ onLoginSuccess }) {
                 style={styles.button(loading)}
                 onMouseOver={(e) => handleButtonHover(e, loading)}
                 onMouseOut={handleButtonLeave}
+                onFocus={(e) => handleButtonHover(e, loading)}
+                onBlur={handleButtonLeave}
               >
                 {loading ? 'Sending...' : 'Send Reset Code'}
               </button>
@@ -359,6 +362,8 @@ function Login({ onLoginSuccess }) {
                 style={styles.linkButton}
                 onMouseOver={(e) => e.target.style.color = '#4a5568'}
                 onMouseOut={(e) => e.target.style.color = '#718096'}
+                onFocus={(e) => e.target.style.color = '#4a5568'}
+                onBlur={(e) => e.target.style.color = '#718096'}
               >
                 Back to login
               </button>
@@ -428,6 +433,8 @@ function Login({ onLoginSuccess }) {
                 style={styles.button(loading)}
                 onMouseOver={(e) => handleButtonHover(e, loading)}
                 onMouseOut={handleButtonLeave}
+                onFocus={(e) => handleButtonHover(e, loading)}
+                onBlur={handleButtonLeave}
               >
                 {loading ? 'Resetting...' : 'Reset Password'}
               </button>
@@ -447,6 +454,8 @@ function Login({ onLoginSuccess }) {
                 style={styles.linkButton}
                 onMouseOver={(e) => e.target.style.color = '#4a5568'}
                 onMouseOut={(e) => e.target.style.color = '#718096'}
+                onFocus={(e) => e.target.style.color = '#4a5568'}
+                onBlur={(e) => e.target.style.color = '#718096'}
               >
                 Back
               </button>
@@ -498,6 +507,8 @@ function Login({ onLoginSuccess }) {
                 style={styles.button(loading)}
                 onMouseOver={(e) => handleButtonHover(e, loading)}
                 onMouseOut={handleButtonLeave}
+                onFocus={(e) => handleButtonHover(e, loading)}
+                onBlur={handleButtonLeave}
               >
                 {loading ? 'Verifying...' : 'Verify Email'}
               </button>
@@ -511,6 +522,8 @@ function Login({ onLoginSuccess }) {
                 style={styles.linkButtonPrimary}
                 onMouseOver={(e) => !loading && (e.target.style.color = '#7db555')}
                 onMouseOut={(e) => (e.target.style.color = '#97CA6F')}
+                onFocus={(e) => !loading && (e.target.style.color = '#7db555')}
+                onBlur={(e) => (e.target.style.color = '#97CA6F')}
               >
                 Resend code
               </button>
@@ -525,6 +538,8 @@ function Login({ onLoginSuccess }) {
                 style={styles.linkButton}
                 onMouseOver={(e) => e.target.style.color = '#4a5568'}
                 onMouseOut={(e) => e.target.style.color = '#718096'}
+                onFocus={(e) => e.target.style.color = '#4a5568'}
+                onBlur={(e) => e.target.style.color = '#718096'}
               >
                 Back to login
               </button>
@@ -602,6 +617,8 @@ function Login({ onLoginSuccess }) {
               style={styles.button(loading)}
               onMouseOver={(e) => handleButtonHover(e, loading)}
               onMouseOut={handleButtonLeave}
+              onFocus={(e) => handleButtonHover(e, loading)}
+              onBlur={handleButtonLeave}
             >
               {loading ? 'Processing...' : 'Sign in'}
             </button>
@@ -618,6 +635,8 @@ function Login({ onLoginSuccess }) {
               style={styles.linkButtonPrimary}
               onMouseOver={(e) => e.target.style.color = '#7db555'}
               onMouseOut={(e) => e.target.style.color = '#97CA6F'}
+              onFocus={(e) => e.target.style.color = '#7db555'}
+              onBlur={(e) => e.target.style.color = '#97CA6F'}
             >
               Forgot your password?
             </button>
@@ -627,5 +646,9 @@ function Login({ onLoginSuccess }) {
     </div>
   );
 }
+
+Login.propTypes = {
+  onLoginSuccess: PropTypes.func.isRequired
+};
 
 export default Login;

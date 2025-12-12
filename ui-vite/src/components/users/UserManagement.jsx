@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 
 const UserManagement = ({ isAdmin }) => {
@@ -361,13 +362,21 @@ const UserManagement = ({ isAdmin }) => {
       </div>
 
       {selectedUser && (
-        <div className="modal-overlay" onClick={() => setSelectedUser(null)}>
+        <div
+          className="modal-overlay"
+          onClick={() => setSelectedUser(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setSelectedUser(null)}
+          role="button"
+          tabIndex={0}
+          aria-label="Close modal"
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{maxWidth: '800px', width: '90%'}}>
             <h3>Edit User Access</h3>
             <form onSubmit={handleSave}>
               <div className="form-group">
-                <label>User Email</label>
+                <label htmlFor="user-email">User Email</label>
                 <input
+                  id="user-email"
                   type="text"
                   value={selectedUser.email}
                   disabled
@@ -376,7 +385,7 @@ const UserManagement = ({ isAdmin }) => {
               </div>
 
               <div className="form-group">
-                <label>Tenant Access</label>
+                <label htmlFor="tenant-access-edit">Tenant Access</label>
                 <div style={{maxHeight: '400px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '4px'}}>
                   {tenants.length === 0 ? (
                     <p className="text-gray-500 text-sm p-2">No tenants available</p>
@@ -463,13 +472,21 @@ const UserManagement = ({ isAdmin }) => {
 
       {/* Invite User Modal */}
       {showInviteModal && (
-        <div className="modal-overlay" onClick={() => setShowInviteModal(false)}>
+        <div
+          className="modal-overlay"
+          onClick={() => setShowInviteModal(false)}
+          onKeyDown={(e) => e.key === 'Escape' && setShowInviteModal(false)}
+          role="button"
+          tabIndex={0}
+          aria-label="Close modal"
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{maxWidth: '800px', width: '90%'}}>
             <h3>Invite New User</h3>
             <form onSubmit={handleInviteUser}>
               <div className="form-group">
-                <label>Email Address *</label>
+                <label htmlFor="invite-email">Email Address *</label>
                 <input
+                  id="invite-email"
                   type="email"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
@@ -479,7 +496,7 @@ const UserManagement = ({ isAdmin }) => {
               </div>
 
               <div className="form-group">
-                <label>Tenant Access</label>
+                <label htmlFor="tenant-access-invite">Tenant Access</label>
                 <div style={{maxHeight: '400px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '4px'}}>
                   {tenants.length === 0 ? (
                     <p className="text-gray-500 text-sm p-2">No tenants available</p>
@@ -571,6 +588,10 @@ const UserManagement = ({ isAdmin }) => {
       )}
     </div>
   );
+};
+
+UserManagement.propTypes = {
+  isAdmin: PropTypes.bool.isRequired
 };
 
 export default UserManagement;

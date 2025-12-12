@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 import ExecutionHistoryModal from '../common/ExecutionHistoryModal';
 import { validateUrlSafeIdentifier, handleUrlSafeInput } from '../../utils/validation';
@@ -62,7 +63,7 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
   };
 
   const handleDelete = async (tenantId, targetAlias) => {
-    if (!window.confirm(`Are you sure you want to delete mapping ${targetAlias} for tenant ${tenantId}?`)) {
+    if (!globalThis.confirm(`Are you sure you want to delete mapping ${targetAlias} for tenant ${tenantId}?`)) {
       return;
     }
 
@@ -78,7 +79,7 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
       setMappings(mappings.filter(m => !(m.tenant_id === tenantId && m.target_alias === targetAlias)));
     } catch (err) {
       console.error('Error deleting mapping:', err);
-      alert(`Error deleting mapping: ${err.message}`);
+      globalThis.alert(`Error deleting mapping: ${err.message}`);
     }
   };
 
@@ -94,6 +95,71 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
     });
   };
 
+  // Helper function to parse JSON field
+  const parseJsonField = (value, fieldName) => {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    if (value.trim() === '') {
+      return {};
+    }
+
+    try {
+      return JSON.parse(value);
+    } catch (err) {
+      throw new Error(`Invalid JSON for ${fieldName}. Please ensure it is valid JSON format.`);
+    }
+  };
+
+  // Helper function to prepare mapping data for save
+  const prepareMappingData = () => {
+    const environmentVariables = parseJsonField(
+      selectedMapping.environment_variables,
+      'environment variables'
+    );
+    const defaultPayload = parseJsonField(
+      selectedMapping.default_payload,
+      'default payload'
+    );
+
+    return {
+      ...selectedMapping,
+      environment_variables: environmentVariables,
+      default_payload: defaultPayload,
+      authorized_groups: selectedMapping.authorized_groups || []
+    };
+  };
+
+  // Helper function to save mapping to API
+  const saveMappingToApi = async (mappingData, isNew) => {
+    const url = isNew
+      ? `../tenants/${selectedMapping.tenant_id}/mappings`
+      : `../tenants/${selectedMapping.tenant_id}/mappings/${selectedMapping.target_alias}`;
+
+    const method = isNew ? 'POST' : 'PUT';
+
+    const response = await authenticatedFetch(url, {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(mappingData)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || `Failed to save mapping: ${response.status}`);
+    }
+  };
+
+  // Helper function to refresh mappings list
+  const refreshMappingsList = async () => {
+    const refreshResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings`);
+    const refreshData = await refreshResponse.json();
+    setMappings(refreshData || []);
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
 
@@ -101,81 +167,23 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
       // Validate target_alias
       const validationError = validateUrlSafeIdentifier(selectedMapping.target_alias, 'Target Alias');
       if (validationError) {
-        alert(validationError + '\nExample: calc-lambda');
+        globalThis.alert(validationError + '\nExample: calc-lambda');
         return;
       }
-      const isNew = !mappings.find(m => 
-        m.tenant_id === selectedMapping.tenant_id && 
+
+      const isNew = !mappings.find(m =>
+        m.tenant_id === selectedMapping.tenant_id &&
         m.target_alias === selectedMapping.target_alias
       );
 
-      // Parse JSON fields
-      let environmentVariables = selectedMapping.environment_variables;
-      let defaultPayload = selectedMapping.default_payload;
+      const mappingData = prepareMappingData();
+      await saveMappingToApi(mappingData, isNew);
+      await refreshMappingsList();
 
-      // Handle environment variables
-      if (typeof environmentVariables === 'string') {
-        if (environmentVariables.trim() === '') {
-          environmentVariables = {};
-        } else {
-          try {
-            environmentVariables = JSON.parse(environmentVariables);
-          } catch (err) {
-            alert('Invalid JSON for environment variables. Please ensure it is valid JSON format.');
-            return;
-          }
-        }
-      }
-
-      // Handle default payload
-      if (typeof defaultPayload === 'string') {
-        if (defaultPayload.trim() === '') {
-          defaultPayload = {};
-        } else {
-          try {
-            defaultPayload = JSON.parse(defaultPayload);
-          } catch (err) {
-            alert('Invalid JSON for default payload. Please ensure it is valid JSON format.');
-            return;
-          }
-        }
-      }
-
-      const mappingData = {
-        ...selectedMapping,
-        environment_variables: environmentVariables,
-        default_payload: defaultPayload,
-        authorized_groups: selectedMapping.authorized_groups || []
-      };
-
-      const url = isNew 
-        ? `../tenants/${selectedMapping.tenant_id}/mappings`
-        : `../tenants/${selectedMapping.tenant_id}/mappings/${selectedMapping.target_alias}`;
-      
-      const method = isNew ? 'POST' : 'PUT';
-
-      const response = await authenticatedFetch(url, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(mappingData)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `Failed to save mapping: ${response.status}`);
-      }
-
-      // Refresh the mappings list
-      const refreshResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings`);
-      const refreshData = await refreshResponse.json();
-      setMappings(refreshData || []);
-      
       setSelectedMapping(null);
     } catch (err) {
       console.error('Error saving mapping:', err);
-      alert(`Error saving mapping: ${err.message}`);
+      globalThis.alert(`Error saving mapping: ${err.message}`);
     }
   };
 
@@ -273,7 +281,14 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
       </div>
 
       {selectedMapping && (
-        <div className="modal-overlay" onClick={() => setSelectedMapping(null)}>
+        <div
+          className="modal-overlay"
+          onClick={() => setSelectedMapping(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setSelectedMapping(null)}
+          role="button"
+          tabIndex={0}
+          aria-label="Close modal"
+        >
           <div className="modal" style={{ maxWidth: '900px' }} onClick={(e) => e.stopPropagation()}>
             <h3>{mappings.find(m => m.tenant_id === selectedMapping.tenant_id && m.target_alias === selectedMapping.target_alias) ? 'Edit Link' : 'Add Link'}</h3>
             <form onSubmit={handleSave}>
@@ -281,8 +296,9 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
                 {/* Left Column - Basic Fields */}
                 <div>
                   <div className="form-group">
-                    <label>Target Alias</label>
+                    <label htmlFor="target-alias">Target Alias</label>
                     <input
+                      id="target-alias"
                       type="text"
                       value={selectedMapping.target_alias}
                       onChange={handleUrlSafeInput((value) => setSelectedMapping({...selectedMapping, target_alias: value}))}
@@ -295,8 +311,9 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Target</label>
+                    <label htmlFor="target-id">Target</label>
                     <select
+                      id="target-id"
                       value={selectedMapping.target_id}
                       onChange={(e) => setSelectedMapping({...selectedMapping, target_id: e.target.value})}
                       required
@@ -310,8 +327,9 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>Description</label>
+                    <label htmlFor="mapping-description">Description</label>
                     <input
+                      id="mapping-description"
                       type="text"
                       value={selectedMapping.description}
                       onChange={(e) => setSelectedMapping({...selectedMapping, description: e.target.value})}
@@ -321,8 +339,9 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
                   {selectedMapping.last_update_user && (
                     <>
                       <div className="form-group">
-                        <label>Last Updated By</label>
+                        <label htmlFor="last-update-user">Last Updated By</label>
                         <input
+                          id="last-update-user"
                           type="text"
                           value={selectedMapping.last_update_user}
                           readOnly
@@ -330,8 +349,9 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
                         />
                       </div>
                       <div className="form-group">
-                        <label>Last Updated</label>
+                        <label htmlFor="last-update-date">Last Updated</label>
                         <input
+                          id="last-update-date"
                           type="text"
                           value={selectedMapping.last_update_date ? new Date(selectedMapping.last_update_date).toLocaleString() : '-'}
                           readOnly
@@ -345,8 +365,9 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
                 {/* Right Column - JSON Fields */}
                 <div>
                   <div className="form-group">
-                    <label>Default Payload (JSON)</label>
+                    <label htmlFor="default-payload">Default Payload (JSON)</label>
                     <textarea
+                      id="default-payload"
                       value={selectedMapping.default_payload}
                       onChange={(e) => setSelectedMapping({...selectedMapping, default_payload: e.target.value})}
                       rows={10}
@@ -358,8 +379,9 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Environment Variables - ECS Only (JSON)</label>
+                    <label htmlFor="environment-variables">Environment Variables - ECS Only (JSON)</label>
                     <textarea
+                      id="environment-variables"
                       value={selectedMapping.environment_variables}
                       onChange={(e) => setSelectedMapping({...selectedMapping, environment_variables: e.target.value})}
                       rows={10}
@@ -399,6 +421,10 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
       )}
     </div>
   );
+};
+
+TenantMappingList.propTypes = {
+  tenantName: PropTypes.string
 };
 
 export default TenantMappingList;

@@ -12,6 +12,9 @@ from .routers.user import get_current_user
 
 logger = logging.getLogger("app.authorization")
 
+# Constants
+COGNITO_USERNAME_KEY = 'cognito:username'
+
 
 class AuthorizationError(HTTPException):
     """Custom exception for authorization failures"""
@@ -36,7 +39,7 @@ def is_admin(user: dict) -> bool:
     """
     try:
         from .awssdk.dynamodb import get_database_client
-        user_email = user.get('email', user.get('cognito:username', ''))
+        user_email = user.get('email', user.get(COGNITO_USERNAME_KEY, ''))
 
         db = get_database_client()
         tenants = db.get_user_tenants(user_email)
@@ -50,7 +53,7 @@ def is_admin(user: dict) -> bool:
         logger.error(f"Error checking admin status for user: {e}")
         # Fallback to environment variable check in case of database error
         admin_email = get_admin_email()
-        user_email = user.get('email', user.get('cognito:username', ''))
+        user_email = user.get('email', user.get(COGNITO_USERNAME_KEY, ''))
         return user_email == admin_email
 
 
@@ -74,7 +77,7 @@ def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
         AuthorizationError: If user is not an admin
     """
     if not is_admin(current_user):
-        user_email = current_user.get('email', current_user.get('cognito:username', 'unknown'))
+        user_email = current_user.get('email', current_user.get(COGNITO_USERNAME_KEY, 'unknown'))
         logger.warning(f"Access denied for non-admin user: {user_email}")
         raise AuthorizationError("Admin access required")
 
@@ -140,7 +143,7 @@ async def require_tenant_access(
     # Check if user has access to the specific tenant
     try:
         from .awssdk.dynamodb import get_database_client
-        user_email = current_user.get('email', current_user.get('cognito:username', ''))
+        user_email = current_user.get('email', current_user.get(COGNITO_USERNAME_KEY, ''))
 
         db = get_database_client()
         user_tenants = db.get_user_tenants(user_email)

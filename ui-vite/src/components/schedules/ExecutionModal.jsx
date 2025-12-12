@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 
 const ExecutionModal = ({ schedule, onClose }) => {
   const [executions] = useState([
@@ -70,7 +71,14 @@ const ExecutionModal = ({ schedule, onClose }) => {
   );
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      onKeyDown={(e) => e.key === 'Escape' && onClose()}
+      role="button"
+      tabIndex={0}
+      aria-label="Close modal"
+    >
       <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>Executions - {schedule.name}</h3>
@@ -134,6 +142,11 @@ const ExecutionModal = ({ schedule, onClose }) => {
       </div>
     </div>
   );
+};
+
+ExecutionModal.propTypes = {
+  schedule: PropTypes.object.isRequired,
+  onClose: PropTypes.func.isRequired
 };
 
 export default ExecutionModal;

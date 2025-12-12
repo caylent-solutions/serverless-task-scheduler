@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const Sidebar = ({ currentView, onNavigate, tenantName, onTenantChange, isAdmin = false, availableTenants = [], collapsed = false, onToggleCollapse }) => {
   return (
@@ -89,6 +90,17 @@ const Sidebar = ({ currentView, onNavigate, tenantName, onTenantChange, isAdmin 
       </div>
     </aside>
   );
+};
+
+Sidebar.propTypes = {
+  currentView: PropTypes.string.isRequired,
+  onNavigate: PropTypes.func.isRequired,
+  tenantName: PropTypes.string,
+  onTenantChange: PropTypes.func.isRequired,
+  isAdmin: PropTypes.bool,
+  availableTenants: PropTypes.arrayOf(PropTypes.string),
+  collapsed: PropTypes.bool,
+  onToggleCollapse: PropTypes.func.isRequired
 };
 
 export default Sidebar;

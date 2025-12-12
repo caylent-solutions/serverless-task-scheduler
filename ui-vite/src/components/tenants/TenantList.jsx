@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 import { validateUrlSafeIdentifier, handleUrlSafeInput } from '../../utils/validation';
 
@@ -211,13 +212,21 @@ const TenantList = ({ isAdmin }) => {
       </div>
 
       {selectedTenant && (
-        <div className="modal-overlay" onClick={() => setSelectedTenant(null)}>
+        <div
+          className="modal-overlay"
+          onClick={() => setSelectedTenant(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setSelectedTenant(null)}
+          role="button"
+          tabIndex={0}
+          aria-label="Close modal"
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>{tenants.find(t => t.tenant_id === selectedTenant.tenant_id) ? 'Edit Tenant' : 'Add Tenant'}</h3>
             <form onSubmit={handleSave}>
               <div className="form-group">
-                <label>Tenant ID</label>
+                <label htmlFor="tenant-id-input">Tenant ID</label>
                 <input
+                  id="tenant-id-input"
                   type="text"
                   value={selectedTenant.tenant_id}
                   onChange={handleUrlSafeInput((value) => setSelectedTenant({...selectedTenant, tenant_id: value}))}
@@ -230,8 +239,9 @@ const TenantList = ({ isAdmin }) => {
                 />
               </div>
               <div className="form-group">
-                <label>Tenant Name</label>
+                <label htmlFor="tenant-name">Tenant Name</label>
                 <input
+                  id="tenant-name"
                   type="text"
                   value={selectedTenant.tenant_name}
                   onChange={(e) => setSelectedTenant({...selectedTenant, tenant_name: e.target.value})}
@@ -239,8 +249,9 @@ const TenantList = ({ isAdmin }) => {
                 />
               </div>
               <div className="form-group">
-                <label>Description</label>
+                <label htmlFor="tenant-description">Description</label>
                 <textarea
+                  id="tenant-description"
                   value={selectedTenant.description}
                   onChange={(e) => setSelectedTenant({...selectedTenant, description: e.target.value})}
                   rows={3}
@@ -261,6 +272,10 @@ const TenantList = ({ isAdmin }) => {
       )}
     </div>
   );
+};
+
+TenantList.propTypes = {
+  isAdmin: PropTypes.bool.isRequired
 };
 
 export default TenantList;
