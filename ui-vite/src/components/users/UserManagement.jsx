@@ -366,7 +366,7 @@ const UserManagement = ({ isAdmin }) => {
       </div>
 
       {selectedUser && (
-        <div className="modal-overlay" onClick={() => setSelectedUser(null)}>
+        <div className="modal-overlay">
           <div
             className="modal"
             onClick={(e) => e.stopPropagation()}
@@ -374,7 +374,12 @@ const UserManagement = ({ isAdmin }) => {
             role="dialog"
             aria-modal="true"
             aria-labelledby="user-modal-title"
-            onKeyDown={(e) => e.key === 'Escape' && setSelectedUser(null)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setSelectedUser(null);
+              }
+            }}
+            tabIndex={-1}
           >
             <h3 id="user-modal-title">Edit User Access</h3>
             <form onSubmit={handleSave}>
@@ -477,7 +482,7 @@ const UserManagement = ({ isAdmin }) => {
 
       {/* Invite User Modal */}
       {showInviteModal && (
-        <div className="modal-overlay" onClick={() => setShowInviteModal(false)}>
+        <div className="modal-overlay">
           <div
             className="modal"
             onClick={(e) => e.stopPropagation()}
@@ -485,7 +490,12 @@ const UserManagement = ({ isAdmin }) => {
             role="dialog"
             aria-modal="true"
             aria-labelledby="invite-user-modal-title"
-            onKeyDown={(e) => e.key === 'Escape' && setShowInviteModal(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setShowInviteModal(false);
+              }
+            }}
+            tabIndex={-1}
           >
             <h3 id="invite-user-modal-title">Invite New User</h3>
             <form onSubmit={handleInviteUser}>

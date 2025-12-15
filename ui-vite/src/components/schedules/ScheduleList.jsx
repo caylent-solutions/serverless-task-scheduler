@@ -260,14 +260,19 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
       </div>
 
       {selectedSchedule && (
-        <div className="modal-overlay" onClick={() => setSelectedSchedule(null)}>
+        <div className="modal-overlay">
           <div
             className="modal"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-labelledby="schedule-modal-title"
-            onKeyDown={(e) => e.key === 'Escape' && setSelectedSchedule(null)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setSelectedSchedule(null);
+              }
+            }}
+            tabIndex={-1}
           >
             <h3 id="schedule-modal-title">{schedules.some(s => s.schedule_id === selectedSchedule.schedule_id) ? 'Edit Schedule' : 'Add Schedule'}</h3>
             <form onSubmit={handleSave}>
