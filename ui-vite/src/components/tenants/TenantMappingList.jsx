@@ -282,7 +282,7 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
       </div>
 
       {selectedMapping && (
-        <div className="modal-overlay" onClick={() => setSelectedMapping(null)}>
+        <div className="modal-overlay">
           <div
             className="modal"
             style={{ maxWidth: '900px' }}
@@ -290,7 +290,12 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
             role="dialog"
             aria-modal="true"
             aria-labelledby="mapping-modal-title"
-            onKeyDown={(e) => e.key === 'Escape' && setSelectedMapping(null)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setSelectedMapping(null);
+              }
+            }}
+            tabIndex={-1}
           >
             <h3 id="mapping-modal-title">{mappings.some(m => m.tenant_id === selectedMapping.tenant_id && m.target_alias === selectedMapping.target_alias) ? 'Edit Link' : 'Add Link'}</h3>
             <form onSubmit={handleSave}>

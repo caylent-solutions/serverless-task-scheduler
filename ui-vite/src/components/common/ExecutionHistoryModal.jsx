@@ -168,14 +168,19 @@ const ExecutionHistoryModal = ({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div
         className="modal modal-xlarge execution-history-modal"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="execution-history-title"
-        onKeyDown={(e) => e.key === 'Escape' && onClose()}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            onClose();
+          }
+        }}
+        tabIndex={-1}
       >
         <div className="modal-header">
           <h2 id="execution-history-title">Execution History - {title}</h2>
