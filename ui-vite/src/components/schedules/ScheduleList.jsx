@@ -60,7 +60,7 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
   };
 
   const handleDelete = async (targetAlias, scheduleId) => {
-    if (!window.confirm(`Are you sure you want to delete schedule ${scheduleId}?`)) {
+    if (!globalThis.confirm(`Are you sure you want to delete schedule ${scheduleId}?`)) {
       return;
     }
 
@@ -106,7 +106,7 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
         return;
       }
 
-      const isNew = !schedules.find(s => s.schedule_id === selectedSchedule.schedule_id);
+      const isNew = !schedules.some(s => s.schedule_id === selectedSchedule.schedule_id);
 
       // Prepare schedule data
       const scheduleData = {
@@ -134,7 +134,7 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
         let errorMessage = `Failed to save schedule: ${response.status}`;
         try {
           const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
+          if (contentType?.includes('application/json')) {
             const errorData = await response.json();
             errorMessage = errorData.detail || errorMessage;
           } else {
@@ -143,6 +143,7 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
           }
         } catch (parseError) {
           // If parsing fails, use the default error message
+          console.error('Error parsing error response:', parseError);
         }
         throw new Error(errorMessage);
       }
@@ -263,12 +264,17 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
           className="modal-overlay"
           onClick={() => setSelectedSchedule(null)}
           onKeyDown={(e) => e.key === 'Escape' && setSelectedSchedule(null)}
-          role="button"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Schedule Modal"
           tabIndex={0}
-          aria-label="Close modal"
         >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{schedules.find(s => s.schedule_id === selectedSchedule.schedule_id) ? 'Edit Schedule' : 'Add Schedule'}</h3>
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            role="document"
+          >
+            <h3>{schedules.some(s => s.schedule_id === selectedSchedule.schedule_id) ? 'Edit Schedule' : 'Add Schedule'}</h3>
             <form onSubmit={handleSave}>
               <div className="form-group">
                 <label htmlFor="schedule-target-alias">Target Alias</label>
@@ -276,7 +282,7 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
                   id="schedule-target-alias"
                   value={selectedSchedule.target_alias}
                   onChange={(e) => setSelectedSchedule({...selectedSchedule, target_alias: e.target.value})}
-                  disabled={!!schedules.find(s => s.schedule_id === selectedSchedule.schedule_id)}
+                  disabled={schedules.some(s => s.schedule_id === selectedSchedule.schedule_id)}
                   required
                 >
                   <option value="">Select a target alias...</option>

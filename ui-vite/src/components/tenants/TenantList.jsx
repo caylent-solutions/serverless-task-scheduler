@@ -50,7 +50,7 @@ const TenantList = ({ isAdmin }) => {
   };
 
   const handleDelete = async (tenantId) => {
-    if (!window.confirm('Are you sure you want to delete this tenant?')) {
+    if (!globalThis.confirm('Are you sure you want to delete this tenant?')) {
       return;
     }
 
@@ -89,7 +89,7 @@ const TenantList = ({ isAdmin }) => {
         return;
       }
 
-      const isNew = !tenants.find(t => t.tenant_id === selectedTenant.tenant_id);
+      const isNew = !tenants.some(t => t.tenant_id === selectedTenant.tenant_id);
 
       const url = isNew
         ? '../tenants'
@@ -216,12 +216,17 @@ const TenantList = ({ isAdmin }) => {
           className="modal-overlay"
           onClick={() => setSelectedTenant(null)}
           onKeyDown={(e) => e.key === 'Escape' && setSelectedTenant(null)}
-          role="button"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Tenant Modal"
           tabIndex={0}
-          aria-label="Close modal"
         >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{tenants.find(t => t.tenant_id === selectedTenant.tenant_id) ? 'Edit Tenant' : 'Add Tenant'}</h3>
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            role="document"
+          >
+            <h3>{tenants.some(t => t.tenant_id === selectedTenant.tenant_id) ? 'Edit Tenant' : 'Add Tenant'}</h3>
             <form onSubmit={handleSave}>
               <div className="form-group">
                 <label htmlFor="tenant-id-input">Tenant ID</label>
@@ -230,7 +235,7 @@ const TenantList = ({ isAdmin }) => {
                   type="text"
                   value={selectedTenant.tenant_id}
                   onChange={handleUrlSafeInput((value) => setSelectedTenant({...selectedTenant, tenant_id: value}))}
-                  disabled={!!tenants.find(t => t.tenant_id === selectedTenant.tenant_id)}
+                  disabled={tenants.some(t => t.tenant_id === selectedTenant.tenant_id)}
                   placeholder="AcmeCorp"
                   maxLength={36}
                   pattern="[a-zA-Z0-9_-]{1,36}"

@@ -12,12 +12,12 @@ const Header = ({ userEmail }) => {
       
       if (response.ok) {
         // Reload the page to show login screen
-        window.location.reload();
+        globalThis.location.reload();
       }
     } catch (error) {
       console.error('Logout failed:', error);
       // Reload anyway to clear state
-      window.location.reload();
+      globalThis.location.reload();
     }
   };
 

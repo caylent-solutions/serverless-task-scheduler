@@ -231,12 +231,12 @@
 
 .status-badge.status-pending {
   background-color: #fff3e0;
-  color: #ef6c00;
+  color: #d85d00;
 }
 
 .status-badge.status-in_progress {
   background-color: #fff9c4;
-  color: #f57f17;
+  color: #c76d00;
 }
 
 .status-badge.status-unknown {
@@ -286,7 +286,7 @@
 }
 
 .btn-refresh {
-  background-color: #2196F3;
+  background-color: #1976D2;
   color: white;
   white-space: nowrap;
   flex-shrink: 0;
