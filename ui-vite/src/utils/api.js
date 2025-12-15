@@ -39,7 +39,8 @@ export const authenticatedFetch = async (url, options = {}) => {
 
     return response;
   } catch (error) {
-    // Network errors or other fetch errors
+    // Network errors or other fetch errors - log and rethrow
+    console.error('Network error during fetch:', error);
     throw error;
   }
 };

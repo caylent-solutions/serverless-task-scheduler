@@ -108,6 +108,7 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
     try {
       return JSON.parse(value);
     } catch (err) {
+      console.error(`JSON parse error for ${fieldName}:`, err);
       throw new Error(`Invalid JSON for ${fieldName}. Please ensure it is valid JSON format.`);
     }
   };
@@ -281,22 +282,17 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
       </div>
 
       {selectedMapping && (
-        <div
-          className="modal-overlay"
-          onClick={() => setSelectedMapping(null)}
-          onKeyDown={(e) => e.key === 'Escape' && setSelectedMapping(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Tenant Mapping Modal"
-          tabIndex={0}
-        >
+        <div className="modal-overlay" onClick={() => setSelectedMapping(null)}>
           <div
             className="modal"
             style={{ maxWidth: '900px' }}
             onClick={(e) => e.stopPropagation()}
-            role="document"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mapping-modal-title"
+            onKeyDown={(e) => e.key === 'Escape' && setSelectedMapping(null)}
           >
-            <h3>{mappings.find(m => m.tenant_id === selectedMapping.tenant_id && m.target_alias === selectedMapping.target_alias) ? 'Edit Link' : 'Add Link'}</h3>
+            <h3 id="mapping-modal-title">{mappings.some(m => m.tenant_id === selectedMapping.tenant_id && m.target_alias === selectedMapping.target_alias) ? 'Edit Link' : 'Add Link'}</h3>
             <form onSubmit={handleSave}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                 {/* Left Column - Basic Fields */}
@@ -308,7 +304,7 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
                       type="text"
                       value={selectedMapping.target_alias}
                       onChange={handleUrlSafeInput((value) => setSelectedMapping({...selectedMapping, target_alias: value}))}
-                      disabled={!!mappings.find(m => m.tenant_id === selectedMapping.tenant_id && m.target_alias === selectedMapping.target_alias)}
+                      disabled={mappings.some(m => m.tenant_id === selectedMapping.tenant_id && m.target_alias === selectedMapping.target_alias)}
                       placeholder="CalcLambda"
                       maxLength={36}
                       pattern="[a-zA-Z0-9_-]{1,36}"

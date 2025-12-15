@@ -9,8 +9,8 @@
 const getApiBaseUrl = () => {
   // Extract the stage from the current pathname
   // URL format: https://{api-gateway-id}.execute-api.{region}.amazonaws.com/{stage}/
-  const pathname = window.location.pathname;
-  const pathParts = pathname.split('/').filter(part => part);
+  const pathname = globalThis.location.pathname;
+  const pathParts = pathname.split('/').filter(Boolean);
 
   // If we have a stage prefix (first part of path), use it
   // Otherwise default to 'api' for local development

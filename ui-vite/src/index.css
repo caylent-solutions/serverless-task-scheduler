@@ -425,34 +425,49 @@ code {
 /* Table Styles */
 .data-table {
   overflow-x: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
 }
 
 .data-table table {
   width: 100%;
   border-collapse: collapse;
+  font-size: 14px;
+}
+
+.data-table thead {
+  position: sticky;
+  top: 0;
+  background-color: #f5f5f5;
+  z-index: 1;
 }
 
 .data-table th {
-  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, #f7fafc 100%);
-  color: var(--color-text-medium);
+  background-color: #f5f5f5;
+  color: #333;
   font-weight: 600;
-  padding: 12px;
+  padding: 12px 16px;
   text-align: left;
-  border-bottom: 2px solid rgba(151, 202, 111, 0.2);
+  border-bottom: 2px solid #e0e0e0;
   font-size: 14px;
   white-space: nowrap;
 }
 
-.data-table td {
-  padding: 12px;
+.data-table tbody tr {
   border-bottom: 1px solid #f0f0f0;
-  font-size: 14px;
-  color: var(--color-text-medium);
+  transition: background-color 0.15s;
 }
 
-.data-table tr:hover {
-  background: linear-gradient(90deg, rgba(151, 202, 111, 0.05), rgba(77, 184, 168, 0.05));
-  transition: all 0.3s ease;
+.data-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.data-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+  color: #333;
+  vertical-align: middle;
 }
 
 .actions-cell {
