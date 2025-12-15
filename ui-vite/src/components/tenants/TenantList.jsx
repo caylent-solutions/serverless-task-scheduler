@@ -219,6 +219,7 @@ const TenantList = ({ isAdmin }) => {
           role="dialog"
           aria-modal="true"
           aria-label="Tenant Modal"
+          tabIndex={0}
         >
           <div
             className="modal"

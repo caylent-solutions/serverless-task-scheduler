@@ -288,6 +288,7 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
           role="dialog"
           aria-modal="true"
           aria-label="Tenant Mapping Modal"
+          tabIndex={0}
         >
           <div
             className="modal"

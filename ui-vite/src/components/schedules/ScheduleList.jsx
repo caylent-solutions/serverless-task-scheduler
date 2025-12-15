@@ -267,6 +267,7 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
           role="dialog"
           aria-modal="true"
           aria-label="Schedule Modal"
+          tabIndex={0}
         >
           <div
             className="modal"

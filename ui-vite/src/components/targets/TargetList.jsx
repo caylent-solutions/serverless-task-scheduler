@@ -285,6 +285,7 @@ const TargetList = ({ isAdmin }) => {
           role="dialog"
           aria-modal="true"
           aria-label="Target Modal"
+          tabIndex={0}
         >
           <div
             className="modal"

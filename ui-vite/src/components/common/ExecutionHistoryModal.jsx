@@ -175,6 +175,7 @@ const ExecutionHistoryModal = ({
       role="dialog"
       aria-modal="true"
       aria-label="Execution History Modal"
+      tabIndex={0}
     >
       <div
         className="execution-history-modal"
