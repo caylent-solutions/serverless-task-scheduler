@@ -30,7 +30,7 @@ export const sanitizeUrlSafe = (value) => {
     return '';
   }
   // Remove any characters that aren't alphanumeric, underscore, or hyphen (allow both upper and lowercase)
-  return value.replaceAll(/[^a-zA-Z0-9_-]/g, '');
+  return value.replace(/[^a-zA-Z0-9_-]/g, '');
 };
 
 /**
