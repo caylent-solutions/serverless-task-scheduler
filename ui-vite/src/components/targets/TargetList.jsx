@@ -50,7 +50,7 @@ const TargetList = ({ isAdmin }) => {
   };
 
   const handleDelete = async (targetId) => {
-    if (!window.confirm('Are you sure you want to delete this target?')) {
+    if (!globalThis.confirm('Are you sure you want to delete this target?')) {
       return;
     }
 
@@ -282,12 +282,16 @@ const TargetList = ({ isAdmin }) => {
           className="modal-overlay"
           onClick={() => setSelectedTarget(null)}
           onKeyDown={(e) => e.key === 'Escape' && setSelectedTarget(null)}
-          role="button"
-          tabIndex={0}
-          aria-label="Close modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Target Modal"
         >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{targets.find(t => t.target_id === selectedTarget.target_id) ? 'Edit Target' : 'Add Target'}</h3>
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            role="document"
+          >
+            <h3>{targets.some(t => t.target_id === selectedTarget.target_id) ? 'Edit Target' : 'Add Target'}</h3>
             <form onSubmit={handleSave}>
               <div className="form-group">
                 <label htmlFor="target-id-input">Target ID</label>
@@ -296,7 +300,7 @@ const TargetList = ({ isAdmin }) => {
                   type="text"
                   value={selectedTarget.target_id}
                   onChange={(e) => setSelectedTarget({...selectedTarget, target_id: e.target.value})}
-                  disabled={!!targets.find(t => t.target_id === selectedTarget.target_id)}
+                  disabled={targets.some(t => t.target_id === selectedTarget.target_id)}
                   placeholder="LambdaCalculator"
                   required
                 />

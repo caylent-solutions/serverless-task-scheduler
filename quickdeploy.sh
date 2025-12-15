@@ -80,12 +80,12 @@ echo -e "${GREEN}SAM deployment completed successfully.${NC}"
 echo -e "\n${YELLOW}[5/7] Uploading UI files to S3...${NC}"
 s3Bucket=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='StaticFilesBucketName'].OutputValue" --output text)
 
-if [ -n "$s3Bucket" ]; then
+if [[ -n "$s3Bucket" ]]; then
     echo -e "${GRAY}S3 Bucket: $s3Bucket${NC}"
     aws s3 sync ui-vite/build/ s3://$s3Bucket/ --delete --cache-control "public, max-age=31536000" --exclude "index.html"
     aws s3 cp ui-vite/build/index.html s3://$s3Bucket/index.html --cache-control "no-cache, no-store, must-revalidate"
 
-    if [ $? -eq 0 ]; then
+    if [[ $? -eq 0 ]]; then
         echo -e "${GREEN}UI files uploaded successfully to S3.${NC}"
     else
         echo -e "${RED}Failed to upload UI files to S3!${NC}"

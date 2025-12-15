@@ -98,6 +98,7 @@ const ExecutionHistoryModal = ({
         hour12: false
       });
     } catch (e) {
+      console.error('Error formatting timestamp:', e);
       return timestamp;
     }
   };
@@ -171,11 +172,15 @@ const ExecutionHistoryModal = ({
       className="modal-overlay"
       onClick={onClose}
       onKeyDown={(e) => e.key === 'Escape' && onClose()}
-      role="button"
-      tabIndex={0}
-      aria-label="Close modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Execution History Modal"
     >
-      <div className="execution-history-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="execution-history-modal"
+        onClick={(e) => e.stopPropagation()}
+        role="document"
+      >
         <div className="modal-header">
           <h2>Execution History - {title}</h2>
           <button className="btn-close" onClick={onClose}>✕</button>
@@ -248,14 +253,16 @@ const ExecutionHistoryModal = ({
           </div>
 
           {/* Executions Table */}
-          {loading ? (
+          {loading && (
             <div className="loading-state">Loading executions...</div>
-          ) : error ? (
+          )}
+          {!loading && error && (
             <div className="error-state">
               <p>Unable to load executions from API.</p>
               <p className="error-message">{error}</p>
             </div>
-          ) : (
+          )}
+          {!loading && !error && (
             <div className="table-container">
               <table className="executions-table">
                 <thead>

@@ -47,20 +47,19 @@ function App() {
         // Auto-set tenant if user is admin (member of 'admin' tenant)
         // Only auto-set if no tenant is already selected from sessionStorage
         const savedTenant = sessionStorage.getItem('selectedTenant');
-        if (!savedTenant) {
-          if (userInfo.isAdmin) {
-            console.log('Admin user detected, setting tenant to admin'); // Debug log
-            handleTenantChange('admin');
-          } else if (userInfo.tenants && userInfo.tenants.length > 0) {
-            // Regular users with tenant mappings - use first tenant
-            console.log('Auto-selecting tenant:', userInfo.tenants[0]); // Debug log
-            handleTenantChange(userInfo.tenants[0]);
-          } else {
-            console.log('No tenant set - user can browse without tenant context'); // Debug log
-            // Leave tenantName as undefined - user can browse the welcome screen
-          }
-        } else {
+        if (savedTenant) {
+          // Tenant already saved, use it
           console.log('Using saved tenant from sessionStorage:', savedTenant);
+        } else if (userInfo.isAdmin) {
+          console.log('Admin user detected, setting tenant to admin'); // Debug log
+          handleTenantChange('admin');
+        } else if (userInfo.tenants && userInfo.tenants.length > 0) {
+          // Regular users with tenant mappings - use first tenant
+          console.log('Auto-selecting tenant:', userInfo.tenants[0]); // Debug log
+          handleTenantChange(userInfo.tenants[0]);
+        } else {
+          console.log('No tenant set - user can browse without tenant context'); // Debug log
+          // Leave tenantName as undefined - user can browse the welcome screen
         }
       } else if (response.status === 401) {
         // Unauthorized - need to log in
@@ -98,7 +97,7 @@ function App() {
       sessionStorage.removeItem('selectedTenant');
     }
     // Reload the page to refresh all content
-    window.location.reload();
+    globalThis.location.reload();
   };
 
   // Show loading state

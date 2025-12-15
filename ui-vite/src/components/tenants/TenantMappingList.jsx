@@ -171,7 +171,7 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
         return;
       }
 
-      const isNew = !mappings.find(m =>
+      const isNew = !mappings.some(m =>
         m.tenant_id === selectedMapping.tenant_id &&
         m.target_alias === selectedMapping.target_alias
       );
@@ -285,11 +285,16 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
           className="modal-overlay"
           onClick={() => setSelectedMapping(null)}
           onKeyDown={(e) => e.key === 'Escape' && setSelectedMapping(null)}
-          role="button"
-          tabIndex={0}
-          aria-label="Close modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Tenant Mapping Modal"
         >
-          <div className="modal" style={{ maxWidth: '900px' }} onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal"
+            style={{ maxWidth: '900px' }}
+            onClick={(e) => e.stopPropagation()}
+            role="document"
+          >
             <h3>{mappings.find(m => m.tenant_id === selectedMapping.tenant_id && m.target_alias === selectedMapping.target_alias) ? 'Edit Link' : 'Add Link'}</h3>
             <form onSubmit={handleSave}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>

@@ -75,11 +75,15 @@ const ExecutionModal = ({ schedule, onClose }) => {
       className="modal-overlay"
       onClick={onClose}
       onKeyDown={(e) => e.key === 'Escape' && onClose()}
-      role="button"
-      tabIndex={0}
-      aria-label="Close modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Executions Modal"
     >
-      <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal modal-large"
+        onClick={(e) => e.stopPropagation()}
+        role="document"
+      >
         <div className="modal-header">
           <h3>Executions - {schedule.name}</h3>
           <button className="btn-close" onClick={onClose}>✕</button>

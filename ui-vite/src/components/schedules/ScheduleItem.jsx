@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { API_BASE_URL } from '../../config';
 
@@ -92,6 +92,7 @@ ScheduleItem.propTypes = {
     schedule_expression: PropTypes.string.isRequired,
     description: PropTypes.string,
     start_date: PropTypes.string,
-    end_date: PropTypes.string
+    end_date: PropTypes.string,
+    state: PropTypes.string
   }).isRequired
 };
