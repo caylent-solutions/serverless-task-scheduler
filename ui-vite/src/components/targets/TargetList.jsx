@@ -146,6 +146,7 @@ const TargetList = ({ isAdmin }) => {
         try {
           parameterSchema = JSON.parse(parameterSchema);
         } catch (err) {
+          console.error('JSON parse error in parameter schema:', err);
           alert('Invalid JSON for parameter schema. Please ensure it is valid JSON format.');
           return;
         }
@@ -278,21 +279,16 @@ const TargetList = ({ isAdmin }) => {
       </div>
 
       {selectedTarget && (
-        <div
-          className="modal-overlay"
-          onClick={() => setSelectedTarget(null)}
-          onKeyDown={(e) => e.key === 'Escape' && setSelectedTarget(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Target Modal"
-          tabIndex={0}
-        >
+        <div className="modal-overlay" onClick={() => setSelectedTarget(null)}>
           <div
             className="modal"
             onClick={(e) => e.stopPropagation()}
-            role="document"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="target-modal-title"
+            onKeyDown={(e) => e.key === 'Escape' && setSelectedTarget(null)}
           >
-            <h3>{targets.some(t => t.target_id === selectedTarget.target_id) ? 'Edit Target' : 'Add Target'}</h3>
+            <h3 id="target-modal-title">{targets.some(t => t.target_id === selectedTarget.target_id) ? 'Edit Target' : 'Add Target'}</h3>
             <form onSubmit={handleSave}>
               <div className="form-group">
                 <label htmlFor="target-id-input">Target ID</label>

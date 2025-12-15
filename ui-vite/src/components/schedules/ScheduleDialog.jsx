@@ -39,6 +39,7 @@ export default function ScheduleDialog({
             try {
                 parsedTargetInput = JSON.parse(targetInputText);
             } catch (parseError) {
+                console.error('JSON parse error in target input:', parseError);
                 alert('Invalid JSON in Target Input field. Please check your JSON syntax.');
                 setScheduleLoading(false);
                 return;

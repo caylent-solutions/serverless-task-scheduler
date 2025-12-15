@@ -82,7 +82,7 @@ const UserManagement = ({ isAdmin }) => {
       confirmMessage += 'This will remove all tenant associations from the database';
     }
 
-    if (!window.confirm(confirmMessage)) {
+    if (!globalThis.confirm(confirmMessage)) {
       return;
     }
 
@@ -207,7 +207,7 @@ const UserManagement = ({ isAdmin }) => {
   };
 
   const handleSyncIdP = async () => {
-    if (!window.confirm('This will remove any user-tenant mappings for users that no longer exist in Cognito.\n\nAre you sure you want to sync?')) {
+    if (!globalThis.confirm('This will remove any user-tenant mappings for users that no longer exist in Cognito.\n\nAre you sure you want to sync?')) {
       return;
     }
 
@@ -307,7 +307,7 @@ const UserManagement = ({ isAdmin }) => {
               </tr>
             ) : (
               filteredUsers.map(user => (
-                <tr key={user.user_id} className={!user.in_database ? 'opacity-60' : ''}>
+                <tr key={user.user_id} className={user.in_database ? '' : 'opacity-60'}>
                   <td className="actions-cell">
                     <button
                       className="btn-icon btn-edit"
@@ -342,15 +342,19 @@ const UserManagement = ({ isAdmin }) => {
                     )}
                   </td>
                   <td>
-                    {user.in_cognito ? (
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        user.user_status === 'CONFIRMED' ? 'bg-green-100 text-green-800' :
-                        user.user_status === 'FORCE_CHANGE_PASSWORD' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {user.user_status || 'ACTIVE'}
-                      </span>
-                    ) : (
+                    {user.in_cognito ? (() => {
+                      let statusClass = 'bg-gray-100 text-gray-800';
+                      if (user.user_status === 'CONFIRMED') {
+                        statusClass = 'bg-green-100 text-green-800';
+                      } else if (user.user_status === 'FORCE_CHANGE_PASSWORD') {
+                        statusClass = 'bg-yellow-100 text-yellow-800';
+                      }
+                      return (
+                        <span className={`text-xs px-2 py-1 rounded ${statusClass}`}>
+                          {user.user_status || 'ACTIVE'}
+                        </span>
+                      );
+                    })() : (
                       <span className="text-gray-400 text-xs">Not in Cognito</span>
                     )}
                   </td>
@@ -362,16 +366,17 @@ const UserManagement = ({ isAdmin }) => {
       </div>
 
       {selectedUser && (
-        <div
-          className="modal-overlay"
-          onClick={() => setSelectedUser(null)}
-          onKeyDown={(e) => e.key === 'Escape' && setSelectedUser(null)}
-          role="button"
-          tabIndex={0}
-          aria-label="Close modal"
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{maxWidth: '800px', width: '90%'}}>
-            <h3>Edit User Access</h3>
+        <div className="modal-overlay" onClick={() => setSelectedUser(null)}>
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{maxWidth: '800px', width: '90%'}}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="user-modal-title"
+            onKeyDown={(e) => e.key === 'Escape' && setSelectedUser(null)}
+          >
+            <h3 id="user-modal-title">Edit User Access</h3>
             <form onSubmit={handleSave}>
               <div className="form-group">
                 <label htmlFor="user-email">User Email</label>
@@ -472,16 +477,17 @@ const UserManagement = ({ isAdmin }) => {
 
       {/* Invite User Modal */}
       {showInviteModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowInviteModal(false)}
-          onKeyDown={(e) => e.key === 'Escape' && setShowInviteModal(false)}
-          role="button"
-          tabIndex={0}
-          aria-label="Close modal"
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{maxWidth: '800px', width: '90%'}}>
-            <h3>Invite New User</h3>
+        <div className="modal-overlay" onClick={() => setShowInviteModal(false)}>
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{maxWidth: '800px', width: '90%'}}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invite-user-modal-title"
+            onKeyDown={(e) => e.key === 'Escape' && setShowInviteModal(false)}
+          >
+            <h3 id="invite-user-modal-title">Invite New User</h3>
             <form onSubmit={handleInviteUser}>
               <div className="form-group">
                 <label htmlFor="invite-email">Email Address *</label>

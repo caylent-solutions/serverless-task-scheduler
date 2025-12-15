@@ -212,21 +212,16 @@ const TenantList = ({ isAdmin }) => {
       </div>
 
       {selectedTenant && (
-        <div
-          className="modal-overlay"
-          onClick={() => setSelectedTenant(null)}
-          onKeyDown={(e) => e.key === 'Escape' && setSelectedTenant(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Tenant Modal"
-          tabIndex={0}
-        >
+        <div className="modal-overlay" onClick={() => setSelectedTenant(null)}>
           <div
             className="modal"
             onClick={(e) => e.stopPropagation()}
-            role="document"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tenant-modal-title"
+            onKeyDown={(e) => e.key === 'Escape' && setSelectedTenant(null)}
           >
-            <h3>{tenants.some(t => t.tenant_id === selectedTenant.tenant_id) ? 'Edit Tenant' : 'Add Tenant'}</h3>
+            <h3 id="tenant-modal-title">{tenants.some(t => t.tenant_id === selectedTenant.tenant_id) ? 'Edit Tenant' : 'Add Tenant'}</h3>
             <form onSubmit={handleSave}>
               <div className="form-group">
                 <label htmlFor="tenant-id-input">Tenant ID</label>
