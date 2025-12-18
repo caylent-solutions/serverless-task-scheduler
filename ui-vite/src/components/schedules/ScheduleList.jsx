@@ -25,8 +25,9 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
           setMappings(mappingsData || []);
         }
 
-        // Fetch schedules for the tenant
-        const schedulesResponse = await authenticatedFetch(`../tenants/${tenantName}/schedules`);
+        // Fetch schedules for the tenant with optional filter
+        const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+        const schedulesResponse = await authenticatedFetch(`../tenants/${tenantName}/schedules${filterParam}`);
 
         if (!schedulesResponse.ok) {
           throw new Error(`Failed to fetch schedules: ${schedulesResponse.status}`);
@@ -44,14 +45,9 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
     };
 
     fetchData();
-  }, [tenantName]);
+  }, [tenantName, filter]);
 
-  const filteredSchedules = schedules.filter(schedule =>
-    schedule.schedule_id?.toLowerCase().includes(filter.toLowerCase()) ||
-    schedule.target_alias?.toLowerCase().includes(filter.toLowerCase()) ||
-    schedule.schedule_expression?.toLowerCase().includes(filter.toLowerCase()) ||
-    schedule.description?.toLowerCase().includes(filter.toLowerCase())
-  );
+  // Filtering is now handled by the API
 
   const handleEdit = (schedule) => {
     setSelectedSchedule({
@@ -148,8 +144,9 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
         throw new Error(errorMessage);
       }
 
-      // Refresh the schedules list
-      const refreshResponse = await authenticatedFetch(`../tenants/${tenantName}/schedules`);
+      // Refresh the schedules list (preserve filter)
+      const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+      const refreshResponse = await authenticatedFetch(`../tenants/${tenantName}/schedules${filterParam}`);
       const refreshData = await refreshResponse.json();
       setSchedules(Array.isArray(refreshData) ? refreshData : [refreshData]);
 
@@ -211,12 +208,12 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
             </tr>
           </thead>
           <tbody>
-            {filteredSchedules.length === 0 ? (
+            {schedules.length === 0 ? (
               <tr>
                 <td colSpan="7" className="text-center">No schedules found</td>
               </tr>
             ) : (
-              filteredSchedules.map(schedule => (
+              schedules.map(schedule => (
                 <tr key={schedule.schedule_id}>
                   <td className="actions-cell">
                     <button

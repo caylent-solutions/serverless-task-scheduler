@@ -15,7 +15,9 @@ const TenantList = ({ isAdmin }) => {
     const fetchTenants = async () => {
       try {
         setLoading(true);
-        const response = await authenticatedFetch('../tenants');
+        // Add filter parameter if provided
+        const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+        const response = await authenticatedFetch(`../tenants${filterParam}`);
 
         if (!response.ok) {
           throw new Error(`Failed to fetch tenants: ${response.status}`);
@@ -35,13 +37,9 @@ const TenantList = ({ isAdmin }) => {
     if (isAdmin) {
       fetchTenants();
     }
-  }, [isAdmin]);
+  }, [isAdmin, filter]);
 
-  const filteredTenants = tenants.filter(tenant =>
-    tenant.tenant_id?.toLowerCase().includes(filter.toLowerCase()) ||
-    tenant.tenant_name?.toLowerCase().includes(filter.toLowerCase()) ||
-    tenant.description?.toLowerCase().includes(filter.toLowerCase())
-  );
+  // Filtering is now handled by the API
 
   const handleEdit = (tenant) => {
     setSelectedTenant({
@@ -111,7 +109,9 @@ const TenantList = ({ isAdmin }) => {
       }
 
       // Refresh the tenants list
-      const refreshResponse = await authenticatedFetch('../tenants');
+      // Preserve filter when refreshing
+      const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+      const refreshResponse = await authenticatedFetch(`../tenants${filterParam}`);
       const refreshData = await refreshResponse.json();
       setTenants(refreshData.tenants || []);
 
@@ -178,12 +178,12 @@ const TenantList = ({ isAdmin }) => {
             </tr>
           </thead>
           <tbody>
-            {filteredTenants.length === 0 ? (
+            {tenants.length === 0 ? (
               <tr>
                 <td colSpan="4" className="text-center">No tenants found</td>
               </tr>
             ) : (
-              filteredTenants.map(tenant => (
+              tenants.map(tenant => (
                 <tr key={tenant.tenant_id}>
                   <td className="actions-cell">
                     <button

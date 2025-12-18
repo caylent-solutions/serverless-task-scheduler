@@ -111,9 +111,12 @@ def create_execute_target(target_id, execution_data_schema):
 
 
 @router.get("/targets", response_model=TargetList)
-async def get_targets(_: dict = Depends(require_admin)):
+async def get_targets(
+    filter: Optional[str] = Query(default=None, description="Filter targets by ID, name, description, or ARN"),
+    _: dict = Depends(require_admin)
+):
     """Get all targets - Admin only"""
-    targets = db_client.get_all_targets()
+    targets = db_client.get_all_targets(filter=filter)
     return {"targets": targets}
 
 

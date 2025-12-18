@@ -23,8 +23,9 @@ const UserManagement = ({ isAdmin }) => {
       try {
         setLoading(true);
 
-        // Fetch users
-        const usersResponse = await authenticatedFetch('../user/management');
+        // Fetch users with optional filter
+        const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+        const usersResponse = await authenticatedFetch(`../user/management${filterParam}`);
         if (!usersResponse.ok) {
           throw new Error(`Failed to fetch users: ${usersResponse.status}`);
         }
@@ -49,14 +50,9 @@ const UserManagement = ({ isAdmin }) => {
     };
 
     fetchData();
-  }, [isAdmin]);
+  }, [isAdmin, filter]);
 
-  const filteredUsers = users.filter(user =>
-    user.user_id?.toLowerCase().includes(filter.toLowerCase()) ||
-    user.email?.toLowerCase().includes(filter.toLowerCase()) ||
-    user.full_name?.toLowerCase().includes(filter.toLowerCase()) ||
-    user.tenants?.some(t => t.toLowerCase().includes(filter.toLowerCase()))
-  );
+  // Filtering is now handled by the API
 
   const handleEdit = (user) => {
     setSelectedUser({
@@ -301,12 +297,12 @@ const UserManagement = ({ isAdmin }) => {
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.length === 0 ? (
+            {users.length === 0 ? (
               <tr>
                 <td colSpan="4" className="text-center">No users found</td>
               </tr>
             ) : (
-              filteredUsers.map(user => (
+              users.map(user => (
                 <tr key={user.user_id} className={user.in_database ? '' : 'opacity-60'}>
                   <td className="actions-cell">
                     <button

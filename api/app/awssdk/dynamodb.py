@@ -19,7 +19,7 @@ _db_client = None
 
 class DatabaseClient(ABC):
     @abstractmethod
-    def get_all_targets(self) -> List[Target]:
+    def get_all_targets(self, filter: Optional[str] = None) -> List[Target]:
         """Get all targets from storage"""
 
     @abstractmethod
@@ -39,7 +39,7 @@ class DatabaseClient(ABC):
         """Delete a target"""
 
     @abstractmethod
-    def get_all_tenants(self) -> List[Tenant]:
+    def get_all_tenants(self, filter: Optional[str] = None) -> List[Tenant]:
         """Get all tenants from storage"""
 
     @abstractmethod
@@ -76,7 +76,7 @@ class DatabaseClient(ABC):
         """Get all tenant mappings from storage"""
 
     @abstractmethod
-    def get_tenant_mappings(self, tenant_id: str) -> List[TenantMapping]:
+    def get_tenant_mappings(self, tenant_id: str, filter: Optional[str] = None) -> List[TenantMapping]:
         """Get all mappings for a specific tenant"""
 
     @abstractmethod
@@ -116,8 +116,7 @@ class DatabaseClient(ABC):
         """Get a target schedule"""
 
     @abstractmethod
-    @abstractmethod
-    def get_all_schedules(self, tenant_id: str) -> List[Schedule]:
+    def get_all_schedules(self, tenant_id: str, filter: Optional[str] = None) -> List[Schedule]:
         """Get all target schedules for a tenant"""
 
     @abstractmethod
@@ -187,11 +186,42 @@ class DynamoDBClient(DatabaseClient):
         except Exception as e:
             raise ConnectionError(f"Could not connect to DynamoDB: {e}")
 
-    def get_all_targets(self) -> List[Target]:
+    def _apply_text_filter(self, items: List[Dict], filter_text: Optional[str], search_fields: List[str]) -> List[Dict]:
+        """
+        Apply case-insensitive text filter to a list of items.
+        
+        Args:
+            items: List of dictionaries to filter
+            filter_text: Optional filter text (if None or empty, returns all items)
+            search_fields: List of field names to search in
+            
+        Returns:
+            Filtered list of items
+        """
+        if not filter_text or not filter_text.strip():
+            return items
+        
+        filter_lower = filter_text.lower().strip()
+        return [
+            item for item in items
+            if any(
+                filter_lower in str(item.get(field, '')).lower()
+                for field in search_fields
+            )
+        ]
+
+    def get_all_targets(self, filter: Optional[str] = None) -> List[Target]:
         """Get all targets from storage"""
         try:
             response = self.targets.scan()
-            return response.get('Items', [])
+            items = response.get('Items', [])
+            # Apply text filter if provided
+            items = self._apply_text_filter(
+                items,
+                filter,
+                ['target_id', 'target_name', 'target_description', 'target_arn']
+            )
+            return items
         except ClientError as e:
             print(f"Error getting targets: {e}")
             return []
@@ -236,11 +266,18 @@ class DynamoDBClient(DatabaseClient):
             print(f"Error deleting target {target_id}: {e}")
             return False
 
-    def get_all_tenants(self) -> List[Tenant]:
+    def get_all_tenants(self, filter: Optional[str] = None) -> List[Tenant]:
         """Get all tenants from storage"""
         try:
             response = self.tenants.scan()
-            return [Tenant(**item) for item in response.get('Items', [])]
+            items = response.get('Items', [])
+            # Apply text filter if provided
+            items = self._apply_text_filter(
+                items,
+                filter,
+                ['tenant_id', 'tenant_name', 'description']
+            )
+            return [Tenant(**item) for item in items]
         except ClientError as e:
             print(f"Error getting tenants: {e}")
             return []
@@ -323,14 +360,21 @@ class DynamoDBClient(DatabaseClient):
             print(f"Error getting tenant mappings: {e}")
             return []
 
-    def get_tenant_mappings(self, tenant_id: str) -> List[TenantMapping]:
+    def get_tenant_mappings(self, tenant_id: str, filter: Optional[str] = None) -> List[TenantMapping]:
         """Get all mappings for a specific tenant"""
         try:
             response = self.tenant_mappings.query(
                 KeyConditionExpression='tenant_id = :tid',
                 ExpressionAttributeValues={':tid': tenant_id}
             )
-            return [TenantMapping(**item) for item in response.get('Items', [])]
+            items = response.get('Items', [])
+            # Apply text filter if provided
+            items = self._apply_text_filter(
+                items,
+                filter,
+                ['tenant_id', 'target_alias', 'target_id', 'description']
+            )
+            return [TenantMapping(**item) for item in items]
         except ClientError as e:
             print(f"Error getting tenant mappings for {tenant_id}: {e}")
             return []
@@ -439,11 +483,18 @@ class DynamoDBClient(DatabaseClient):
             print(f"Error getting target schedule: {e}")
             return None
 
-    def get_all_schedules(self, tenant_id: str) -> List[Schedule]:
+    def get_all_schedules(self, tenant_id: str, filter: Optional[str] = None) -> List[Schedule]:
         """Get all target schedules for a tenant"""
         try:
             response = self.schedules.query(KeyConditionExpression='tenant_id = :tid', ExpressionAttributeValues={':tid': tenant_id})
-            return [Schedule(**item) for item in response.get('Items', [])]
+            items = response.get('Items', [])
+            # Apply text filter if provided
+            items = self._apply_text_filter(
+                items,
+                filter,
+                ['schedule_id', 'target_alias', 'schedule_expression', 'description', 'timezone']
+            )
+            return [Schedule(**item) for item in items]
         except ClientError as e:
             print(f"Error getting target schedules for {tenant_id}: {e}")
             return []
@@ -764,9 +815,25 @@ class LocalClient(DatabaseClient):
         self.tenant_mappings: Dict[str, TenantMapping] = {}
         self.user_mappings: Dict[str, Any] = {}  # Key: "user_id:tenant_id"
 
-    def get_all_targets(self) -> List[Dict[str, Target]]:
+    def get_all_targets(self, filter: Optional[str] = None) -> List[Dict[str, Target]]:
         """Get all targets from storage"""
-        return list(self.local_storage.values())
+        items = list(self.local_storage.values())
+        # Apply text filter if provided
+        if filter and filter.strip():
+            filter_lower = filter.lower().strip()
+            items = [
+                item for item in items
+                if (
+                    filter_lower in str(item.get('target_id', '')).lower()
+                ) or (
+                    filter_lower in str(item.get('target_name', '')).lower()
+                ) or (
+                    filter_lower in str(item.get('target_description', '')).lower()
+                ) or (
+                    filter_lower in str(item.get('target_arn', '')).lower()
+                )
+            ]
+        return items
 
     def get_target(self, target_id: str) -> Optional[Target]:
         """Get a specific target by name"""
@@ -790,9 +857,23 @@ class LocalClient(DatabaseClient):
             return True
         return False
 
-    def get_all_tenants(self) -> List[Tenant]:
+    def get_all_tenants(self, filter: Optional[str] = None) -> List[Tenant]:
         """Get all tenants from storage"""
-        return list(self.tenants_storage.values())
+        items = list(self.tenants_storage.values())
+        # Apply text filter if provided
+        if filter and filter.strip():
+            filter_lower = filter.lower().strip()
+            items = [
+                item for item in items
+                if (
+                    filter_lower in (item.tenant_id.lower() if item.tenant_id else '')
+                ) or (
+                    filter_lower in (item.tenant_name.lower() if item.tenant_name else '')
+                ) or (
+                    filter_lower in (item.description.lower() if item.description else '')
+                )
+            ]
+        return items
 
     def get_tenant(self, tenant_id: str) -> Optional[Tenant]:
         """Get a specific tenant by id"""
@@ -837,9 +918,25 @@ class LocalClient(DatabaseClient):
         """Get all tenant mappings from storage"""
         return list(self.tenant_mappings.values())
 
-    def get_tenant_mappings(self, tenant_id: str) -> List[TenantMapping]:
+    def get_tenant_mappings(self, tenant_id: str, filter: Optional[str] = None) -> List[TenantMapping]:
         """Get all mappings for a specific tenant"""
-        return [m for m in self.tenant_mappings.values() if m.tenant_id == tenant_id]
+        mappings = [m for m in self.tenant_mappings.values() if m.tenant_id == tenant_id]
+        # Apply text filter if provided
+        if filter and filter.strip():
+            filter_lower = filter.lower().strip()
+            mappings = [
+                m for m in mappings
+                if (
+                    filter_lower in (m.tenant_id.lower() if m.tenant_id else '')
+                ) or (
+                    filter_lower in (m.target_alias.lower() if m.target_alias else '')
+                ) or (
+                    filter_lower in (m.target_id.lower() if m.target_id else '')
+                ) or (
+                    filter_lower in (m.description.lower() if m.description else '')
+                )
+            ]
+        return mappings
 
     def get_tenant_target_mapping(self, tenant_id: str, target_alias: str) -> Optional[TenantMapping]:
         """Get a specific tenant target mapping"""
@@ -949,7 +1046,7 @@ class LocalClient(DatabaseClient):
         logger.warning("LocalClient: get_schedule not fully implemented")
         return None
 
-    def get_all_schedules(self, tenant_id: str) -> List[Schedule]:
+    def get_all_schedules(self, tenant_id: str, filter: Optional[str] = None) -> List[Schedule]:
         """Get all target schedules for a tenant (stub)"""
         logger.warning("LocalClient: get_all_schedules not fully implemented")
         return []

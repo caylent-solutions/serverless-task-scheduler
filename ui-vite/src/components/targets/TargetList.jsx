@@ -14,7 +14,9 @@ const TargetList = ({ isAdmin }) => {
     const fetchTargets = async () => {
       try {
         setLoading(true);
-        const response = await authenticatedFetch('../targets');
+        // Add filter parameter if provided
+        const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+        const response = await authenticatedFetch(`../targets${filterParam}`);
         
         if (!response.ok) {
           throw new Error(`Failed to fetch targets: ${response.status}`);
@@ -34,13 +36,9 @@ const TargetList = ({ isAdmin }) => {
     if (isAdmin) {
       fetchTargets();
     }
-  }, [isAdmin]);
+  }, [isAdmin, filter]);
 
-  const filteredTargets = targets.filter(target => 
-    target.target_id?.toLowerCase().includes(filter.toLowerCase()) ||
-    target.target_description?.toLowerCase().includes(filter.toLowerCase()) ||
-    target.target_arn?.toLowerCase().includes(filter.toLowerCase())
-  );
+  // Filtering is now handled by the API
 
   const handleEdit = (target) => {
     setSelectedTarget({
@@ -178,7 +176,9 @@ const TargetList = ({ isAdmin }) => {
       }
 
       // Refresh the targets list
-      const refreshResponse = await authenticatedFetch('../targets');
+      // Preserve filter when refreshing
+      const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+      const refreshResponse = await authenticatedFetch(`../targets${filterParam}`);
       const refreshData = await refreshResponse.json();
       setTargets(refreshData.targets || []);
 
@@ -245,12 +245,12 @@ const TargetList = ({ isAdmin }) => {
             </tr>
           </thead>
           <tbody>
-            {filteredTargets.length === 0 ? (
+            {targets.length === 0 ? (
               <tr>
                 <td colSpan="4" className="text-center">No targets found</td>
               </tr>
             ) : (
-              filteredTargets.map(target => (
+              targets.map(target => (
                 <tr key={target.target_id}>
                   <td className="actions-cell">
                     <button 

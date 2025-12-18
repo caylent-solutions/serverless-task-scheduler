@@ -28,9 +28,12 @@ target_invoker = get_target_invoker()
 
 
 @router.get("/tenants", response_model=TenantList)
-async def get_all_tenants(_: dict = Depends(require_admin)):
+async def get_all_tenants(
+    filter: Optional[str] = Query(default=None, description="Filter tenants by ID, name, or description"),
+    _: dict = Depends(require_admin)
+):
     """Get all tenants (admin only)"""
-    tenants = db_client.get_all_tenants()
+    tenants = db_client.get_all_tenants(filter=filter)
     return TenantList(tenants=tenants)
 
 
@@ -421,10 +424,11 @@ async def get_target_schedules(
 @router.get("/tenants/{tenant_id}/schedules")
 async def get_tenant_schedules(
     tenant_id: str,
+    filter: Optional[str] = Query(default=None, description="Filter schedules by ID, target alias, expression, description, or timezone"),
     _: dict = Depends(require_tenant_access)
 ):
     """Get all schedules for a tenant (requires tenant access)"""
-    schedules = db_client.get_all_schedules(tenant_id)
+    schedules = db_client.get_all_schedules(tenant_id, filter=filter)
     return schedules
 
 
@@ -474,10 +478,11 @@ async def get_schedule_executions(
 @router.get("/tenants/{tenant_id}/mappings", response_model=List[TenantMapping])
 async def get_tenant_mappings_rest(
     tenant_id: str,
+    filter: Optional[str] = Query(default=None, description="Filter mappings by tenant ID, target alias, target ID, or description"),
     _: dict = Depends(require_tenant_access)
 ):
     """Get all target mappings for a specific tenant (requires tenant access)"""
-    mappings = db_client.get_tenant_mappings(tenant_id)
+    mappings = db_client.get_tenant_mappings(tenant_id, filter=filter)
     return mappings
 
 

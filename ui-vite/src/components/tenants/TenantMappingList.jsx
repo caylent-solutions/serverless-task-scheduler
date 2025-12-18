@@ -26,8 +26,9 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
           setTargets(targetsData.targets || []);
         }
 
-        // Fetch mappings for admin tenant
-        const mappingsResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings`);
+        // Fetch mappings for admin tenant with optional filter
+        const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+        const mappingsResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings${filterParam}`);
 
         if (!mappingsResponse.ok) {
           throw new Error(`Failed to fetch mappings: ${mappingsResponse.status}`);
@@ -45,14 +46,9 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
     };
 
     fetchData();
-  }, [tenantName]);
+  }, [tenantName, filter]);
 
-  const filteredMappings = mappings.filter(mapping => 
-    mapping.tenant_id?.toLowerCase().includes(filter.toLowerCase()) ||
-    mapping.target_alias?.toLowerCase().includes(filter.toLowerCase()) ||
-    mapping.target_id?.toLowerCase().includes(filter.toLowerCase()) ||
-    mapping.description?.toLowerCase().includes(filter.toLowerCase())
-  );
+  // Filtering is now handled by the API
 
   const handleEdit = (mapping) => {
     setSelectedMapping({
@@ -156,7 +152,9 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
 
   // Helper function to refresh mappings list
   const refreshMappingsList = async () => {
-    const refreshResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings`);
+    // Preserve filter when refreshing
+    const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+    const refreshResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings${filterParam}`);
     const refreshData = await refreshResponse.json();
     setMappings(refreshData || []);
   };
@@ -238,12 +236,12 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
             </tr>
           </thead>
           <tbody>
-            {filteredMappings.length === 0 ? (
+            {mappings.length === 0 ? (
               <tr>
                 <td colSpan="6" className="text-center">No links found</td>
               </tr>
             ) : (
-              filteredMappings.map((mapping) => (
+              mappings.map((mapping) => (
                 <tr key={`${mapping.tenant_id}-${mapping.target_alias}`}>
                   <td className="actions-cell">
                     <button
