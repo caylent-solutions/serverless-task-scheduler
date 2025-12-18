@@ -1,21 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
+import { useDebounce } from '../../hooks/useDebounce';
 
 const TargetList = ({ isAdmin }) => {
   const [targets, setTargets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState('');
+  const [filterInput, setFilterInput] = useState('');
+  const debouncedFilter = useDebounce(filterInput, 500);
   const [selectedTarget, setSelectedTarget] = useState(null);
 
-  // Fetch targets from API
+  // Fetch targets from API - only when debounced filter changes
   useEffect(() => {
     const fetchTargets = async () => {
       try {
         setLoading(true);
         // Add filter parameter if provided
-        const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+        const filterParam = debouncedFilter.trim() ? `?filter=${encodeURIComponent(debouncedFilter)}` : '';
         const response = await authenticatedFetch(`../targets${filterParam}`);
         
         if (!response.ok) {
@@ -36,7 +38,7 @@ const TargetList = ({ isAdmin }) => {
     if (isAdmin) {
       fetchTargets();
     }
-  }, [isAdmin, filter]);
+  }, [isAdmin, debouncedFilter]);
 
   // Filtering is now handled by the API
 
@@ -177,7 +179,7 @@ const TargetList = ({ isAdmin }) => {
 
       // Refresh the targets list
       // Preserve filter when refreshing
-      const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+      const filterParam = debouncedFilter.trim() ? `?filter=${encodeURIComponent(debouncedFilter)}` : '';
       const refreshResponse = await authenticatedFetch(`../targets${filterParam}`);
       const refreshData = await refreshResponse.json();
       setTargets(refreshData.targets || []);
@@ -225,8 +227,8 @@ const TargetList = ({ isAdmin }) => {
             <input
               type="text"
               placeholder="Filter targets..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              value={filterInput}
+              onChange={(e) => setFilterInput(e.target.value)}
               className="filter-input"
             />
             <span className="filter-icon">🔍</span>

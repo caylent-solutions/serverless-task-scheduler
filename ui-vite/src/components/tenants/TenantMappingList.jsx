@@ -3,17 +3,19 @@ import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 import ExecutionHistoryModal from '../common/ExecutionHistoryModal';
 import { validateUrlSafeIdentifier, handleUrlSafeInput } from '../../utils/validation';
+import { useDebounce } from '../../hooks/useDebounce';
 
 const TenantMappingList = ({ tenantName = 'admin' }) => {
   const [mappings, setMappings] = useState([]);
   const [targets, setTargets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState('');
+  const [filterInput, setFilterInput] = useState('');
+  const debouncedFilter = useDebounce(filterInput, 500);
   const [selectedMapping, setSelectedMapping] = useState(null);
   const [executionHistoryMapping, setExecutionHistoryMapping] = useState(null);
 
-  // Fetch targets and mappings from API
+  // Fetch targets and mappings from API - only when debounced filter changes
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -27,7 +29,7 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
         }
 
         // Fetch mappings for admin tenant with optional filter
-        const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+        const filterParam = debouncedFilter.trim() ? `?filter=${encodeURIComponent(debouncedFilter)}` : '';
         const mappingsResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings${filterParam}`);
 
         if (!mappingsResponse.ok) {
@@ -46,7 +48,7 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
     };
 
     fetchData();
-  }, [tenantName, filter]);
+  }, [tenantName, debouncedFilter]);
 
   // Filtering is now handled by the API
 
@@ -153,7 +155,7 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
   // Helper function to refresh mappings list
   const refreshMappingsList = async () => {
     // Preserve filter when refreshing
-    const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+    const filterParam = debouncedFilter.trim() ? `?filter=${encodeURIComponent(debouncedFilter)}` : '';
     const refreshResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings${filterParam}`);
     const refreshData = await refreshResponse.json();
     setMappings(refreshData || []);
@@ -214,8 +216,8 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
             <input
               type="text"
               placeholder="Filter links..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              value={filterInput}
+              onChange={(e) => setFilterInput(e.target.value)}
               className="filter-input"
             />
             <span className="filter-icon">🔍</span>

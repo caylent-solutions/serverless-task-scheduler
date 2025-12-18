@@ -2,21 +2,23 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 import { validateUrlSafeIdentifier, handleUrlSafeInput } from '../../utils/validation';
+import { useDebounce } from '../../hooks/useDebounce';
 
 const TenantList = ({ isAdmin }) => {
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState('');
+  const [filterInput, setFilterInput] = useState('');
+  const debouncedFilter = useDebounce(filterInput, 500);
   const [selectedTenant, setSelectedTenant] = useState(null);
 
-  // Fetch tenants from API
+  // Fetch tenants from API - only when debounced filter changes
   useEffect(() => {
     const fetchTenants = async () => {
       try {
         setLoading(true);
         // Add filter parameter if provided
-        const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+        const filterParam = debouncedFilter.trim() ? `?filter=${encodeURIComponent(debouncedFilter)}` : '';
         const response = await authenticatedFetch(`../tenants${filterParam}`);
 
         if (!response.ok) {
@@ -37,7 +39,7 @@ const TenantList = ({ isAdmin }) => {
     if (isAdmin) {
       fetchTenants();
     }
-  }, [isAdmin, filter]);
+  }, [isAdmin, debouncedFilter]);
 
   // Filtering is now handled by the API
 
@@ -110,7 +112,7 @@ const TenantList = ({ isAdmin }) => {
 
       // Refresh the tenants list
       // Preserve filter when refreshing
-      const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+      const filterParam = debouncedFilter.trim() ? `?filter=${encodeURIComponent(debouncedFilter)}` : '';
       const refreshResponse = await authenticatedFetch(`../tenants${filterParam}`);
       const refreshData = await refreshResponse.json();
       setTenants(refreshData.tenants || []);
@@ -158,8 +160,8 @@ const TenantList = ({ isAdmin }) => {
             <input
               type="text"
               placeholder="Filter tenants..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              value={filterInput}
+              onChange={(e) => setFilterInput(e.target.value)}
               className="filter-input"
             />
             <span className="filter-icon">🔍</span>

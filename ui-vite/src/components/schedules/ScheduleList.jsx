@@ -2,17 +2,19 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 import ExecutionHistoryModal from '../common/ExecutionHistoryModal';
+import { useDebounce } from '../../hooks/useDebounce';
 
 const ScheduleList = ({ tenantName = 'admin' }) => {
   const [schedules, setSchedules] = useState([]);
   const [mappings, setMappings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState('');
+  const [filterInput, setFilterInput] = useState('');
+  const debouncedFilter = useDebounce(filterInput, 500);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [executionHistorySchedule, setExecutionHistorySchedule] = useState(null);
 
-  // Fetch schedules and mappings from API
+  // Fetch schedules and mappings from API - only when debounced filter changes
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -26,7 +28,7 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
         }
 
         // Fetch schedules for the tenant with optional filter
-        const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+        const filterParam = debouncedFilter.trim() ? `?filter=${encodeURIComponent(debouncedFilter)}` : '';
         const schedulesResponse = await authenticatedFetch(`../tenants/${tenantName}/schedules${filterParam}`);
 
         if (!schedulesResponse.ok) {
@@ -45,7 +47,7 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
     };
 
     fetchData();
-  }, [tenantName, filter]);
+  }, [tenantName, debouncedFilter]);
 
   // Filtering is now handled by the API
 
@@ -145,7 +147,7 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
       }
 
       // Refresh the schedules list (preserve filter)
-      const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
+      const filterParam = debouncedFilter.trim() ? `?filter=${encodeURIComponent(debouncedFilter)}` : '';
       const refreshResponse = await authenticatedFetch(`../tenants/${tenantName}/schedules${filterParam}`);
       const refreshData = await refreshResponse.json();
       setSchedules(Array.isArray(refreshData) ? refreshData : [refreshData]);
@@ -185,8 +187,8 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
             <input
               type="text"
               placeholder="Filter schedules..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              value={filterInput}
+              onChange={(e) => setFilterInput(e.target.value)}
               className="filter-input"
             />
             <span className="filter-icon">🔍</span>
