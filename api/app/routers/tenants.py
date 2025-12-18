@@ -424,7 +424,7 @@ async def get_target_schedules(
 @router.get("/tenants/{tenant_id}/schedules")
 async def get_tenant_schedules(
     tenant_id: str,
-    filter: Optional[str] = Query(default=None, description="Filter schedules by ID, target alias, expression, description, or timezone"),
+    filter: Optional[str] = Query(default=None, description="Filter schedules by target alias, expression, description, or timezone"),
     _: dict = Depends(require_tenant_access)
 ):
     """Get all schedules for a tenant (requires tenant access)"""
@@ -478,7 +478,7 @@ async def get_schedule_executions(
 @router.get("/tenants/{tenant_id}/mappings", response_model=List[TenantMapping])
 async def get_tenant_mappings_rest(
     tenant_id: str,
-    filter: Optional[str] = Query(default=None, description="Filter mappings by tenant ID, target alias, target ID, or description"),
+    filter: Optional[str] = Query(default=None, description="Filter mappings by target ID or description"),
     _: dict = Depends(require_tenant_access)
 ):
     """Get all target mappings for a specific tenant (requires tenant access)"""
