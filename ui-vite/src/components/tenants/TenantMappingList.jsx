@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 import ExecutionHistoryModal from '../common/ExecutionHistoryModal';
 import { validateUrlSafeIdentifier, handleUrlSafeInput } from '../../utils/validation';
-import { useDebounce } from '../../hooks/useDebounce';
 
 const TenantMappingList = ({ tenantName = 'admin' }) => {
   const [mappings, setMappings] = useState([]);
@@ -11,44 +10,53 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterInput, setFilterInput] = useState('');
-  const debouncedFilter = useDebounce(filterInput, 500);
+  const [filter, setFilter] = useState('');
   const [selectedMapping, setSelectedMapping] = useState(null);
   const [executionHistoryMapping, setExecutionHistoryMapping] = useState(null);
 
-  // Fetch targets and mappings from API - only when debounced filter changes
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
+  // Fetch targets and mappings from API
+  const fetchData = async (searchFilter = '') => {
+    try {
+      setLoading(true);
 
-        // Fetch targets for dropdown
-        const targetsResponse = await authenticatedFetch('../targets');
-        if (targetsResponse.ok) {
-          const targetsData = await targetsResponse.json();
-          setTargets(targetsData.targets || []);
-        }
-
-        // Fetch mappings for admin tenant with optional filter
-        const filterParam = debouncedFilter.trim() ? `?filter=${encodeURIComponent(debouncedFilter)}` : '';
-        const mappingsResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings${filterParam}`);
-
-        if (!mappingsResponse.ok) {
-          throw new Error(`Failed to fetch mappings: ${mappingsResponse.status}`);
-        }
-
-        const mappingsData = await mappingsResponse.json();
-        setMappings(mappingsData || []);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+      // Fetch targets for dropdown
+      const targetsResponse = await authenticatedFetch('../targets');
+      if (targetsResponse.ok) {
+        const targetsData = await targetsResponse.json();
+        setTargets(targetsData.targets || []);
       }
-    };
 
+      // Fetch mappings for admin tenant with optional filter
+      const filterParam = searchFilter.trim() ? `?filter=${encodeURIComponent(searchFilter)}` : '';
+      const mappingsResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings${filterParam}`);
+
+      if (!mappingsResponse.ok) {
+        throw new Error(`Failed to fetch mappings: ${mappingsResponse.status}`);
+      }
+
+      const mappingsData = await mappingsResponse.json();
+      setMappings(mappingsData || []);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch on mount
+  useEffect(() => {
     fetchData();
-  }, [tenantName, debouncedFilter]);
+  }, [tenantName]);
+
+  // Handle Enter key in filter input
+  const handleFilterKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      setFilter(filterInput);
+      fetchData(filterInput);
+    }
+  };
 
   // Filtering is now handled by the API
 
@@ -155,10 +163,7 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
   // Helper function to refresh mappings list
   const refreshMappingsList = async () => {
     // Preserve filter when refreshing
-    const filterParam = debouncedFilter.trim() ? `?filter=${encodeURIComponent(debouncedFilter)}` : '';
-    const refreshResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings${filterParam}`);
-    const refreshData = await refreshResponse.json();
-    setMappings(refreshData || []);
+    await fetchData(filter);
   };
 
   const handleSave = async (e) => {
@@ -215,9 +220,10 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
           <div className="filter-container">
             <input
               type="text"
-              placeholder="Filter links..."
+              placeholder="Filter links... (Press Enter to search)"
               value={filterInput}
               onChange={(e) => setFilterInput(e.target.value)}
+              onKeyDown={handleFilterKeyDown}
               className="filter-input"
             />
             <span className="filter-icon">🔍</span>

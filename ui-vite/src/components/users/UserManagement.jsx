@@ -7,6 +7,7 @@ const UserManagement = ({ isAdmin }) => {
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filterInput, setFilterInput] = useState('');
   const [filter, setFilter] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -16,41 +17,50 @@ const UserManagement = ({ isAdmin }) => {
   const [syncLoading, setSyncLoading] = useState(false);
 
   // Fetch users and tenants from API
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!isAdmin) return;
+  const fetchData = async (searchFilter = '') => {
+    if (!isAdmin) return;
 
-      try {
-        setLoading(true);
+    try {
+      setLoading(true);
 
-        // Fetch users with optional filter
-        const filterParam = filter.trim() ? `?filter=${encodeURIComponent(filter)}` : '';
-        const usersResponse = await authenticatedFetch(`../user/management${filterParam}`);
-        if (!usersResponse.ok) {
-          throw new Error(`Failed to fetch users: ${usersResponse.status}`);
-        }
-        const usersData = await usersResponse.json();
-        setUsers(usersData.users || []);
-
-        // Fetch tenants for the dropdown
-        const tenantsResponse = await authenticatedFetch('../tenants');
-        if (!tenantsResponse.ok) {
-          throw new Error(`Failed to fetch tenants: ${tenantsResponse.status}`);
-        }
-        const tenantsData = await tenantsResponse.json();
-        setTenants(tenantsData.tenants || []);
-
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+      // Fetch users with optional filter
+      const filterParam = searchFilter.trim() ? `?filter=${encodeURIComponent(searchFilter)}` : '';
+      const usersResponse = await authenticatedFetch(`../user/management${filterParam}`);
+      if (!usersResponse.ok) {
+        throw new Error(`Failed to fetch users: ${usersResponse.status}`);
       }
-    };
+      const usersData = await usersResponse.json();
+      setUsers(usersData.users || []);
 
+      // Fetch tenants for the dropdown
+      const tenantsResponse = await authenticatedFetch('../tenants');
+      if (!tenantsResponse.ok) {
+        throw new Error(`Failed to fetch tenants: ${tenantsResponse.status}`);
+      }
+      const tenantsData = await tenantsResponse.json();
+      setTenants(tenantsData.tenants || []);
+
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch on mount
+  useEffect(() => {
     fetchData();
-  }, [isAdmin, filter]);
+  }, [isAdmin]);
+
+  // Handle Enter key in filter input
+  const handleFilterKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      setFilter(filterInput);
+      fetchData(filterInput);
+    }
+  };
 
   // Filtering is now handled by the API
 
@@ -93,9 +103,7 @@ const UserManagement = ({ isAdmin }) => {
       }
 
       // Refresh the users list
-      const refreshResponse = await authenticatedFetch('../user/management');
-      const refreshData = await refreshResponse.json();
-      setUsers(refreshData.users || []);
+      await fetchData(filter);
     } catch (err) {
       console.error('Error deleting user:', err);
       alert(`Error deleting user: ${err.message}`);
@@ -120,9 +128,7 @@ const UserManagement = ({ isAdmin }) => {
       }
 
       // Refresh the users list
-      const refreshResponse = await authenticatedFetch('../user/management');
-      const refreshData = await refreshResponse.json();
-      setUsers(refreshData.users || []);
+      await fetchData(filter);
 
       setSelectedUser(null);
     } catch (err) {
@@ -185,9 +191,7 @@ const UserManagement = ({ isAdmin }) => {
       await response.json();
 
       // Refresh the users list
-      const refreshResponse = await authenticatedFetch('../user/management');
-      const refreshData = await refreshResponse.json();
-      setUsers(refreshData.users || []);
+      await fetchData(filter);
 
       // Close modal and reset form
       setShowInviteModal(false);
@@ -222,9 +226,7 @@ const UserManagement = ({ isAdmin }) => {
       await response.json();
 
       // Refresh the users list
-      const refreshResponse = await authenticatedFetch('../user/management');
-      const refreshData = await refreshResponse.json();
-      setUsers(refreshData.users || []);
+      await fetchData(filter);
     } catch (err) {
       console.error('Error syncing IdP:', err);
       alert(`Error syncing IdP: ${err.message}`);
@@ -276,9 +278,10 @@ const UserManagement = ({ isAdmin }) => {
           <div className="filter-container">
             <input
               type="text"
-              placeholder="Filter users..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter users... (Press Enter to search)"
+              value={filterInput}
+              onChange={(e) => setFilterInput(e.target.value)}
+              onKeyDown={handleFilterKeyDown}
               className="filter-input"
             />
             <span className="filter-icon">🔍</span>

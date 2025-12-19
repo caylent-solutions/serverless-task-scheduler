@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 import ExecutionHistoryModal from '../common/ExecutionHistoryModal';
-import { useDebounce } from '../../hooks/useDebounce';
 
 const ScheduleList = ({ tenantName = 'admin' }) => {
   const [schedules, setSchedules] = useState([]);
@@ -10,44 +9,53 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterInput, setFilterInput] = useState('');
-  const debouncedFilter = useDebounce(filterInput, 500);
+  const [filter, setFilter] = useState('');
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [executionHistorySchedule, setExecutionHistorySchedule] = useState(null);
 
-  // Fetch schedules and mappings from API - only when debounced filter changes
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
+  // Fetch schedules and mappings from API
+  const fetchData = async (searchFilter = '') => {
+    try {
+      setLoading(true);
 
-        // Fetch mappings for target alias dropdown
-        const mappingsResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings`);
-        if (mappingsResponse.ok) {
-          const mappingsData = await mappingsResponse.json();
-          setMappings(mappingsData || []);
-        }
-
-        // Fetch schedules for the tenant with optional filter
-        const filterParam = debouncedFilter.trim() ? `?filter=${encodeURIComponent(debouncedFilter)}` : '';
-        const schedulesResponse = await authenticatedFetch(`../tenants/${tenantName}/schedules${filterParam}`);
-
-        if (!schedulesResponse.ok) {
-          throw new Error(`Failed to fetch schedules: ${schedulesResponse.status}`);
-        }
-
-        const schedulesData = await schedulesResponse.json();
-        setSchedules(Array.isArray(schedulesData) ? schedulesData : [schedulesData]);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+      // Fetch mappings for target alias dropdown
+      const mappingsResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings`);
+      if (mappingsResponse.ok) {
+        const mappingsData = await mappingsResponse.json();
+        setMappings(mappingsData || []);
       }
-    };
 
+      // Fetch schedules for the tenant with optional filter
+      const filterParam = searchFilter.trim() ? `?filter=${encodeURIComponent(searchFilter)}` : '';
+      const schedulesResponse = await authenticatedFetch(`../tenants/${tenantName}/schedules${filterParam}`);
+
+      if (!schedulesResponse.ok) {
+        throw new Error(`Failed to fetch schedules: ${schedulesResponse.status}`);
+      }
+
+      const schedulesData = await schedulesResponse.json();
+      setSchedules(Array.isArray(schedulesData) ? schedulesData : [schedulesData]);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch on mount
+  useEffect(() => {
     fetchData();
-  }, [tenantName, debouncedFilter]);
+  }, [tenantName]);
+
+  // Handle Enter key in filter input
+  const handleFilterKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      setFilter(filterInput);
+      fetchData(filterInput);
+    }
+  };
 
   // Filtering is now handled by the API
 
@@ -147,10 +155,7 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
       }
 
       // Refresh the schedules list (preserve filter)
-      const filterParam = debouncedFilter.trim() ? `?filter=${encodeURIComponent(debouncedFilter)}` : '';
-      const refreshResponse = await authenticatedFetch(`../tenants/${tenantName}/schedules${filterParam}`);
-      const refreshData = await refreshResponse.json();
-      setSchedules(Array.isArray(refreshData) ? refreshData : [refreshData]);
+      await fetchData(filter);
 
       setSelectedSchedule(null);
     } catch (err) {
@@ -186,9 +191,10 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
           <div className="filter-container">
             <input
               type="text"
-              placeholder="Filter schedules..."
+              placeholder="Filter schedules... (Press Enter to search)"
               value={filterInput}
               onChange={(e) => setFilterInput(e.target.value)}
+              onKeyDown={handleFilterKeyDown}
               className="filter-input"
             />
             <span className="filter-icon">🔍</span>

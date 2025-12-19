@@ -2,44 +2,52 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 import { validateUrlSafeIdentifier, handleUrlSafeInput } from '../../utils/validation';
-import { useDebounce } from '../../hooks/useDebounce';
 
 const TenantList = ({ isAdmin }) => {
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterInput, setFilterInput] = useState('');
-  const debouncedFilter = useDebounce(filterInput, 500);
+  const [filter, setFilter] = useState('');
   const [selectedTenant, setSelectedTenant] = useState(null);
 
-  // Fetch tenants from API - only when debounced filter changes
-  useEffect(() => {
-    const fetchTenants = async () => {
-      try {
-        setLoading(true);
-        // Add filter parameter if provided
-        const filterParam = debouncedFilter.trim() ? `?filter=${encodeURIComponent(debouncedFilter)}` : '';
-        const response = await authenticatedFetch(`../tenants${filterParam}`);
+  // Fetch tenants from API
+  const fetchTenants = async (searchFilter = '') => {
+    try {
+      setLoading(true);
+      // Add filter parameter if provided
+      const filterParam = searchFilter.trim() ? `?filter=${encodeURIComponent(searchFilter)}` : '';
+      const response = await authenticatedFetch(`../tenants${filterParam}`);
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch tenants: ${response.status}`);
-        }
-
-        const data = await response.json();
-        setTenants(data.tenants || []);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching tenants:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch tenants: ${response.status}`);
       }
-    };
 
+      const data = await response.json();
+      setTenants(data.tenants || []);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching tenants:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch on mount
+  useEffect(() => {
     if (isAdmin) {
       fetchTenants();
     }
-  }, [isAdmin, debouncedFilter]);
+  }, [isAdmin]);
+
+  // Handle Enter key in filter input
+  const handleFilterKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      setFilter(filterInput);
+      fetchTenants(filterInput);
+    }
+  };
 
   // Filtering is now handled by the API
 
@@ -112,10 +120,7 @@ const TenantList = ({ isAdmin }) => {
 
       // Refresh the tenants list
       // Preserve filter when refreshing
-      const filterParam = debouncedFilter.trim() ? `?filter=${encodeURIComponent(debouncedFilter)}` : '';
-      const refreshResponse = await authenticatedFetch(`../tenants${filterParam}`);
-      const refreshData = await refreshResponse.json();
-      setTenants(refreshData.tenants || []);
+      await fetchTenants(filter);
 
       setSelectedTenant(null);
     } catch (err) {
@@ -159,9 +164,10 @@ const TenantList = ({ isAdmin }) => {
           <div className="filter-container">
             <input
               type="text"
-              placeholder="Filter tenants..."
+              placeholder="Filter tenants... (Press Enter to search)"
               value={filterInput}
               onChange={(e) => setFilterInput(e.target.value)}
+              onKeyDown={handleFilterKeyDown}
               className="filter-input"
             />
             <span className="filter-icon">🔍</span>
