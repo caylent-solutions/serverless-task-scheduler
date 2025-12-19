@@ -277,13 +277,17 @@ class DynamoDBClient(DatabaseClient):
             
             # Build FilterExpression for text search if filter is provided
             if filter and filter.strip():
-                filter_conditions = []
-                filter_conditions.append('contains(#tid, :filter)')
-                filter_conditions.append('contains(#tname, :filter)')
-                filter_conditions.append('contains(#desc, :filter)')
+                filter_value = filter.strip()
                 
-                scan_params['FilterExpression'] = ' OR '.join(f'({cond})' for cond in filter_conditions)
-                scan_params['ExpressionAttributeValues'] = {':filter': filter}
+                # Use attribute_exists to handle null/missing attributes gracefully
+                # DynamoDB contains() fails if attribute doesn't exist
+                filter_conditions = []
+                filter_conditions.append('(attribute_exists(#tid) AND contains(#tid, :filter))')
+                filter_conditions.append('(attribute_exists(#tname) AND contains(#tname, :filter))')
+                filter_conditions.append('(attribute_exists(#desc) AND contains(#desc, :filter))')
+                
+                scan_params['FilterExpression'] = ' OR '.join(filter_conditions)
+                scan_params['ExpressionAttributeValues'] = {':filter': filter_value}
                 scan_params['ExpressionAttributeNames'] = {
                     '#tid': 'tenant_id',
                     '#tname': 'tenant_name',
