@@ -7,41 +7,49 @@ const TenantList = ({ isAdmin }) => {
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filterInput, setFilterInput] = useState('');
   const [filter, setFilter] = useState('');
   const [selectedTenant, setSelectedTenant] = useState(null);
 
   // Fetch tenants from API
-  useEffect(() => {
-    const fetchTenants = async () => {
-      try {
-        setLoading(true);
-        const response = await authenticatedFetch('../tenants');
+  const fetchTenants = async (searchFilter = '') => {
+    try {
+      setLoading(true);
+      // Add filter parameter if provided
+      const filterParam = searchFilter.trim() ? `?filter=${encodeURIComponent(searchFilter)}` : '';
+      const response = await authenticatedFetch(`../tenants${filterParam}`);
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch tenants: ${response.status}`);
-        }
-
-        const data = await response.json();
-        setTenants(data.tenants || []);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching tenants:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch tenants: ${response.status}`);
       }
-    };
 
+      const data = await response.json();
+      setTenants(data.tenants || []);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching tenants:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch on mount
+  useEffect(() => {
     if (isAdmin) {
       fetchTenants();
     }
   }, [isAdmin]);
 
-  const filteredTenants = tenants.filter(tenant =>
-    tenant.tenant_id?.toLowerCase().includes(filter.toLowerCase()) ||
-    tenant.tenant_name?.toLowerCase().includes(filter.toLowerCase()) ||
-    tenant.description?.toLowerCase().includes(filter.toLowerCase())
-  );
+  // Handle Enter key in filter input
+  const handleFilterKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      setFilter(filterInput);
+      fetchTenants(filterInput);
+    }
+  };
+
+  // Filtering is now handled by the API
 
   const handleEdit = (tenant) => {
     setSelectedTenant({
@@ -111,9 +119,8 @@ const TenantList = ({ isAdmin }) => {
       }
 
       // Refresh the tenants list
-      const refreshResponse = await authenticatedFetch('../tenants');
-      const refreshData = await refreshResponse.json();
-      setTenants(refreshData.tenants || []);
+      // Preserve filter when refreshing
+      await fetchTenants(filter);
 
       setSelectedTenant(null);
     } catch (err) {
@@ -157,9 +164,10 @@ const TenantList = ({ isAdmin }) => {
           <div className="filter-container">
             <input
               type="text"
-              placeholder="Filter tenants..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter tenants... (Press Enter to search)"
+              value={filterInput}
+              onChange={(e) => setFilterInput(e.target.value)}
+              onKeyDown={handleFilterKeyDown}
               className="filter-input"
             />
             <span className="filter-icon">🔍</span>
@@ -178,12 +186,12 @@ const TenantList = ({ isAdmin }) => {
             </tr>
           </thead>
           <tbody>
-            {filteredTenants.length === 0 ? (
+            {tenants.length === 0 ? (
               <tr>
                 <td colSpan="4" className="text-center">No tenants found</td>
               </tr>
             ) : (
-              filteredTenants.map(tenant => (
+              tenants.map(tenant => (
                 <tr key={tenant.tenant_id}>
                   <td className="actions-cell">
                     <button

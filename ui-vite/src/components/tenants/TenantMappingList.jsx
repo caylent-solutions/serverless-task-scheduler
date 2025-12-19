@@ -9,50 +9,56 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
   const [targets, setTargets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filterInput, setFilterInput] = useState('');
   const [filter, setFilter] = useState('');
   const [selectedMapping, setSelectedMapping] = useState(null);
   const [executionHistoryMapping, setExecutionHistoryMapping] = useState(null);
 
   // Fetch targets and mappings from API
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
+  const fetchData = async (searchFilter = '') => {
+    try {
+      setLoading(true);
 
-        // Fetch targets for dropdown
-        const targetsResponse = await authenticatedFetch('../targets');
-        if (targetsResponse.ok) {
-          const targetsData = await targetsResponse.json();
-          setTargets(targetsData.targets || []);
-        }
-
-        // Fetch mappings for admin tenant
-        const mappingsResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings`);
-
-        if (!mappingsResponse.ok) {
-          throw new Error(`Failed to fetch mappings: ${mappingsResponse.status}`);
-        }
-
-        const mappingsData = await mappingsResponse.json();
-        setMappings(mappingsData || []);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+      // Fetch targets for dropdown
+      const targetsResponse = await authenticatedFetch('../targets');
+      if (targetsResponse.ok) {
+        const targetsData = await targetsResponse.json();
+        setTargets(targetsData.targets || []);
       }
-    };
 
+      // Fetch mappings for admin tenant with optional filter
+      const filterParam = searchFilter.trim() ? `?filter=${encodeURIComponent(searchFilter)}` : '';
+      const mappingsResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings${filterParam}`);
+
+      if (!mappingsResponse.ok) {
+        throw new Error(`Failed to fetch mappings: ${mappingsResponse.status}`);
+      }
+
+      const mappingsData = await mappingsResponse.json();
+      setMappings(mappingsData || []);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch on mount
+  useEffect(() => {
     fetchData();
   }, [tenantName]);
 
-  const filteredMappings = mappings.filter(mapping => 
-    mapping.tenant_id?.toLowerCase().includes(filter.toLowerCase()) ||
-    mapping.target_alias?.toLowerCase().includes(filter.toLowerCase()) ||
-    mapping.target_id?.toLowerCase().includes(filter.toLowerCase()) ||
-    mapping.description?.toLowerCase().includes(filter.toLowerCase())
-  );
+  // Handle Enter key in filter input
+  const handleFilterKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      setFilter(filterInput);
+      fetchData(filterInput);
+    }
+  };
+
+  // Filtering is now handled by the API
 
   const handleEdit = (mapping) => {
     setSelectedMapping({
@@ -156,9 +162,8 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
 
   // Helper function to refresh mappings list
   const refreshMappingsList = async () => {
-    const refreshResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings`);
-    const refreshData = await refreshResponse.json();
-    setMappings(refreshData || []);
+    // Preserve filter when refreshing
+    await fetchData(filter);
   };
 
   const handleSave = async (e) => {
@@ -215,9 +220,10 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
           <div className="filter-container">
             <input
               type="text"
-              placeholder="Filter links..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter links... (Press Enter to search)"
+              value={filterInput}
+              onChange={(e) => setFilterInput(e.target.value)}
+              onKeyDown={handleFilterKeyDown}
               className="filter-input"
             />
             <span className="filter-icon">🔍</span>
@@ -238,12 +244,12 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
             </tr>
           </thead>
           <tbody>
-            {filteredMappings.length === 0 ? (
+            {mappings.length === 0 ? (
               <tr>
                 <td colSpan="6" className="text-center">No links found</td>
               </tr>
             ) : (
-              filteredMappings.map((mapping) => (
+              mappings.map((mapping) => (
                 <tr key={`${mapping.tenant_id}-${mapping.target_alias}`}>
                   <td className="actions-cell">
                     <button

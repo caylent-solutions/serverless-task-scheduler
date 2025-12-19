@@ -6,41 +6,49 @@ const TargetList = ({ isAdmin }) => {
   const [targets, setTargets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filterInput, setFilterInput] = useState('');
   const [filter, setFilter] = useState('');
   const [selectedTarget, setSelectedTarget] = useState(null);
 
   // Fetch targets from API
-  useEffect(() => {
-    const fetchTargets = async () => {
-      try {
-        setLoading(true);
-        const response = await authenticatedFetch('../targets');
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch targets: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        setTargets(data.targets || []);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching targets:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+  const fetchTargets = async (searchFilter = '') => {
+    try {
+      setLoading(true);
+      // Add filter parameter if provided
+      const filterParam = searchFilter.trim() ? `?filter=${encodeURIComponent(searchFilter)}` : '';
+      const response = await authenticatedFetch(`../targets${filterParam}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch targets: ${response.status}`);
       }
-    };
+      
+      const data = await response.json();
+      setTargets(data.targets || []);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching targets:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // Initial fetch on mount
+  useEffect(() => {
     if (isAdmin) {
       fetchTargets();
     }
   }, [isAdmin]);
 
-  const filteredTargets = targets.filter(target => 
-    target.target_id?.toLowerCase().includes(filter.toLowerCase()) ||
-    target.target_description?.toLowerCase().includes(filter.toLowerCase()) ||
-    target.target_arn?.toLowerCase().includes(filter.toLowerCase())
-  );
+  // Handle Enter key in filter input
+  const handleFilterKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      setFilter(filterInput);
+      fetchTargets(filterInput);
+    }
+  };
+
+  // Filtering is now handled by the API
 
   const handleEdit = (target) => {
     setSelectedTarget({
@@ -178,9 +186,8 @@ const TargetList = ({ isAdmin }) => {
       }
 
       // Refresh the targets list
-      const refreshResponse = await authenticatedFetch('../targets');
-      const refreshData = await refreshResponse.json();
-      setTargets(refreshData.targets || []);
+      // Preserve filter when refreshing
+      await fetchTargets(filter);
 
       setSelectedTarget(null);
     } catch (err) {
@@ -224,9 +231,10 @@ const TargetList = ({ isAdmin }) => {
           <div className="filter-container">
             <input
               type="text"
-              placeholder="Filter targets..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter targets... (Press Enter to search)"
+              value={filterInput}
+              onChange={(e) => setFilterInput(e.target.value)}
+              onKeyDown={handleFilterKeyDown}
               className="filter-input"
             />
             <span className="filter-icon">🔍</span>
@@ -245,12 +253,12 @@ const TargetList = ({ isAdmin }) => {
             </tr>
           </thead>
           <tbody>
-            {filteredTargets.length === 0 ? (
+            {targets.length === 0 ? (
               <tr>
                 <td colSpan="4" className="text-center">No targets found</td>
               </tr>
             ) : (
-              filteredTargets.map(target => (
+              targets.map(target => (
                 <tr key={target.target_id}>
                   <td className="actions-cell">
                     <button 

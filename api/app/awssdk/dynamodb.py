@@ -19,7 +19,7 @@ _db_client = None
 
 class DatabaseClient(ABC):
     @abstractmethod
-    def get_all_targets(self) -> List[Target]:
+    def get_all_targets(self, filter: Optional[str] = None) -> List[Target]:
         """Get all targets from storage"""
 
     @abstractmethod
@@ -39,7 +39,7 @@ class DatabaseClient(ABC):
         """Delete a target"""
 
     @abstractmethod
-    def get_all_tenants(self) -> List[Tenant]:
+    def get_all_tenants(self, filter: Optional[str] = None) -> List[Tenant]:
         """Get all tenants from storage"""
 
     @abstractmethod
@@ -76,7 +76,7 @@ class DatabaseClient(ABC):
         """Get all tenant mappings from storage"""
 
     @abstractmethod
-    def get_tenant_mappings(self, tenant_id: str) -> List[TenantMapping]:
+    def get_tenant_mappings(self, tenant_id: str, filter: Optional[str] = None) -> List[TenantMapping]:
         """Get all mappings for a specific tenant"""
 
     @abstractmethod
@@ -116,8 +116,7 @@ class DatabaseClient(ABC):
         """Get a target schedule"""
 
     @abstractmethod
-    @abstractmethod
-    def get_all_schedules(self, tenant_id: str) -> List[Schedule]:
+    def get_all_schedules(self, tenant_id: str, filter: Optional[str] = None) -> List[Schedule]:
         """Get all target schedules for a tenant"""
 
     @abstractmethod
@@ -158,6 +157,13 @@ class DatabaseClient(ABC):
 
 
 class DynamoDBClient(DatabaseClient):
+    """
+    DynamoDB client implementation.
+    
+    Note on filtering: Uses DynamoDB FilterExpression for text search.
+    DynamoDB's `contains` function is case-sensitive. For case-insensitive
+    search, consider storing lowercase versions of searchable fields.
+    """
     def __init__(self, db_target='local'):
 
         endpoint_url = os.environ.get('DYNAMODB_ENDPOINT_URL', 'http://localhost:8000')
@@ -187,13 +193,41 @@ class DynamoDBClient(DatabaseClient):
         except Exception as e:
             raise ConnectionError(f"Could not connect to DynamoDB: {e}")
 
-    def get_all_targets(self) -> List[Target]:
+    def get_all_targets(self, filter: Optional[str] = None) -> List[Target]:
         """Get all targets from storage"""
         try:
-            response = self.targets.scan()
-            return response.get('Items', [])
+            scan_params = {}
+            
+            # Build FilterExpression for text search if filter is provided
+            # Note: Only search in fields that actually exist in the Target model:
+            # target_id, target_description, target_arn
+            if filter and filter.strip():
+                filter_value = filter.strip()
+                
+                # Use attribute_exists to handle null/missing attributes gracefully
+                # DynamoDB contains() fails if attribute doesn't exist
+                filter_conditions = []
+                filter_conditions.append('(attribute_exists(#tid) AND contains(#tid, :filter))')
+                filter_conditions.append('(attribute_exists(#tdesc) AND contains(#tdesc, :filter))')
+                filter_conditions.append('(attribute_exists(#tarn) AND contains(#tarn, :filter))')
+                
+                scan_params['FilterExpression'] = ' OR '.join(filter_conditions)
+                scan_params['ExpressionAttributeValues'] = {':filter': filter_value}
+                scan_params['ExpressionAttributeNames'] = {
+                    '#tid': 'target_id',
+                    '#tdesc': 'target_description',
+                    '#tarn': 'target_arn'
+                }
+            
+            # Perform scan
+            # TODO: Implement pagination to handle tables with >1MB of data or >100 items
+            # Currently only returns first page of results
+            response = self.targets.scan(**scan_params)
+            items = response.get('Items', [])
+            
+            return items
         except ClientError as e:
-            print(f"Error getting targets: {e}")
+            logger.error(f"Error getting targets: {e}")
             return []
 
     def get_target(self, target_id: str) -> Optional[Target]:
@@ -236,11 +270,37 @@ class DynamoDBClient(DatabaseClient):
             print(f"Error deleting target {target_id}: {e}")
             return False
 
-    def get_all_tenants(self) -> List[Tenant]:
+    def get_all_tenants(self, filter: Optional[str] = None) -> List[Tenant]:
         """Get all tenants from storage"""
         try:
-            response = self.tenants.scan()
-            return [Tenant(**item) for item in response.get('Items', [])]
+            scan_params = {}
+            
+            # Build FilterExpression for text search if filter is provided
+            if filter and filter.strip():
+                filter_value = filter.strip()
+                
+                # Use attribute_exists to handle null/missing attributes gracefully
+                # DynamoDB contains() fails if attribute doesn't exist
+                filter_conditions = []
+                filter_conditions.append('(attribute_exists(#tid) AND contains(#tid, :filter))')
+                filter_conditions.append('(attribute_exists(#tname) AND contains(#tname, :filter))')
+                filter_conditions.append('(attribute_exists(#desc) AND contains(#desc, :filter))')
+                
+                scan_params['FilterExpression'] = ' OR '.join(filter_conditions)
+                scan_params['ExpressionAttributeValues'] = {':filter': filter_value}
+                scan_params['ExpressionAttributeNames'] = {
+                    '#tid': 'tenant_id',
+                    '#tname': 'tenant_name',
+                    '#desc': 'description'
+                }
+            
+            # Perform scan
+            # TODO: Implement pagination to handle tables with >1MB of data or >100 items
+            # Currently only returns first page of results
+            response = self.tenants.scan(**scan_params)
+            items = response.get('Items', [])
+            
+            return [Tenant(**item) for item in items]
         except ClientError as e:
             print(f"Error getting tenants: {e}")
             return []
@@ -323,14 +383,40 @@ class DynamoDBClient(DatabaseClient):
             print(f"Error getting tenant mappings: {e}")
             return []
 
-    def get_tenant_mappings(self, tenant_id: str) -> List[TenantMapping]:
+    def get_tenant_mappings(self, tenant_id: str, filter: Optional[str] = None) -> List[TenantMapping]:
         """Get all mappings for a specific tenant"""
         try:
-            response = self.tenant_mappings.query(
-                KeyConditionExpression='tenant_id = :tid',
-                ExpressionAttributeValues={':tid': tenant_id}
-            )
-            return [TenantMapping(**item) for item in response.get('Items', [])]
+            query_params = {
+                'KeyConditionExpression': 'tenant_id = :tid',
+                'ExpressionAttributeValues': {':tid': tenant_id}
+            }
+            
+            # Build FilterExpression for text search if filter is provided
+            # Note: Cannot filter on primary key attributes (tenant_id, target_alias) in FilterExpression with Query
+            # Only filter on non-key attributes: target_id, description
+            if filter and filter.strip():
+                filter_value = filter.strip()
+                
+                filter_conditions = []
+                # Use attribute_exists to handle null/missing attributes gracefully
+                # Note: target_alias is the sort key, so we can't filter on it in FilterExpression
+                filter_conditions.append('(attribute_exists(#targid) AND contains(#targid, :filter))')
+                filter_conditions.append('(attribute_exists(#desc) AND contains(#desc, :filter))')
+                
+                query_params['FilterExpression'] = ' OR '.join(filter_conditions)
+                query_params['ExpressionAttributeValues'][':filter'] = filter_value
+                query_params['ExpressionAttributeNames'] = {
+                    '#targid': 'target_id',
+                    '#desc': 'description'
+                }
+            
+            # Perform query
+            # TODO: Implement pagination to handle queries with >1MB of data or >100 items
+            # Currently only returns first page of results
+            response = self.tenant_mappings.query(**query_params)
+            items = response.get('Items', [])
+            
+            return [TenantMapping(**item) for item in items]
         except ClientError as e:
             print(f"Error getting tenant mappings for {tenant_id}: {e}")
             return []
@@ -439,11 +525,44 @@ class DynamoDBClient(DatabaseClient):
             print(f"Error getting target schedule: {e}")
             return None
 
-    def get_all_schedules(self, tenant_id: str) -> List[Schedule]:
+    def get_all_schedules(self, tenant_id: str, filter: Optional[str] = None) -> List[Schedule]:
         """Get all target schedules for a tenant"""
         try:
-            response = self.schedules.query(KeyConditionExpression='tenant_id = :tid', ExpressionAttributeValues={':tid': tenant_id})
-            return [Schedule(**item) for item in response.get('Items', [])]
+            query_params = {
+                'KeyConditionExpression': 'tenant_id = :tid',
+                'ExpressionAttributeValues': {':tid': tenant_id}
+            }
+            
+            # Build FilterExpression for text search if filter is provided
+            # Note: Cannot filter on primary key attributes (tenant_id, schedule_id) in FilterExpression with Query
+            # Only filter on non-key attributes: target_alias, schedule_expression, description, timezone
+            if filter and filter.strip():
+                filter_value = filter.strip()
+                
+                filter_conditions = []
+                # Use attribute_exists to handle null/missing attributes gracefully
+                # Note: schedule_id is the sort key, so we can't filter on it in FilterExpression
+                filter_conditions.append('(attribute_exists(#talias) AND contains(#talias, :filter))')
+                filter_conditions.append('(attribute_exists(#sexpr) AND contains(#sexpr, :filter))')
+                filter_conditions.append('(attribute_exists(#desc) AND contains(#desc, :filter))')
+                filter_conditions.append('(attribute_exists(#tz) AND contains(#tz, :filter))')
+                
+                query_params['FilterExpression'] = ' OR '.join(filter_conditions)
+                query_params['ExpressionAttributeValues'][':filter'] = filter_value
+                query_params['ExpressionAttributeNames'] = {
+                    '#talias': 'target_alias',
+                    '#sexpr': 'schedule_expression',
+                    '#desc': 'description',
+                    '#tz': 'timezone'
+                }
+            
+            # Perform query
+            # TODO: Implement pagination to handle queries with >1MB of data or >100 items
+            # Currently only returns first page of results
+            response = self.schedules.query(**query_params)
+            items = response.get('Items', [])
+            
+            return [Schedule(**item) for item in items]
         except ClientError as e:
             print(f"Error getting target schedules for {tenant_id}: {e}")
             return []
@@ -764,9 +883,25 @@ class LocalClient(DatabaseClient):
         self.tenant_mappings: Dict[str, TenantMapping] = {}
         self.user_mappings: Dict[str, Any] = {}  # Key: "user_id:tenant_id"
 
-    def get_all_targets(self) -> List[Dict[str, Target]]:
+    def get_all_targets(self, filter: Optional[str] = None) -> List[Dict[str, Target]]:
         """Get all targets from storage"""
-        return list(self.local_storage.values())
+        items = list(self.local_storage.values())
+        # Apply text filter if provided
+        if filter and filter.strip():
+            filter_lower = filter.lower().strip()
+            items = [
+                item for item in items
+                if (
+                    filter_lower in str(item.get('target_id', '')).lower()
+                ) or (
+                    filter_lower in str(item.get('target_name', '')).lower()
+                ) or (
+                    filter_lower in str(item.get('target_description', '')).lower()
+                ) or (
+                    filter_lower in str(item.get('target_arn', '')).lower()
+                )
+            ]
+        return items
 
     def get_target(self, target_id: str) -> Optional[Target]:
         """Get a specific target by name"""
@@ -790,9 +925,23 @@ class LocalClient(DatabaseClient):
             return True
         return False
 
-    def get_all_tenants(self) -> List[Tenant]:
+    def get_all_tenants(self, filter: Optional[str] = None) -> List[Tenant]:
         """Get all tenants from storage"""
-        return list(self.tenants_storage.values())
+        items = list(self.tenants_storage.values())
+        # Apply text filter if provided
+        if filter and filter.strip():
+            filter_lower = filter.lower().strip()
+            items = [
+                item for item in items
+                if (
+                    filter_lower in (item.tenant_id.lower() if item.tenant_id else '')
+                ) or (
+                    filter_lower in (item.tenant_name.lower() if item.tenant_name else '')
+                ) or (
+                    filter_lower in (item.description.lower() if item.description else '')
+                )
+            ]
+        return items
 
     def get_tenant(self, tenant_id: str) -> Optional[Tenant]:
         """Get a specific tenant by id"""
@@ -837,9 +986,25 @@ class LocalClient(DatabaseClient):
         """Get all tenant mappings from storage"""
         return list(self.tenant_mappings.values())
 
-    def get_tenant_mappings(self, tenant_id: str) -> List[TenantMapping]:
+    def get_tenant_mappings(self, tenant_id: str, filter: Optional[str] = None) -> List[TenantMapping]:
         """Get all mappings for a specific tenant"""
-        return [m for m in self.tenant_mappings.values() if m.tenant_id == tenant_id]
+        mappings = [m for m in self.tenant_mappings.values() if m.tenant_id == tenant_id]
+        # Apply text filter if provided
+        if filter and filter.strip():
+            filter_lower = filter.lower().strip()
+            mappings = [
+                m for m in mappings
+                if (
+                    filter_lower in (m.tenant_id.lower() if m.tenant_id else '')
+                ) or (
+                    filter_lower in (m.target_alias.lower() if m.target_alias else '')
+                ) or (
+                    filter_lower in (m.target_id.lower() if m.target_id else '')
+                ) or (
+                    filter_lower in (m.description.lower() if m.description else '')
+                )
+            ]
+        return mappings
 
     def get_tenant_target_mapping(self, tenant_id: str, target_alias: str) -> Optional[TenantMapping]:
         """Get a specific tenant target mapping"""
@@ -949,7 +1114,7 @@ class LocalClient(DatabaseClient):
         logger.warning("LocalClient: get_schedule not fully implemented")
         return None
 
-    def get_all_schedules(self, tenant_id: str) -> List[Schedule]:
+    def get_all_schedules(self, tenant_id: str, filter: Optional[str] = None) -> List[Schedule]:
         """Get all target schedules for a tenant (stub)"""
         logger.warning("LocalClient: get_all_schedules not fully implemented")
         return []

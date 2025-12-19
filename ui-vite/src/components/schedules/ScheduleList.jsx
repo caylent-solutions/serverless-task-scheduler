@@ -8,50 +8,56 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
   const [mappings, setMappings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filterInput, setFilterInput] = useState('');
   const [filter, setFilter] = useState('');
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [executionHistorySchedule, setExecutionHistorySchedule] = useState(null);
 
   // Fetch schedules and mappings from API
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
+  const fetchData = async (searchFilter = '') => {
+    try {
+      setLoading(true);
 
-        // Fetch mappings for target alias dropdown
-        const mappingsResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings`);
-        if (mappingsResponse.ok) {
-          const mappingsData = await mappingsResponse.json();
-          setMappings(mappingsData || []);
-        }
-
-        // Fetch schedules for the tenant
-        const schedulesResponse = await authenticatedFetch(`../tenants/${tenantName}/schedules`);
-
-        if (!schedulesResponse.ok) {
-          throw new Error(`Failed to fetch schedules: ${schedulesResponse.status}`);
-        }
-
-        const schedulesData = await schedulesResponse.json();
-        setSchedules(Array.isArray(schedulesData) ? schedulesData : [schedulesData]);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+      // Fetch mappings for target alias dropdown
+      const mappingsResponse = await authenticatedFetch(`../tenants/${tenantName}/mappings`);
+      if (mappingsResponse.ok) {
+        const mappingsData = await mappingsResponse.json();
+        setMappings(mappingsData || []);
       }
-    };
 
+      // Fetch schedules for the tenant with optional filter
+      const filterParam = searchFilter.trim() ? `?filter=${encodeURIComponent(searchFilter)}` : '';
+      const schedulesResponse = await authenticatedFetch(`../tenants/${tenantName}/schedules${filterParam}`);
+
+      if (!schedulesResponse.ok) {
+        throw new Error(`Failed to fetch schedules: ${schedulesResponse.status}`);
+      }
+
+      const schedulesData = await schedulesResponse.json();
+      setSchedules(Array.isArray(schedulesData) ? schedulesData : [schedulesData]);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch on mount
+  useEffect(() => {
     fetchData();
   }, [tenantName]);
 
-  const filteredSchedules = schedules.filter(schedule =>
-    schedule.schedule_id?.toLowerCase().includes(filter.toLowerCase()) ||
-    schedule.target_alias?.toLowerCase().includes(filter.toLowerCase()) ||
-    schedule.schedule_expression?.toLowerCase().includes(filter.toLowerCase()) ||
-    schedule.description?.toLowerCase().includes(filter.toLowerCase())
-  );
+  // Handle Enter key in filter input
+  const handleFilterKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      setFilter(filterInput);
+      fetchData(filterInput);
+    }
+  };
+
+  // Filtering is now handled by the API
 
   const handleEdit = (schedule) => {
     setSelectedSchedule({
@@ -148,10 +154,8 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
         throw new Error(errorMessage);
       }
 
-      // Refresh the schedules list
-      const refreshResponse = await authenticatedFetch(`../tenants/${tenantName}/schedules`);
-      const refreshData = await refreshResponse.json();
-      setSchedules(Array.isArray(refreshData) ? refreshData : [refreshData]);
+      // Refresh the schedules list (preserve filter)
+      await fetchData(filter);
 
       setSelectedSchedule(null);
     } catch (err) {
@@ -187,9 +191,10 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
           <div className="filter-container">
             <input
               type="text"
-              placeholder="Filter schedules..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter schedules... (Press Enter to search)"
+              value={filterInput}
+              onChange={(e) => setFilterInput(e.target.value)}
+              onKeyDown={handleFilterKeyDown}
               className="filter-input"
             />
             <span className="filter-icon">🔍</span>
@@ -211,12 +216,12 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
             </tr>
           </thead>
           <tbody>
-            {filteredSchedules.length === 0 ? (
+            {schedules.length === 0 ? (
               <tr>
                 <td colSpan="7" className="text-center">No schedules found</td>
               </tr>
             ) : (
-              filteredSchedules.map(schedule => (
+              schedules.map(schedule => (
                 <tr key={schedule.schedule_id}>
                   <td className="actions-cell">
                     <button

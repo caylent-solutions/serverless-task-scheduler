@@ -20,7 +20,8 @@ echo -e "\n${YELLOW}Reading configuration from samconfig.toml...${NC}"
 STACK_NAME=""
 
 if [ -f "samconfig.toml" ]; then
-    STACK_NAME=$(grep -oP 'stack_name\s*=\s*"\K[^"]+' samconfig.toml)
+    # Extract stack_name value (macOS-compatible, works with BSD grep)
+    STACK_NAME=$(grep 'stack_name' samconfig.toml | sed -E 's/.*stack_name[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/' | head -n 1)
     if [ -n "$STACK_NAME" ]; then
         echo -e "${GREEN}Found stack name: $STACK_NAME${NC}"
     else

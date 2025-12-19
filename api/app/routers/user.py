@@ -1,7 +1,7 @@
 """
 User info router - provides authenticated user information and user-tenant access management
 """
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from pydantic import BaseModel
 from typing import List, Optional
 import logging
@@ -274,7 +274,10 @@ async def list_all_user_tenant_access(current_user: dict = Depends(require_admin
 
 
 @router.get("/management", response_model=UserDetailList)
-async def list_all_users(current_user: dict = Depends(require_admin)):
+async def list_all_users(
+    filter: Optional[str] = Query(default=None, description="Filter users by ID, email, full name, or tenant"),
+    current_user: dict = Depends(require_admin)
+):
     """
     List all users merged from Cognito and DynamoDB (Admin only)
 
@@ -285,6 +288,7 @@ async def list_all_users(current_user: dict = Depends(require_admin)):
     Users with tenant assignments are listed first, followed by Cognito-only users.
 
     Args:
+        filter: Optional text filter for user ID, email, full name, or tenant
         current_user: Current authenticated user (must be admin)
 
     Returns:
@@ -366,6 +370,22 @@ async def list_all_users(current_user: dict = Depends(require_admin)):
                     in_cognito=True,
                     in_database=False
                 ))
+
+        # Apply filtering if provided
+        if filter and filter.strip():
+            filter_lower = filter.lower().strip()
+            result_users = [
+                user for user in result_users
+                if (
+                    filter_lower in (user.user_id.lower() if user.user_id else '')
+                ) or (
+                    filter_lower in (user.email.lower() if user.email else '')
+                ) or (
+                    filter_lower in (user.full_name.lower() if user.full_name else '')
+                ) or (
+                    any(filter_lower in t.lower() for t in user.tenants) if user.tenants else False
+                )
+            ]
 
         return UserDetailList(
             users=result_users,
