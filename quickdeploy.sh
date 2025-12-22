@@ -70,7 +70,7 @@ echo -e "${GREEN}SAM build completed successfully.${NC}"
 # Step 4: SAM Deploy
 echo -e "\n${YELLOW}[4/7] Deploying SAM application...${NC}"
 # The --no-fail-on-empty-changeset flag will prevent deployment error if no changes detected
-sam deploy --no-confirm-changeset --no-fail-on-empty-changeset
+sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --capabilities CAPABILITY_NAMED_IAM
 if [ $? -ne 0 ]; then
     echo -e "${RED}SAM deployment failed!${NC}"
     exit 1
