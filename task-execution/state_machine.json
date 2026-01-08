@@ -46,16 +46,8 @@
                   "Next": "ExecuteECSTarget"
                 },
                 {
-                  "Or": [
-                    {
-                      "Variable": "$.target_type",
-                      "StringEquals": "stepfunctions"
-                    },
-                    {
-                      "Variable": "$.target_type",
-                      "StringEquals": "step-functions"
-                    }
-                  ],
+                  "Variable": "$.target_type",
+                  "StringEquals": "stepfunctions",
                   "Next": "ExecuteStepFunctionTarget"
                 }
               ],
@@ -114,7 +106,7 @@
               "Type": "Fail",
               "Comment": "Target type is not supported",
               "Error": "UnsupportedTargetType",
-              "Cause": "The specified target_type is not supported. Must be one of: lambda, ecs, stepfunctions, step-functions"
+              "Cause": "The specified target_type is not supported. Must be one of: lambda, ecs, stepfunctions"
             }
           }
         }

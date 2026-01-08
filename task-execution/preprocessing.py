@@ -50,6 +50,45 @@ APP_ENV = os.environ.get('APP_ENV', 'prod').lower()
 VERBOSE_LOGGING = APP_ENV in ['dev', 'qa', 'uat']
 
 
+def parse_target_type_from_arn(target_arn: str) -> str:
+    """
+    Parse the target type from an AWS ARN.
+    
+    Supported ARN patterns:
+    - Lambda: arn:aws:lambda:region:account:function:name
+    - ECS: arn:aws:ecs:region:account:task-definition/name:version
+    - Step Functions: arn:aws:states:region:account:stateMachine:name
+    
+    Args:
+        target_arn: AWS resource ARN
+        
+    Returns:
+        Target type: 'lambda', 'ecs', or 'stepfunctions'
+        
+    Raises:
+        ValueError: If ARN format is invalid or service is not supported
+    """
+    if not target_arn or not isinstance(target_arn, str):
+        raise ValueError(f"Invalid target ARN: {target_arn}")
+    
+    # ARN format: arn:partition:service:region:account-id:resource
+    arn_parts = target_arn.split(':')
+    
+    if len(arn_parts) < 6 or arn_parts[0] != 'arn':
+        raise ValueError(f"Invalid ARN format: {target_arn}")
+    
+    service = arn_parts[2]
+    
+    if service == 'lambda':
+        return 'lambda'
+    elif service == 'ecs':
+        return 'ecs'
+    elif service == 'states':
+        return 'stepfunctions'
+    else:
+        raise ValueError(f"Unsupported target service in ARN: {service}. Must be one of: lambda, ecs, states")
+
+
 def handler(event, context):
     """
     Preprocessing handler for ExecutorStepFunction.
@@ -229,12 +268,16 @@ def resolve_target(tenant_id: str, target_alias: str) -> Dict[str, Any]:
             raise ValueError(f"Target not found: {target_id}")
 
         target = target_response['Item']
-        logger.info(f"Resolved target: {target_alias} -> {target['target_arn']}")
+        target_arn = target['target_arn']
+        logger.info(f"Resolved target: {target_alias} -> {target_arn}")
+
+        # Derive target_type from ARN
+        target_type = parse_target_type_from_arn(target_arn)
 
         return {
             'target_id': target_id,
-            'target_arn': target['target_arn'],
-            'target_type': target.get('target_type', 'lambda'),
+            'target_arn': target_arn,
+            'target_type': target_type,
             'config': target.get('config', {}),
             'default_payload': default_payload
         }

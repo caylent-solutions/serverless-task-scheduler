@@ -207,13 +207,16 @@ def record_execution(
         ttl = int(ttl_date.timestamp())
 
         # Build the item to store
+        # Serialize result as JSON string to handle any data types that DynamoDB doesn't support
+        result_json = json.dumps(result, default=str) if result else '{}'
+        
         item = {
             'tenant_schedule': tenant_schedule,
             'execution_id': execution_id,
             'tenant_target': tenant_target,
             'timestamp': timestamp,
             'status': status,
-            'result': result,
+            'result': result_json, 
             'executed_at': timestamp,
             'state_machine_execution_arn': state_machine_execution_arn,
             'execution_start_time': execution_start_time,
