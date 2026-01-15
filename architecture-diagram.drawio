@@ -1,0 +1,847 @@
+<mxfile host="65bd71144e">
+    <diagram id="overall-execution-flow" name="Overall Execution Flow">
+        <mxGraphModel dx="1432" dy="958" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="2jE8DE3hwVgBwNvrj-cx-5" value="Executor State Machine" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=0;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_step_functions_workflow;strokeColor=#CD2264;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#CD2264;dashed=0;" parent="1" vertex="1">
+                    <mxGeometry x="870" y="330" width="220" height="320" as="geometry"/>
+                </mxCell>
+                <mxCell id="2jE8DE3hwVgBwNvrj-cx-4" value="Resolve Target" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;labelBackgroundColor=none;" parent="2jE8DE3hwVgBwNvrj-cx-5" vertex="1" connectable="0">
+                    <mxGeometry x="40" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="lambda-pre-label" value="Preprocessing" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1" parent="2jE8DE3hwVgBwNvrj-cx-5" vertex="1">
+                    <mxGeometry x="130" y="40" width="90" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="lambda-pre" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" parent="2jE8DE3hwVgBwNvrj-cx-5" vertex="1">
+                    <mxGeometry x="82" y="31" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="2jE8DE3hwVgBwNvrj-cx-9" value="&lt;span style=&quot;color: rgb(0, 0, 0); font-family: Helvetica; font-size: 9px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: center; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; white-space: nowrap; background-color: rgb(251, 251, 251); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial; float: none; display: inline !important;&quot;&gt;Create Exec&lt;br&gt;Record&lt;/span&gt;" style="text;whiteSpace=wrap;html=1;" parent="2jE8DE3hwVgBwNvrj-cx-5" vertex="1">
+                    <mxGeometry x="12" y="40" width="70" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="title" value="Serverless Task Scheduler - Overall Execution Flow" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="340" y="10" width="600" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="user" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#232F3D;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.user;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="200" width="78" height="78" as="geometry"/>
+                </mxCell>
+                <mxCell id="user-label" value="User / Browser&lt;br&gt;(Vite UI)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="89" y="285" width="100" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="apigw" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#FF4F8B;gradientDirection=north;fillColor=#BC1356;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.api_gateway;" parent="1" vertex="1">
+                    <mxGeometry x="320" y="200" width="78" height="78" as="geometry"/>
+                </mxCell>
+                <mxCell id="apigw-label" value="API Gateway&#xa;(REST API)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="309" y="285" width="100" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" parent="1" source="user" target="apigw" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge1-label" value="HTTPS" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="edge1" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="1" y="12" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="s3" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#60A337;gradientDirection=north;fillColor=#277116;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;" parent="1" vertex="1">
+                    <mxGeometry x="320" y="80" width="78" height="78" as="geometry"/>
+                </mxCell>
+                <mxCell id="s3-label" value="S3 Bucket&#xa;(Static Files)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="309" y="45" width="100" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" parent="1" source="apigw" target="s3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge2-label" value="/, /{proxy+}&lt;br&gt;(Vite UI)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="edge2" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="40" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="lambda-app" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" parent="1" vertex="1">
+                    <mxGeometry x="540" y="200" width="78" height="78" as="geometry"/>
+                </mxCell>
+                <mxCell id="lambda-app-label" value="AppLambda&#xa;(FastAPI)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="529" y="285" width="100" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" parent="1" source="apigw" target="lambda-app" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge3-label" value="/api/{proxy+}" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="edge3" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint y="12" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="cognito" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#F54749;gradientDirection=north;fillColor=#C7131F;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cognito;" parent="1" vertex="1">
+                    <mxGeometry x="540" y="80" width="78" height="78" as="geometry"/>
+                </mxCell>
+                <mxCell id="cognito-label" value="Cognito&#xa;User Pool" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="529" y="45" width="100" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;dashed=1;" parent="1" source="lambda-app" target="cognito" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge4-label" value="Auth" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="edge4" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="15" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="dynamodb" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" parent="1" vertex="1">
+                    <mxGeometry x="760" y="200" width="78" height="78" as="geometry"/>
+                </mxCell>
+                <mxCell id="dynamodb-label" value="DynamoDB&#xa;(6 Tables)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="750" y="160" width="100" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" parent="1" source="lambda-app" target="dynamodb" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge5-label" value="CRUD" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="edge5" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint y="12" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="dynamodb-tables" value="• TargetsTable&#xa;• TenantsTable&#xa;• TenantMappingsTable&#xa;• SchedulesTable&#xa;• UserMappingsTable&#xa;• TargetExecutionsTable" style="text;html=1;strokeColor=#82b366;fillColor=#d5e8d4;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="860" y="190" width="160" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="scheduler" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#FF4F8B;gradientDirection=north;fillColor=#BC1356;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.eventbridge;" parent="1" vertex="1">
+                    <mxGeometry x="540" y="380" width="78" height="78" as="geometry"/>
+                </mxCell>
+                <mxCell id="scheduler-label" value="EventBridge&#xa;Scheduler" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="529" y="465" width="100" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" parent="1" source="lambda-app" target="scheduler" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge6-label" value="Create/Update&#xa;Schedules" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=none;" parent="edge6" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="38" y="16" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="edge7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" parent="1" source="scheduler" target="2jE8DE3hwVgBwNvrj-cx-5" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="820" y="440" as="targetPoint"/>
+                        <Array as="points"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="edge7-label" value="Trigger on&#xa;Schedule" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="edge7" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="24" y="26" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="lambda-exec-label" value="Lambda Helper" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="994" y="559" width="90" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="lambda-post" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" parent="1" vertex="1">
+                    <mxGeometry x="951" y="690" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="lambda-post-label" value="Postprocessing" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="935" y="748" width="90" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="2jE8DE3hwVgBwNvrj-cx-5" target="lambda-post" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="900" y="670" as="sourcePoint"/>
+                        <Array as="points"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="edge10-label" value="via EventBridge" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;fontStyle=1" parent="edge10" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="44" y="2" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="targets-box" value="Target Execution" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=top;fontSize=12;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="891" y="440" width="180" height="190" as="geometry"/>
+                </mxCell>
+                <mxCell id="target-lambda" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" parent="1" vertex="1">
+                    <mxGeometry x="920" y="476" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="target-lambda-label" value="Lambda" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="904" y="523" width="80" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="target-ecs" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ecs;" parent="1" vertex="1">
+                    <mxGeometry x="920" y="549" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="target-ecs-label" value="ECS Task" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="904" y="602" width="80" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="target-sfn" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#FF4F8B;gradientDirection=north;fillColor=#BC1356;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.step_functions;" parent="1" vertex="1">
+                    <mxGeometry x="1000" y="475" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="target-sfn-label" value="Step Function" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="984" y="524" width="80" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;entryX=0.75;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="lambda-post" target="dynamodb" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1120" y="719"/>
+                            <mxPoint x="1120" y="310"/>
+                            <mxPoint x="818" y="310"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="edge12-label" value="Save Execution&lt;br&gt;Result" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;labelBackgroundColor=none;" parent="edge12" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="-35" y="284" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="legend-box" value="Legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;verticalAlign=top;fontSize=12;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="380" width="200" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend-solid" value="" style="endArrow=classic;html=1;strokeWidth=2;" parent="1" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="120" y="420" as="sourcePoint"/>
+                        <mxPoint x="180" y="420" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="legend-solid-label" value="Direct Connection" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="190" y="410" width="100" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend-dashed" value="" style="endArrow=classic;html=1;strokeWidth=2;dashed=1;" parent="1" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="120" y="450" as="sourcePoint"/>
+                        <mxPoint x="180" y="450" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="legend-dashed-label" value="Invocation/Auth" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="190" y="440" width="100" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="notes" value="Execution Flow:&#xa;1. User accesses UI via API Gateway → S3&#xa;2. API calls go through AppLambda&#xa;3. Schedules trigger ExecutorStateMachine&#xa;4. State Machine orchestrates 3 phases:&#xa;   - Preprocessing (resolve targets)&#xa;   - Execution (invoke target)&#xa;   - Postprocessing (save results)" style="text;html=1;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="550" width="280" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="2jE8DE3hwVgBwNvrj-cx-3" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0;exitY=0.25;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.25;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;rounded=0;curved=0;strokeWidth=1;" parent="1" source="lambda-pre" target="dynamodb" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="2jE8DE3hwVgBwNvrj-cx-7" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="lambda-pre" target="targets-box" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="api-breakdown" name="API Routes &amp; DynamoDB">
+        <mxGraphModel dx="1454" dy="817" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1400" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="api-title" value="API Routes, HTTP Verbs &amp; DynamoDB Mapping" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="500" y="20" width="600" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-apigw" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#FF4F8B;gradientDirection=north;fillColor=#BC1356;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.api_gateway;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="100" width="78" height="78" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-apigw-label" value="API Gateway" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="89" y="185" width="100" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-lambda" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" parent="1" vertex="1">
+                    <mxGeometry x="320" y="100" width="78" height="78" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-lambda-label" value="AppLambda&#xa;(FastAPI)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="309" y="185" width="100" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-edge1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" parent="1" source="api-apigw" target="api-lambda" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-edge1-label" value="/api/{proxy+}" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="api-edge1" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="api-cognito" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#F54749;gradientDirection=north;fillColor=#C7131F;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cognito;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="250" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-cognito-label" value="Cognito" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="94" y="313" width="70" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-edge-cognito" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;" parent="1" source="api-lambda" target="api-cognito" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-edge-cognito-label" value="JWT Auth" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;" parent="api-edge-cognito" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="15" y="-5" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="api-scheduler" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#FF4F8B;gradientDirection=north;fillColor=#BC1356;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.eventbridge;" parent="1" vertex="1">
+                    <mxGeometry x="240" y="250" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-scheduler-label" value="EventBridge" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="229" y="313" width="80" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-edge-scheduler" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;" parent="1" source="api-lambda" target="api-scheduler" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-edge-scheduler-label" value="Manage&#xa;Schedules" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;" parent="api-edge-scheduler" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="15" y="5" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="api-routes-box" value="FastAPI Routes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;verticalAlign=top;fontSize=14;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="100" width="600" height="550" as="geometry"/>
+                </mxCell>
+                <mxCell id="auth-routes" value="&lt;b&gt;/api/auth&lt;/b&gt;&#xa;&#xa;POST /login&#xa;  → Cognito InitiateAuth&#xa;&#xa;POST /callback&#xa;  → Exchange code for tokens" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="520" y="130" width="250" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="user-routes" value="&lt;b&gt;/api/user&lt;/b&gt;&#xa;&#xa;GET /info&#xa;  → UserMappingsTable (Query by user_id)&#xa;  → Returns tenants user can access" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="520" y="240" width="250" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="targets-routes" value="&lt;b&gt;/api/targets&lt;/b&gt;&#xa;&#xa;GET / → TargetsTable (Scan)&#xa;GET /{id} → TargetsTable (GetItem)&#xa;POST / → TargetsTable (PutItem)&#xa;PUT /{id} → TargetsTable (UpdateItem)&#xa;DELETE /{id} → TargetsTable (DeleteItem)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="520" y="350" width="250" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="tenants-routes" value="&lt;b&gt;/api/tenants&lt;/b&gt;&#xa;&#xa;GET / → TenantsTable (Scan)&#xa;GET /{id} → TenantsTable (GetItem)&#xa;POST / → TenantsTable (PutItem)&#xa;PUT /{id} → TenantsTable (UpdateItem)&#xa;DELETE /{id} → TenantsTable (DeleteItem)&#xa;&#xa;GET /{id}/users&#xa;  → UserMappingsTable (Query GSI)&#xa;POST /{id}/users&#xa;  → UserMappingsTable (PutItem)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="520" y="480" width="250" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="mappings-routes" value="&lt;b&gt;/api/tenants/{id}/mappings&lt;/b&gt;&#xa;&#xa;GET / → TenantMappingsTable (Query)&#xa;GET /{alias} → TenantMappingsTable (GetItem)&#xa;POST / → TenantMappingsTable (PutItem)&#xa;DELETE /{alias} → TenantMappingsTable (DeleteItem)&#xa;&#xa;POST /{alias}/_execute&#xa;  → Create one-time EventBridge Schedule&#xa;  → Schedule triggers ExecutorStateMachine" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=top;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="810" y="130" width="270" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="schedules-routes" value="&lt;b&gt;/api/tenants/{id}/mappings/{alias}/schedules&lt;/b&gt;&#xa;&#xa;GET / → SchedulesTable (Query by tenant_id)&#xa;GET /{schedule_id} → SchedulesTable (GetItem)&#xa;POST / → SchedulesTable (PutItem)&#xa;  + EventBridge Scheduler (CreateSchedule)&#xa;PUT /{schedule_id} → SchedulesTable (UpdateItem)&#xa;  + EventBridge Scheduler (UpdateSchedule)&#xa;DELETE /{schedule_id} → SchedulesTable (DeleteItem)&#xa;  + EventBridge Scheduler (DeleteSchedule)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=top;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="810" y="300" width="270" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="executions-routes" value="&lt;b&gt;/api/tenants/{id}/mappings/{alias}/schedules/{sid}/executions&lt;/b&gt;&#xa;&#xa;GET /&#xa;  → TargetExecutionsTable&#xa;  → Query by tenant_schedule (PK)&#xa;&#xa;GET /{execution_id}&#xa;  → TargetExecutionsTable (GetItem)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;verticalAlign=top;fontSize=11;align=left;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="810" y="480" width="270" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-dynamodb-label" value="DynamoDB Tables" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="680" y="690" width="200" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-targets-table" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" parent="1" vertex="1">
+                    <mxGeometry x="140" y="750" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-targets-table-label" value="TargetsTable&#xa;PK: target_id" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="119" y="815" width="100" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-tenants-table" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" parent="1" vertex="1">
+                    <mxGeometry x="280" y="750" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-tenants-table-label" value="TenantsTable&#xa;PK: tenant_id" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="259" y="815" width="100" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-mappings-table" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="750" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-mappings-table-label" value="TenantMappingsTable&#xa;PK: tenant_id&#xa;SK: target_alias" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="384" y="815" width="130" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-schedules-table" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" parent="1" vertex="1">
+                    <mxGeometry x="580" y="750" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-schedules-table-label" value="SchedulesTable&#xa;PK: tenant_id&#xa;SK: schedule_id&#xa;GSI: tenant-target-index" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="539" y="815" width="140" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-users-table" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" parent="1" vertex="1">
+                    <mxGeometry x="760" y="750" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-users-table-label" value="UserMappingsTable&#xa;PK: user_id&#xa;SK: tenant_id&#xa;GSI: tenant-index" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="719" y="815" width="140" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-executions-table" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" parent="1" vertex="1">
+                    <mxGeometry x="950" y="750" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-executions-table-label" value="TargetExecutionsTable&#xa;PK: tenant_schedule&#xa;SK: execution_id&#xa;GSI: tenant-target-index" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="894" y="815" width="170" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-arrow-targets" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;" parent="1" source="targets-routes" target="api-targets-table" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="500" y="405"/>
+                            <mxPoint x="500" y="779"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="api-arrow-tenants" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;" parent="1" source="tenants-routes" target="api-tenants-table" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="480" y="555"/>
+                            <mxPoint x="480" y="779"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="api-arrow-tenants-users" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;" parent="1" source="tenants-routes" target="api-users-table" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="460" y="590"/>
+                            <mxPoint x="460" y="900"/>
+                            <mxPoint x="789" y="900"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="api-arrow-user" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;" parent="1" source="user-routes" target="api-users-table" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="440" y="285"/>
+                            <mxPoint x="440" y="920"/>
+                            <mxPoint x="789" y="920"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="api-arrow-mappings" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;" parent="1" source="mappings-routes" target="api-mappings-table" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1120" y="205"/>
+                            <mxPoint x="1120" y="700"/>
+                            <mxPoint x="449" y="700"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="api-arrow-schedules" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;" parent="1" source="schedules-routes" target="api-schedules-table" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1140" y="380"/>
+                            <mxPoint x="1140" y="680"/>
+                            <mxPoint x="609" y="680"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="api-arrow-executions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;" parent="1" source="executions-routes" target="api-executions-table" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1160" y="545"/>
+                            <mxPoint x="1160" y="660"/>
+                            <mxPoint x="979" y="660"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="api-legend-box" value="Route Types" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;verticalAlign=top;fontSize=12;fontStyle=1;align=left;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="1180" y="100" width="180" height="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-legend-auth" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+                    <mxGeometry x="1200" y="140" width="20" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-legend-auth-label" value="Auth &amp; User Routes" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1230" y="135" width="120" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-legend-execution" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="1200" y="180" width="20" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-legend-execution-label" value="Execution Routes&#xa;(Schedules &amp; Mappings)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1230" y="170" width="120" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-legend-history" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
+                    <mxGeometry x="1200" y="230" width="20" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-legend-history-label" value="History/Read-Only&#xa;(Executions)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1230" y="220" width="120" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-http-methods" value="&lt;b&gt;HTTP Verbs Used:&lt;/b&gt;&#xa;&#xa;GET - Retrieve data (Query, GetItem, Scan)&#xa;POST - Create new resources (PutItem)&#xa;PUT - Update existing resources (UpdateItem)&#xa;DELETE - Remove resources (DeleteItem)&#xa;&#xa;&lt;b&gt;DynamoDB Operations:&lt;/b&gt;&#xa;&#xa;GetItem - Retrieve single item by PK (+ SK)&#xa;Query - Retrieve items by PK (+ optional SK prefix)&#xa;Scan - Retrieve all items (no filtering)&#xa;PutItem - Create/replace item&#xa;UpdateItem - Modify specific attributes&#xa;DeleteItem - Remove item" style="text;html=1;strokeColor=#b85450;fillColor=#f8cecc;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;spacingLeft=10;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="1180" y="300" width="280" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-patterns" value="&lt;b&gt;Key Access Patterns:&lt;/b&gt;&#xa;&#xa;1. User logs in → Query UserMappingsTable&#xa;   to get allowed tenants&#xa;&#xa;2. Schedule CRUD → Update both SchedulesTable&#xa;   AND EventBridge Scheduler in sync&#xa;&#xa;3. Execute on-demand → Create one-time&#xa;   EventBridge Schedule (at: now + 1 min)&#xa;&#xa;4. View executions → Query by tenant_schedule&#xa;   or use GSI to filter by tenant_target" style="text;html=1;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;spacingLeft=10;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="1180" y="560" width="280" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="api-tenant-isolation" value="&lt;b&gt;Multi-Tenant Isolation:&lt;/b&gt;&#xa;&#xa;All DynamoDB tables use tenant_id as PK&#xa;or part of composite key. Every API call:&#xa;&#xa;1. Validates JWT token (Cognito)&#xa;2. Checks UserMappingsTable for access&#xa;3. Filters queries by tenant_id&#xa;4. Returns 403 if access denied" style="text;html=1;strokeColor=#82b366;fillColor=#d5e8d4;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;spacingLeft=10;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="1180" y="780" width="280" height="140" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="executor-orchestration" name="Executor Orchestration">
+        <mxGraphModel dx="2829" dy="2358" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1400" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="exec-title" value="Executor State Machine - Target Injection &amp; Orchestration" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="400" y="20" width="800" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-subtitle" value="How aliases are resolved to targets, parameters are merged, and execution is orchestrated" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=2" parent="1" vertex="1">
+                    <mxGeometry x="400" y="55" width="800" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-trigger-box" value="Trigger Input" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=top;fontSize=12;fontStyle=1;align=left;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="120" width="280" height="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-trigger-content" value="EventBridge Scheduler sends:&#xa;&#xa;{&#xa;  &quot;tenant_id&quot;: &quot;acme-corp&quot;,&#xa;  &quot;target_alias&quot;: &quot;email-sender&quot;,&#xa;  &quot;schedule_id&quot;: &quot;daily-report&quot;,&#xa;  &quot;payload&quot;: {&#xa;    &quot;recipient&quot;: &quot;boss@acme.com&quot;,&#xa;    &quot;report_type&quot;: &quot;sales&quot;&#xa;  }&#xa;}" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontFamily=Courier New;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="90" y="145" width="260" height="105" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-scheduler" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#FF4F8B;gradientDirection=north;fillColor=#BC1356;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.eventbridge;" parent="1" vertex="1">
+                    <mxGeometry x="191" y="280" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-scheduler-label" value="EventBridge" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="180" y="343" width="80" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-sfn-main" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#FF4F8B;gradientDirection=north;fillColor=#BC1356;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.step_functions;" parent="1" vertex="1">
+                    <mxGeometry x="191" y="400" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-sfn-label" value="ExecutorStateMachine" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="155" y="463" width="130" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-scheduler" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" parent="1" source="exec-scheduler" target="exec-sfn-main" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-scheduler-label" value="Invoke" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="exec-arrow-scheduler" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="15" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="exec-phase1-box" value="PHASE 1: Preprocessing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;fontSize=13;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="120" width="500" height="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-preprocessing" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" parent="1" vertex="1">
+                    <mxGeometry x="450" y="155" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-preprocessing-label" value="PreprocessingLambda" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="424" y="208" width="100" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-step1" value="&lt;b&gt;Step 1: Resolve Alias&lt;/b&gt;&#xa;&#xa;Query TenantMappingsTable:&#xa;  PK: tenant_id (&quot;acme-corp&quot;)&#xa;  SK: target_alias (&quot;email-sender&quot;)&#xa;&#xa;Returns:&#xa;  target_id: &quot;email-sender-v2&quot;" style="text;html=1;strokeColor=#82b366;fillColor=#d5e8d4;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;spacingLeft=10;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="540" y="150" width="200" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-step2" value="&lt;b&gt;Step 2: Get Target Config&lt;/b&gt;&#xa;&#xa;Query TargetsTable:&#xa;  PK: target_id (&quot;email-sender-v2&quot;)&#xa;&#xa;Returns:&#xa;  target_arn: &quot;arn:aws:lambda:...&quot;&#xa;  target_type: &quot;lambda&quot;&#xa;  default_payload: {&#xa;    &quot;from&quot;: &quot;noreply@acme.com&quot;,&#xa;    &quot;template&quot;: &quot;default&quot;&#xa;  }" style="text;html=1;strokeColor=#82b366;fillColor=#d5e8d4;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;spacingLeft=10;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="540" y="275" width="200" height="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-step3" value="&lt;b&gt;Step 3: Merge Payloads&lt;/b&gt;&#xa;&#xa;Merged payload = &#xa;  target.default_payload&#xa;  + schedule.payload&#xa;&#xa;Result:&#xa;{&#xa;  &quot;from&quot;: &quot;noreply@acme.com&quot;,&#xa;  &quot;template&quot;: &quot;default&quot;,&#xa;  &quot;recipient&quot;: &quot;boss@acme.com&quot;,&#xa;  &quot;report_type&quot;: &quot;sales&quot;&#xa;}" style="text;html=1;strokeColor=#b85450;fillColor=#f8cecc;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;spacingLeft=10;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="760" y="150" width="145" height="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-preprocessing-output" value="&lt;b&gt;Output:&lt;/b&gt;&#xa;{&#xa;  &quot;target_arn&quot;: &quot;...&quot;,&#xa;  &quot;target_type&quot;: &quot;lambda&quot;,&#xa;  &quot;merged_payload&quot;: {...},&#xa;  &quot;target_config&quot;: {...}&#xa;}" style="text;html=1;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=9;fontFamily=Courier New;spacingLeft=10;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="760" y="345" width="145" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-sfn-pre" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" parent="1" source="exec-sfn-main" target="exec-preprocessing" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="350" y="429"/>
+                            <mxPoint x="350" y="179"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="exec-arrow-sfn-pre-label" value="1. Invoke" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="exec-arrow-sfn-pre" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="10" y="-10" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="exec-phase2-box" value="PHASE 2: Execution (Target Type Router)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=top;fontSize=13;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="440" width="500" height="380" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-choice" value="Choice State&#xa;(Route by target_type)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="600" y="480" width="140" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-lambda-path" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" parent="1" vertex="1">
+                    <mxGeometry x="450" y="620" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-lambda-path-label" value="Lambda Target&#xa;&#xa;LambdaExecutionHelper&#xa;invokes target Lambda&#xa;and captures logs" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="414" y="673" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-ecs-path" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ecs;" parent="1" vertex="1">
+                    <mxGeometry x="646" y="620" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-ecs-path-label" value="ECS Target&#xa;&#xa;Native Step Functions&#xa;integration: RunTask&#xa;with waitForTaskToken" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="610" y="673" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-sfn-path" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#FF4F8B;gradientDirection=north;fillColor=#BC1356;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.step_functions;" parent="1" vertex="1">
+                    <mxGeometry x="842" y="620" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-sfn-path-label" value="Step Functions Target&#xa;&#xa;Nested execution with&#xa;sync:2 integration&#xa;(waits for completion)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="806" y="673" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-choice-lambda" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;" parent="1" source="exec-choice" target="exec-lambda-path" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-choice-lambda-label" value="type=lambda" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;" parent="exec-arrow-choice-lambda" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="5" y="-10" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="exec-arrow-choice-ecs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;" parent="1" source="exec-choice" target="exec-ecs-path" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-choice-ecs-label" value="type=ecs" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;" parent="exec-arrow-choice-ecs" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint y="-10" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="exec-arrow-choice-sfn" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;" parent="1" source="exec-choice" target="exec-sfn-path" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-choice-sfn-label" value="type=stepfunctions" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;" parent="exec-arrow-choice-sfn" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="-10" y="-10" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="exec-result-collector" value="Result Collector&#xa;&#xa;All paths return:&#xa;{&#xa;  &quot;status&quot;: &quot;SUCCESS&quot;,&#xa;  &quot;response&quot;: {...},&#xa;  &quot;logs_url&quot;: &quot;...&quot;&#xa;}" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="590" y="755" width="160" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-lambda-result" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;" parent="1" source="exec-lambda-path" target="exec-result-collector" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-ecs-result" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;" parent="1" source="exec-ecs-path" target="exec-result-collector" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-sfn-result" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;" parent="1" source="exec-sfn-path" target="exec-result-collector" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-sfn-choice" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" parent="1" source="exec-sfn-main" target="exec-choice" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="350" y="429"/>
+                            <mxPoint x="350" y="530"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="exec-arrow-sfn-choice-label" value="2. Route" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="exec-arrow-sfn-choice" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="10" y="5" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="exec-phase3-box" value="PHASE 3: Postprocessing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;verticalAlign=top;fontSize=13;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="860" width="500" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-eventbridge-rule" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#FF4F8B;gradientDirection=north;fillColor=#BC1356;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.eventbridge;" parent="1" vertex="1">
+                    <mxGeometry x="450" y="900" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-eventbridge-rule-label" value="EventBridge Rule&#xa;(Status Change)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="414" y="953" width="120" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-postprocessing" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" parent="1" vertex="1">
+                    <mxGeometry x="646" y="900" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-postprocessing-label" value="PostprocessingLambda" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="620" y="953" width="100" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-eb-post" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" parent="1" source="exec-eventbridge-rule" target="exec-postprocessing" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-eb-post-label" value="Trigger" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="exec-arrow-eb-post" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="exec-post-action" value="&lt;b&gt;Save Execution Result&lt;/b&gt;&#xa;&#xa;TargetExecutionsTable.PutItem:&#xa;  PK: &quot;acme-corp#daily-report&quot;&#xa;  SK: execution_id&#xa;  status: &quot;SUCCESS&quot;&#xa;  result: {...}&#xa;  logs_url: &quot;...&quot;&#xa;  timestamp: &quot;2026-01-15T09:00:00Z&quot;" style="text;html=1;strokeColor=#82b366;fillColor=#d5e8d4;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;spacingLeft=10;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="750" y="890" width="150" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-sfn-eb" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;dashed=1;" parent="1" source="exec-result-collector" target="exec-eventbridge-rule" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="670"/>
+                            <mxPoint x="670"/>
+                            <mxPoint x="380"/>
+                            <mxPoint x="380"/>
+                            <mxPoint x="380"/>
+                            <mxPoint y="924"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="exec-arrow-sfn-eb-label" value="3. Complete&#xa;(emits event)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="exec-arrow-sfn-eb" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="-20" y="5" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="exec-dynamodb-tables" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" parent="1" vertex="1">
+                    <mxGeometry x="1000" y="180" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-dynamodb-label" value="DynamoDB Tables" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="969" y="243" width="120" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-dynamodb-list" value="• TenantMappingsTable&#xa;  (alias → target_id)&#xa;&#xa;• TargetsTable&#xa;  (target config &amp; ARN)&#xa;&#xa;• TargetExecutionsTable&#xa;  (execution history)" style="text;html=1;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;spacingLeft=10;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="954" y="270" width="150" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-pre-db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;" parent="1" source="exec-step1" target="exec-dynamodb-tables" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-pre-db2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;" parent="1" source="exec-step2" target="exec-dynamodb-tables" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="780" y="333"/>
+                            <mxPoint x="780" y="209"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="exec-dynamodb-executions" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#4D72F3;gradientDirection=north;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" parent="1" vertex="1">
+                    <mxGeometry x="1000" y="950" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-arrow-post-db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;" parent="1" source="exec-post-action" target="exec-dynamodb-executions" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-key-insight" value="&lt;b&gt;KEY INSIGHT: The Orchestrator Pattern&lt;/b&gt;&#xa;&#xa;The ExecutorStateMachine acts as the central orchestrator:&#xa;&#xa;1. &lt;b&gt;Abstraction Layer&lt;/b&gt;: Tenants use friendly aliases&#xa;   (&quot;email-sender&quot;), not ARNs. System resolves them.&#xa;&#xa;2. &lt;b&gt;Parameter Injection&lt;/b&gt;: Target defaults are merged&#xa;   with schedule-specific parameters automatically.&#xa;&#xa;3. &lt;b&gt;Type Polymorphism&lt;/b&gt;: Same input format works for&#xa;   Lambda, ECS, or Step Functions - routing is automatic.&#xa;&#xa;4. &lt;b&gt;Centralized Security&lt;/b&gt;: Only the State Machine has&#xa;   permission to invoke targets. API cannot bypass it.&#xa;&#xa;5. &lt;b&gt;Consistent Logging&lt;/b&gt;: All executions follow the same&#xa;   three-phase pattern with uniform result capture." style="text;html=1;strokeColor=#9673a6;fillColor=#e1d5e7;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;spacingLeft=10;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="1000" y="440" width="320" height="270" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-alias-example" value="&lt;b&gt;Why Aliases Matter&lt;/b&gt;&#xa;&#xa;Instead of:&#xa;  &quot;Run arn:aws:lambda:us-east-1:123...&quot;&#xa;&#xa;Tenants say:&#xa;  &quot;Run email-sender&quot;&#xa;&#xa;Benefits:&#xa;• Upgrade targets (v1 → v2) without&#xa;  changing all schedules&#xa;• Tenant-specific mappings&#xa;• Human-readable references" style="text;html=1;strokeColor=#d6b656;fillColor=#fff2cc;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;spacingLeft=10;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="1000" y="740" width="240" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-flow-summary" value="&lt;b&gt;Execution Flow Summary&lt;/b&gt;&#xa;&#xa;EventBridge Scheduler&#xa;  ↓ (with tenant_id + alias + payload)&#xa;ExecutorStateMachine&#xa;  ↓ Phase 1: Preprocessing&#xa;    • Resolve alias → target_id&#xa;    • Get target config &amp; ARN&#xa;    • Merge payloads&#xa;  ↓ Phase 2: Execution&#xa;    • Route by target_type&#xa;    • Invoke target with merged payload&#xa;    • Capture result &amp; logs&#xa;  ↓ Phase 3: Postprocessing&#xa;    • EventBridge detects completion&#xa;    • Save to TargetExecutionsTable&#xa;    • Include logs URL for debugging" style="text;html=1;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;spacingLeft=10;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="520" width="280" height="260" as="geometry"/>
+                </mxCell>
+                <mxCell id="exec-retry-note" value="&lt;b&gt;Error Handling&lt;/b&gt;&#xa;&#xa;Preprocessing: 2 retries&#xa;with exponential backoff&#xa;&#xa;Execution: Wrapped in&#xa;Parallel state with Catch&#xa;for centralized error handling&#xa;&#xa;Postprocessing: EventBridge&#xa;auto-retries on failure" style="text;html=1;strokeColor=#b85450;fillColor=#f8cecc;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;spacingLeft=10;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="1260" y="740" width="200" height="170" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="security-model" name="Security Model &amp; IAM Roles">
+        <mxGraphModel dx="1229" dy="958" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1500" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="sec-title" value="Security Model - IAM Role Segregation &amp; Least Privilege" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="280" y="30" width="800" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-subtitle" value="How execution abstraction and scoped permissions create a secure multi-tenant architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=2" parent="1" vertex="1">
+                    <mxGeometry x="280" y="65" width="800" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-role1-box" value="AppLambdaRole" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;fontSize=14;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="120" width="390" height="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-app-lambda" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" parent="1" vertex="1">
+                    <mxGeometry x="121" y="155" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-app-lambda-label" value="AppLambda (FastAPI)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="90" y="218" width="120" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-app-permissions" value="&lt;b&gt;✓ CAN:&lt;/b&gt;&#xa;• DynamoDB CRUD on all 6 tables&#xa;• EventBridge Scheduler management&#xa;• Cognito user operations&#xa;• Secrets Manager read&#xa;• RedriveExecution on StateMachine&#xa;&#xa;&lt;b&gt;✗ CANNOT:&lt;/b&gt;&#xa;• Invoke target Lambdas&#xa;• Run ECS tasks&#xa;• Start Step Functions (targets)&#xa;&#xa;&lt;b&gt;WHY:&lt;/b&gt; API manages schedules&#xa;but never executes targets directly.&#xa;Forces all execution through&#xa;controlled orchestrator." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="220" y="150" width="210" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-role2-box" value="EventBridgeSchedulerRole" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=top;fontSize=14;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="490" y="120" width="380" height="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-scheduler" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#FF4F8B;gradientDirection=north;fillColor=#BC1356;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.eventbridge;" parent="1" vertex="1">
+                    <mxGeometry x="531" y="155" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-scheduler-label" value="EventBridge Scheduler" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="500" y="218" width="120" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-scheduler-permissions" value="&lt;b&gt;✓ CAN:&lt;/b&gt;&#xa;• StartExecution on ExecutorStateMachine&#xa;  (and ONLY that specific state machine)&#xa;&#xa;&lt;b&gt;✗ CANNOT:&lt;/b&gt;• Everything else&#xa;&#xa;&lt;b&gt;WHY:&lt;/b&gt; Scheduler has minimal permissions.&#xa;Cannot access DynamoDB, invoke Lambdas,&#xa;or do anything except start the orchestrator.&#xa;Principle of least privilege in action." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="628" y="150" width="210" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-role3-box" value="ExecutorStateMachineRole" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;verticalAlign=top;fontSize=14;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="890" y="120" width="380" height="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-sfn" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#FF4F8B;gradientDirection=north;fillColor=#BC1356;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.step_functions;" parent="1" vertex="1">
+                    <mxGeometry x="941" y="155" width="58" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-sfn-label" value="ExecutorStateMachine" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="910" y="218" width="120" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-sfn-permissions" value="&lt;b&gt;✓ CAN:&lt;/b&gt;&#xa;• Invoke helper Lambdas (3)&#xa;• Invoke ANY target Lambda&#xa;• Run ANY ECS task&#xa;• Start ANY Step Functions&#xa;• PassRole to ECS tasks&#xa;• X-Ray tracing&#xa;&#xa;&lt;b&gt;✗ CANNOT:&lt;/b&gt;&#xa;• Access DynamoDB directly&#xa;• Manage EventBridge schedules&#xa;&#xa;&lt;b&gt;WHY:&lt;/b&gt; Single point of execution&#xa;authority. Has broad permissions&#xa;but only invoked through controlled&#xa;channels (Scheduler). This is the&#xa;ONLY role that can execute targets." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="1050" y="150" width="210" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-helpers-box" value="Helper Lambda Roles" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;verticalAlign=top;fontSize=14;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="440" width="1190" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-pre-role-box" value="PreprocessingLambdaRole" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;verticalAlign=top;fontSize=12;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="480" width="370" height="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-pre-lambda" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" parent="1" vertex="1">
+                    <mxGeometry x="120" y="510" width="38" height="38" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-pre-permissions" value="&lt;b&gt;✓ CAN:&lt;/b&gt;&lt;br&gt;• GetItem on TargetsTable&lt;br&gt;• GetItem on TenantMappingsTable&lt;br&gt;&lt;br&gt;&lt;b&gt;✗ CANNOT:&lt;/b&gt; Write to DynamoDB,&amp;nbsp;invoke functions, manage schedules&lt;br&gt;&lt;br&gt;&lt;b&gt;WHY:&lt;/b&gt; Read-only access to&amp;nbsp;resolve aliases and get config." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=9;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="170" y="505" width="240" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-exec-role-box" value="LambdaExecutionHelperRole" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;verticalAlign=top;fontSize=12;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="490" y="480" width="380" height="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-exec-lambda" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" parent="1" vertex="1">
+                    <mxGeometry x="531" y="510" width="38" height="38" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-exec-permissions" value="&lt;b&gt;✓ CAN:&lt;/b&gt;&lt;br&gt;• InvokeFunction on ANY Lambda&lt;br&gt;• DescribeLogStreams on CloudWatch&lt;br&gt;• FilterLogEvents on CloudWatch&lt;br&gt;&lt;br&gt;&lt;b&gt;✗ CANNOT:&lt;/b&gt; Access DynamoDB,&amp;nbsp;run ECS tasks, manage schedules&lt;br&gt;&lt;br&gt;&lt;b&gt;WHY:&lt;/b&gt; Invokes targets and captures&amp;nbsp;logs. Wildcard Lambda permission OK&amp;nbsp;because only called by StateMachine." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=9;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="578" y="500" width="270" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-post-role-box" value="PostprocessingLambdaRole" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;verticalAlign=top;fontSize=12;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="890" y="480" width="360" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-post-lambda" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=#F78E04;gradientDirection=north;fillColor=#D05C17;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" parent="1" vertex="1">
+                    <mxGeometry x="910" y="510" width="38" height="38" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-post-permissions" value="&lt;b&gt;✓ CAN:&lt;/b&gt;&#xa;• PutItem on TargetExecutionsTable&#xa;• DescribeExecution on Step Functions&#xa;&#xa;&lt;b&gt;✗ CANNOT:&lt;/b&gt; Read other DynamoDB tables,&#xa;invoke functions, manage schedules, access targets&#xa;&#xa;&lt;b&gt;WHY:&lt;/b&gt; Write-only access to execution history.&#xa;Cannot modify schedules or invoke targets. Describes&#xa;executions to get full results for storage." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=9;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="970" y="500" width="270" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-flow-diagram" value="Security Flow - Execution Path" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=top;fontSize=14;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="680" width="680" height="460" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-user-box" value="User/Schedule" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="110" y="720" width="100" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-api-box" value="AppLambda" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="110" y="780" width="100" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-scheduler-box" value="EventBridge&#xa;Scheduler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="110" y="840" width="100" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-sfn-box" value="Executor&#xa;StateMachine" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="110" y="900" width="100" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-target-box" value="TARGET&#xa;(Lambda/ECS/SFN)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="110" y="960" width="100" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-arrow1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="sec-user-box" target="sec-api-box" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-arrow1-label" value="Request execution" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="sec-arrow1" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="50" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sec-arrow2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="sec-api-box" target="sec-scheduler-box" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-arrow2-label" value="Create schedule" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="sec-arrow2" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="50" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sec-arrow3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="sec-scheduler-box" target="sec-sfn-box" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-arrow3-label" value="StartExecution" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="sec-arrow3" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="50" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sec-arrow4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="sec-sfn-box" target="sec-target-box" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-arrow4-label" value="Invoke target" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="sec-arrow4" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint x="50" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sec-blocked1" value="✗" style="text;html=1;strokeColor=#b85450;fillColor=#f8cecc;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=24;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="250" y="790" width="40" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-blocked1-label" value="BLOCKED:&#xa;API cannot invoke&#xa;targets directly" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="300" y="785" width="120" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-blocked1-line" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#b85450;dashed=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" parent="1" source="sec-api-box" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="210" y="800" as="sourcePoint"/>
+                        <mxPoint x="250" y="975" as="targetPoint"/>
+                        <Array as="points">
+                            <mxPoint x="240" y="800"/>
+                            <mxPoint x="240" y="975"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sec-blocked2" value="✗" style="text;html=1;strokeColor=#b85450;fillColor=#f8cecc;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=24;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="250" y="850" width="40" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-blocked2-label" value="BLOCKED:&#xa;Scheduler cannot invoke&#xa;targets directly" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="300" y="845" width="120" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-blocked2-line" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#b85450;dashed=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" parent="1" source="sec-scheduler-box" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="210" y="860" as="sourcePoint"/>
+                        <mxPoint x="250" y="980" as="targetPoint"/>
+                        <Array as="points">
+                            <mxPoint x="240" y="860"/>
+                            <mxPoint x="240" y="980"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sec-only-path" value="✓ ONLY VALID PATH" style="text;html=1;strokeColor=#82b366;fillColor=#d5e8d4;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=11;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="250" y="910" width="140" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-flow-notes" value="&lt;b&gt;Security Guarantees:&lt;/b&gt;&#xa;&#xa;1. No component can bypass the orchestrator&#xa;2. User requests cannot directly invoke targets&#xa;3. API can create schedules but not execute&#xa;4. All execution flows through single audit point&#xa;5. Helper Lambdas have scoped, minimal permissions&#xa;6. State Machine is the ONLY execution authority" style="text;html=1;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;spacingLeft=10;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="720" width="300" height="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-abstraction-notes" value="&lt;b&gt;Execution Abstraction Benefits:&lt;/b&gt;&#xa;&#xa;1. &lt;b&gt;Single Point of Control:&lt;/b&gt; All executions&#xa;   go through StateMachine - easy to audit,&#xa;   monitor, and enforce policies.&#xa;&#xa;2. &lt;b&gt;Blast Radius Limitation:&lt;/b&gt; If API is&#xa;   compromised, attacker cannot invoke targets&#xa;   directly. Can only create schedules.&#xa;&#xa;3. &lt;b&gt;Consistent Security:&lt;/b&gt; Execution logic&#xa;   (auth, validation, logging) is centralized,&#xa;   not scattered across multiple components.&#xa;&#xa;4. &lt;b&gt;Easy Updates:&lt;/b&gt; Change execution logic&#xa;   in one place (StateMachine), not in every&#xa;   component that needs to invoke targets." style="text;html=1;strokeColor=#9673a6;fillColor=#e1d5e7;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;spacingLeft=10;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="880" width="300" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-principle-box" value="Principle of Least Privilege in Action" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;verticalAlign=top;fontSize=14;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="800" y="680" width="470" height="460" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-principle-content" value="&lt;b&gt;What is Least Privilege?&lt;/b&gt;&#xa;Each component gets ONLY the permissions it needs to do its job,&#xa;and nothing more. This limits damage if a component is compromised.&#xa;&#xa;&lt;b&gt;How We Apply It:&lt;/b&gt;&#xa;&#xa;&lt;b&gt;1. AppLambda&lt;/b&gt; manages data and schedules but cannot execute.&#xa;   If compromised: Cannot invoke targets directly.&#xa;&#xa;&lt;b&gt;2. EventBridge Scheduler&lt;/b&gt; can only start ExecutorStateMachine.&#xa;   If compromised: Cannot access data or targets.&#xa;&#xa;&lt;b&gt;3. ExecutorStateMachine&lt;/b&gt; can execute but not manage schedules.&#xa;   If compromised: Cannot create persistent schedules.&#xa;&#xa;&lt;b&gt;4. PreprocessingLambda&lt;/b&gt; has read-only access to tables.&#xa;   If compromised: Cannot modify data or invoke anything.&#xa;&#xa;&lt;b&gt;5. LambdaExecutionHelper&lt;/b&gt; can invoke but not read data.&#xa;   If compromised: Needs to know exact ARN and payload.&#xa;&#xa;&lt;b&gt;6. PostprocessingLambda&lt;/b&gt; can only write execution results.&#xa;   If compromised: Cannot read other data or invoke targets.&#xa;&#xa;&lt;b&gt;Result:&lt;/b&gt; Compromising one component doesn&#39;t give access to the&#xa;entire system. Attacker would need to compromise multiple components&#xa;with different permissions to do serious damage." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;spacingLeft=10;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="820" y="715" width="430" height="345" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-comparison-box" value="Comparison: Without Abstraction vs With Abstraction" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;fontSize=14;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="90" y="1180" width="1180" height="300" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-without-box" value="&lt;b&gt;❌ WITHOUT Execution Abstraction&lt;/b&gt;&#xa;(Dangerous Pattern)&#xa;&#xa;AppLambda needs permissions to:&#xa;• Invoke ALL target Lambdas (wildcard)&#xa;• Run ALL ECS tasks (wildcard)&#xa;• Start ALL Step Functions (wildcard)&#xa;&#xa;&lt;b&gt;Problem:&lt;/b&gt; If API is compromised,&#xa;attacker has full execution access to&#xa;entire AWS account. Single point of failure.&#xa;&#xa;&lt;b&gt;Audit:&lt;/b&gt; Hard to track who invoked what.&#xa;Execution scattered across components." style="text;html=1;strokeColor=#b85450;fillColor=#f8cecc;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;spacingLeft=10;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="110" y="1220" width="350" height="230" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-with-box" value="&lt;b&gt;✅ WITH Execution Abstraction&lt;/b&gt;&#xa;(Secure Pattern)&#xa;&#xa;AppLambda has NO execution permissions.&#xa;Only ExecutorStateMachine can execute.&#xa;&#xa;&lt;b&gt;Benefit:&lt;/b&gt; If API is compromised,&#xa;attacker can only create schedules.&#xa;Cannot invoke targets on demand.&#xa;&#xa;&lt;b&gt;Audit:&lt;/b&gt; All executions flow through&#xa;StateMachine. Single audit point.&#xa;Step Functions tracks full history.&#xa;&#xa;&lt;b&gt;Monitoring:&lt;/b&gt; Watch one IAM role&#xa;(StateMachineRole) for execution activity." style="text;html=1;strokeColor=#82b366;fillColor=#d5e8d4;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;spacingLeft=10;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="498" y="1220" width="350" height="230" as="geometry"/>
+                </mxCell>
+                <mxCell id="sec-key-takeaway" value="&lt;b&gt;KEY TAKEAWAY&lt;/b&gt;&#xa;&#xa;By abstracting execution behind ExecutorStateMachine:&#xa;&#xa;1. Limit blast radius of compromises&#xa;2. Centralize security enforcement&#xa;3. Enable comprehensive audit trails&#xa;4. Simplify permission management&#xa;5. Prevent privilege escalation attacks&#xa;&#xa;The orchestrator pattern is more complex to build,&#xa;but provides much stronger security guarantees&#xa;than allowing direct execution permissions." style="text;html=1;strokeColor=#9673a6;fillColor=#e1d5e7;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=11;spacingLeft=10;spacingTop=10;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="890" y="1220" width="350" height="230" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

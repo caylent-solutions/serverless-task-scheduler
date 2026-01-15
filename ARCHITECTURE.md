@@ -2,7 +2,12 @@
 
 ## Overview
 
-The Serverless Task Scheduler (STS) is a multi-tenant AWS serverless application that manages and executes scheduled tasks across Lambda, ECS, and Step Functions. The application uses a modular architecture with clear separation between the API layer, execution orchestration, and data storage.
+The Serverless Task Scheduler (STS) is a multi-tenant AWS serverless application that manages and executes scheduled tasks across different compute services (Lambda functions, ECS containers, and Step Functions workflows). 
+
+Think of it like a sophisticated cron job manager that works across an entire organization:
+- **Multi-tenant** means multiple organizations (tenants) can use the same system with their data isolated
+- **Serverless** means no servers to manage - AWS handles scaling, availability, and infrastructure
+- **Modular architecture** means clear separation between the API layer (what users interact with), execution orchestration (how tasks run), and data storage (where information is kept)
 
 ---
 
@@ -16,28 +21,29 @@ The FastAPI-based REST API that provides the management interface for the entire
 - User authentication and authorization via AWS Cognito
 - CRUD operations for targets, tenants, mappings, schedules, and users
 - Direct execution endpoint for on-demand task execution
-- Serves the React web UI for browser-based management
 - Dynamic OpenAPI schema generation based on available targets
+- Provides API endpoints for the React web UI (UI is served separately from S3 via API Gateway)
 
 #### Key Files
 - [app/main.py](api/app/main.py) - FastAPI application with middleware, routing, and authentication
 - [app/lambda_handler.py](api/app/lambda_handler.py) - AWS Lambda handler using Mangum adapter
 - [app/routers/](api/app/routers/) - API route handlers (targets, tenants, schedules, auth, user)
 - [app/models/](api/app/models/) - Pydantic models for request/response validation
-- [app/awssdk/](api/app/awssdk/) - AWS SDK wrappers (DynamoDB, Cognito, EventBridge)
-- [app/wwwroot/](api/app/wwwroot/) - Built React UI static files (populated during deployment)
+- [app/awssdk/](api/app/awssdk/) - AWS SDK wrappers (DynamoDB, Cognito, EventBridge, Step Functions)
 - [requirements.txt](api/requirements.txt) - Python dependencies
 
 #### Related AWS Resources (from template.yaml)
 
-**API Gateway (Lines 360-377)**
+**API Gateway (Lines 374-472)**
 - **Resource**: `ApiGateway` - AWS::Serverless::Api
 - **Configuration**:
   - REST API with stage name from `Environment` parameter
-  - Routes `/{proxy+}` and `/` to AppLambda
+  - Routes `/api/{proxy+}` to AppLambda (FastAPI backend)
+  - Routes `/` and `/{proxy+}` to S3 StaticFilesBucket (React UI)
   - Binary media type support for images
   - X-Ray tracing enabled
-- **Purpose**: HTTP entry point that routes all requests to the FastAPI Lambda
+  - SPA routing support (404s return index.html for client-side routing)
+- **Purpose**: Single entry point that routes API requests to Lambda and static file requests to S3
 
 **App Lambda Function (Lines 387-413)**
 - **Resource**: `AppLambda` - AWS::Serverless::Function
@@ -70,37 +76,49 @@ The FastAPI-based REST API that provides the management interface for the entire
   - Secrets Manager: GetSecretValue for configuration
 
 **DynamoDB Tables - Data Storage**
-1. **TargetsTable (Lines 75-94)**: Stores target definitions
-   - PK: `target_id` (string)
-   - Stores: ARN, type (lambda/ecs/stepfunctions), config, parameter schema
+
+**Key Concepts**:
+- **PK (Partition Key)**: Main identifier used to distribute data across servers. All items with same PK are stored together.
+- **SK (Sort Key)**: Optional secondary identifier within a partition. Allows storing multiple related items under one PK, sorted by SK.
+- **GSI (Global Secondary Index)**: Alternative way to query the table using different attributes. Like having a second copy of the table organized differently.
+- **TTL (Time To Live)**: Automatic deletion of old records based on timestamp. Saves storage costs.
+
+**The Six Tables**:
+1. **TargetsTable (Lines 75-94)**: Stores target definitions (what can be executed)
+   - PK: `target_id` (string) - unique identifier for each target
+   - Stores: ARN (AWS Resource Name - address of the resource), type (lambda/ecs/stepfunctions), configuration, parameter schema
+   - Example: A Lambda function that sends emails, or an ECS task that processes data
 
 2. **TenantsTable (Lines 100-119)**: Stores tenant (organization) definitions
-   - PK: `tenant_id` (string)
+   - PK: `tenant_id` (string) - unique identifier for each organization
    - Stores: Tenant name, description, metadata
+   - Think of tenants as separate organizations sharing the same system
 
 3. **TenantMappingsTable (Lines 125-148)**: Maps tenant aliases to targets
-   - PK: `tenant_id` (string)
-   - SK: `target_alias` (string)
-   - Stores: Mapping between friendly names and actual target IDs
+   - PK: `tenant_id` (string) - which organization
+   - SK: `target_alias` (string) - friendly name chosen by the tenant
+   - Stores: Mapping between tenant's custom names and actual target IDs
+   - Example: Tenant calls it "send-email" but it maps to target "email-sender-v2"
 
-4. **TargetExecutionsTable (Lines 158-197)**: Execution history
-   - PK: `tenant_schedule` (composite: `tenant_id#schedule_id`)
-   - SK: `execution_id` (string)
-   - GSI: `tenant-target-index` (tenant_target + timestamp) for listing by tenant/target
-   - TTL enabled on `ttl` attribute for automatic cleanup
+4. **TargetExecutionsTable (Lines 158-197)**: Execution history (what ran and what happened)
+   - PK: `tenant_schedule` (composite: `tenant_id#schedule_id`) - identifies which schedule ran
+   - SK: `execution_id` (string) - unique ID for this specific execution
+   - GSI: `tenant-target-index` (tenant_target + timestamp) for listing executions by tenant/target
+   - TTL enabled on `ttl` attribute for automatic cleanup (old records auto-delete)
    - Stores: Execution status, response payload, CloudWatch logs URL, Lambda request ID
 
-5. **SchedulesTable (Lines 199-233)**: Schedule definitions
-   - PK: `tenant_id` (string)
-   - SK: `schedule_id` (string)
-   - GSI: `tenant-target-index` (tenant_id + target_alias)
-   - Stores: Cron expression, schedule state, target input payload
+5. **SchedulesTable (Lines 199-233)**: Schedule definitions (when things should run)
+   - PK: `tenant_id` (string) - which organization owns this schedule
+   - SK: `schedule_id` (string) - unique schedule identifier
+   - GSI: `tenant-target-index` (tenant_id + target_alias) for querying schedules by target
+   - Stores: Cron expression (time-based schedule like "run every day at 9 AM"), schedule state (enabled/disabled), target input payload
+   - **Cron expressions**: Standard format borrowed from Unix cron, e.g., `cron(0 9 * * ? *)` means "9:00 AM every day"
 
-6. **UserMappingsTable (Lines 241-273)**: User-to-tenant access control
-   - PK: `user_id` (email address, string)
-   - SK: `tenant_id` (string)
-   - GSI: `tenant-index` (tenant_id + user_id) for reverse lookup
-   - Stores: Which users can access which tenants
+6. **UserMappingsTable (Lines 241-273)**: User-to-tenant access control (who can access what)
+   - PK: `user_id` (email address, string) - identifies the user
+   - SK: `tenant_id` (string) - which organization they can access
+   - GSI: `tenant-index` (tenant_id + user_id) for reverse lookup (which users belong to a tenant)
+   - Stores: Access control mappings between users and organizations
 
 **Cognito Resources - Authentication**
 1. **CognitoUserPool (Lines 278-312)**: User authentication
@@ -115,6 +133,16 @@ The FastAPI-based REST API that provides the management interface for the entire
 
 3. **CognitoUserPoolDomain (Lines 347-353)**: Hosted UI domain
    - Unique domain per stack for Cognito Hosted UI
+
+**S3 Static File Hosting**
+1. **StaticFilesBucket (Lines 290-322)**: S3 bucket for React UI files
+   - Private bucket with public access blocked
+   - CORS enabled for API Gateway integration
+   - Stores built React application (HTML, CSS, JavaScript, images)
+
+2. **ApiGatewayS3Role (Lines 327-369)**: IAM role for API Gateway to read from S3
+   - Allows API Gateway to serve static files from S3
+   - Read-only access to StaticFilesBucket
 
 ---
 
@@ -229,9 +257,9 @@ The Step Functions-based execution engine that handles all target invocations wi
 
 ---
 
-### 3. **ui-react/** - React Web Application
+### 3. **ui-vite/** - React Web Application
 
-The React-based single-page application for browser-based management.
+The Vite-based React single-page application for browser-based management.
 
 #### Purpose
 - User-friendly web interface for all API operations
@@ -240,14 +268,16 @@ The React-based single-page application for browser-based management.
 - Real-time execution history viewing
 
 #### Build Process
-- Built using `npm run build` (see [quickdeploy.ps1](quickdeploy.ps1) lines 8-21)
-- Output from `ui-react/build/*` copied to `api/app/wwwroot/` (lines 23-39)
-- Static files served by AppLambda via custom file handler (main.py lines 189-254)
+- Built using Vite: `npm run build` in ui-vite/ directory
+- Produces optimized production build in `ui-vite/build/` directory
+- Build outputs: HTML, CSS, JavaScript bundles, static assets
 
 #### Deployment Integration
-- Build artifacts bundled with AppLambda deployment package
-- Served from `/app/*` route with SPA routing support
-- Index.html served for all non-existent paths (client-side routing)
+- Build artifacts uploaded to S3 StaticFilesBucket after SAM deployment
+- Served directly from S3 via API Gateway integration (not through Lambda)
+- API Gateway routes root (`/`) and all non-API paths (`/{proxy+}`) to S3
+- SPA routing: 404 errors return index.html for client-side routing
+- Cache headers: Static assets cached for 1 year, index.html set to no-cache
 
 ---
 
@@ -275,12 +305,15 @@ AWS SAM template defining all infrastructure resources.
 - Common environment variables
 - Resource tagging
 
-#### Stack Outputs (Lines 903-973)
+#### Stack Outputs (Lines 976-1064)
 - API URL with environment stage
 - Lambda function name
 - DynamoDB table names
 - Cognito User Pool details
 - Cognito Hosted UI URL
+- S3 static files bucket name and ARN
+- React app URL (same as API URL root)
+- API documentation URL
 - Step Functions state machine details
 - Helper Lambda ARNs
 
@@ -296,13 +329,14 @@ PowerShell script for one-command deployment.
 - Validates and deploys SAM application
 - Configures Cognito post-deployment
 
-#### Deployment Flow (Lines 1-115)
-1. **Build UI** (Lines 8-21): `npm run build` in ui-react/
-2. **Copy Assets** (Lines 23-39): `ui-react/build/*` → `api/app/wwwroot/`
-3. **SAM Validate** (Lines 41-48): `sam validate --lint`
-4. **SAM Build** (Lines 50-57): `sam build`
-5. **SAM Deploy** (Lines 59-66): `sam deploy --no-confirm-changeset`
-6. **Configure Cognito** (Lines 82-109): Update logout/callback URLs using AWS CLI
+#### Deployment Flow (Lines 1-150)
+1. **Read Configuration** (Lines 20-35): Extract stack name from samconfig.toml
+2. **Build UI** (Lines 39-50): `npm run build` in ui-vite/ directory
+3. **SAM Validate** (Lines 53-60): `sam validate --lint`
+4. **SAM Build** (Lines 63-70): `sam build`
+5. **SAM Deploy** (Lines 73-81): `sam deploy --no-confirm-changeset --no-fail-on-empty-changeset`
+6. **Upload UI to S3** (Lines 84-100): Sync ui-vite/build/ to StaticFilesBucket
+7. **Configure Cognito** (Lines 115-135): Update logout/callback URLs using AWS CLI
 
 #### Configuration Management
 - Uses `samconfig.toml` for deployment parameters
@@ -430,7 +464,7 @@ Example ECS task implementation showing how to create compatible ECS targets.
 ┌─────────────────────┐
 │ API Gateway         │
 └──────────┬──────────┘
-           │ Route to AppLambda
+           │ Route to AppLambda (via /api/ path)
            ▼
 ┌─────────────────────┐
 │ AppLambda           │
@@ -438,10 +472,19 @@ Example ECS task implementation showing how to create compatible ECS targets.
 └──────────┬──────────┘
            │ 1. Verify JWT token (Cognito)
            │ 2. Check UserMappingsTable (user has access to tenant?)
-           │ 3. Prepare execution input (tenant_id, target_alias, payload)
-           │ 4. StartExecution on ExecutorStateMachine
-           │ 5. If async=true: Return immediately with execution_id
-           │    If async=false: Wait for completion and return result
+           │ 3. Generate unique schedule ID (adhoc-{uuid})
+           │ 4. Create one-time EventBridge Schedule:
+           │    - Expression: at({current_time + 1 minute})
+           │    - Target: ExecutorStateMachine
+           │    - Auto-delete after execution
+           │ 5. Return schedule ID and query URL to user
+           ▼
+┌─────────────────────┐
+│ EventBridge         │
+│ Scheduler           │  Fires at scheduled time (1 minute from now)
+└──────────┬──────────┘
+           │ Assumes EventBridgeSchedulerRole
+           │ Invokes ExecutorStateMachine with tenant_id, target_alias, payload
            ▼
 ┌─────────────────────┐
 │ ExecutorStateMachine│
@@ -460,20 +503,28 @@ Example ECS task implementation showing how to create compatible ECS targets.
 
 **Three-Tier Permission Model**:
 
-1. **AppLambdaRole** - API Layer (Lines 794-898)
-   - **Can**: Manage DynamoDB tables, EventBridge schedules, Cognito users, Secrets Manager
-   - **Can**: Invoke ExecutorStateMachine (start executions)
+1. **AppLambdaRole** - API Layer (Lines 1038-1148)
+   - **Can**: Full CRUD on all six DynamoDB tables (including GSI access)
+   - **Can**: Manage EventBridge Scheduler (create/update/delete schedules, schedule groups)
+   - **Can**: Pass EventBridgeSchedulerRole to EventBridge Scheduler
+   - **Can**: RedriveExecution and DescribeExecution on ExecutorStateMachine
+   - **Can**: Manage Cognito users (create, delete, set password, list users)
+   - **Can**: Read secrets from Secrets Manager
    - **Cannot**: Directly invoke target Lambda functions, run ECS tasks, or start Step Functions
-   - **Rationale**: API should manage schedules but not execute targets directly
+   - **Rationale**: API manages scheduling and data but doesn't execute targets directly (security separation)
 
-2. **EventBridgeSchedulerRole** - Scheduler (Lines 423-454)
-   - **Can**: ONLY start ExecutorStateMachine executions
-   - **Cannot**: Do anything else
-   - **Rationale**: Principle of least privilege - scheduler doesn't need broad permissions
+2. **EventBridgeSchedulerRole** - Scheduler (Lines 658-694)
+   - **Can**: ONLY start ExecutorStateMachine executions (highly restricted scope)
+   - **Cannot**: Do anything else (no DynamoDB, Lambda, ECS, or other AWS service access)
+   - **Rationale**: Principle of least privilege - scheduler has minimal permissions needed for its job
 
-3. **ExecutorStateMachineRole** - Execution Engine (Lines 670-744)
-   - **Can**: Invoke any Lambda, run any ECS task, start any Step Functions execution
-   - **Can**: PassRole to ECS tasks
+3. **ExecutorStateMachineRole** - Execution Engine (Lines 908-996)
+   - **Can**: Invoke PreprocessingLambda, LambdaExecutionHelperLambda, PostprocessingLambda
+   - **Can**: Run any ECS task, stop tasks, describe tasks (wildcard for flexibility)
+   - **Can**: Start, stop, describe any Step Functions execution (for nested executions)
+   - **Can**: PassRole to ECS tasks (restricted to ecs-tasks.amazonaws.com service)
+   - **Can**: X-Ray tracing operations
+   - **Can**: EventBridge rule management (for Step Functions managed rules)
    - **Rationale**: Centralized execution authority - single point for broad invocation permissions
 
 4. **Helper Lambda Roles** - Preprocessing/Execution/Postprocessing
@@ -483,24 +534,28 @@ Example ECS task implementation showing how to create compatible ECS targets.
 
 ### Multi-Tenancy Isolation
 
-**Data Isolation**:
-- All DynamoDB tables use `tenant_id` as partition key or part of composite key
-- User access controlled via UserMappingsTable (user_id → tenant_id mappings)
+**What is Multi-Tenancy?**
+Multi-tenancy means multiple organizations (tenants) share the same application instance, but each tenant's data is completely isolated from others. Think of it like an apartment building - everyone shares the same building and utilities, but each apartment is private.
+
+**Data Isolation** (keeping data separate):
+- All DynamoDB tables use `tenant_id` as the partition key (PK) or part of a composite key
+- Every query automatically filters by tenant_id, so tenants can only see their own data
+- User access controlled via UserMappingsTable (maps user email → allowed tenant IDs)
 - Admin tenant has special privileges for cross-tenant management
 
-**Access Control Flow**:
-1. User authenticates with Cognito (JWT token)
-2. JWT contains user email (sub claim)
-3. API queries UserMappingsTable with user email
+**Access Control Flow** (how we verify access):
+1. User authenticates with AWS Cognito (gets a JWT token proving identity)
+2. JWT contains user email in the "sub" claim (subject identifier)
+3. API queries UserMappingsTable with user email to find allowed tenants
 4. Returns list of tenant IDs user can access
 5. API verifies requested tenant_id is in user's allowed list
-6. If not: HTTP 403 Forbidden
+6. If not allowed: HTTP 403 Forbidden error
 
-**Admin Privileges**:
-- Members of `admin` tenant (created at startup, Lines 321-395 in main.py)
+**Admin Privileges** (special super-user access):
+- Members of the `admin` tenant (created automatically at startup)
 - Can manage targets (add/update/delete Lambda/ECS/Step Functions definitions)
-- Can access all tenants' data
-- Can manage user-tenant mappings
+- Can access all tenants' data for system administration
+- Can manage user-tenant mappings (grant/revoke tenant access)
 
 ---
 
@@ -508,23 +563,24 @@ Example ECS task implementation showing how to create compatible ECS targets.
 
 ### Resource Naming Strategy
 
-All resources use a consistent naming pattern:
+All AWS resources follow a consistent naming pattern for easy identification:
 ```
 ${StackName}-${Environment}-${ResourceType}-${StackIdSuffix}
 ```
 
-Example: `sts-dev-api-a1b2c3d4`
+**Example**: `sts-dev-api-a1b2c3d4`
 
-- `StackName`: Parameter (default: "sts")
-- `Environment`: Parameter (e.g., "dev", "prod")
-- `ResourceType`: Descriptive name (e.g., "api", "targets", "executor-sfn")
-- `StackIdSuffix`: 8-character suffix from CloudFormation stack ID (ensures uniqueness)
+**Components explained**:
+- `StackName`: Parameter from deployment (default: "sts" for Serverless Task Scheduler)
+- `Environment`: Parameter for deployment stage (e.g., "dev", "staging", "prod")
+- `ResourceType`: Descriptive name for the resource (e.g., "api", "targets", "executor-sfn")
+- `StackIdSuffix`: 8-character suffix extracted from CloudFormation stack ID (ensures global uniqueness)
 
-**Benefits**:
-- Easy to identify resources by environment
-- No naming conflicts when deploying multiple stacks
-- Clear ownership and purpose in AWS console
-- Consistent tagging for cost allocation
+**Why this pattern?**
+- **Easy identification**: Instantly see which environment and stack a resource belongs to
+- **No naming conflicts**: Multiple teams can deploy stacks without name collisions
+- **Clear ownership**: Know who owns the resource and its purpose at a glance
+- **Cost tracking**: Consistent tagging makes cost allocation reports easier to understand
 
 ### Environment Variables Flow
 
@@ -539,10 +595,21 @@ Example: `sts-dev-api-a1b2c3d4`
 
 ### API Gateway Stage Routing
 
-- API Gateway creates a single stage named after `Environment` parameter
-- Base path: `https://{api-id}.execute-api.{region}.amazonaws.com/{environment}/`
+**How API Gateway stages work**:
+- API Gateway creates a deployment "stage" named after the `Environment` parameter
+- Each stage has its own URL with the stage name in the path
+- Base path format: `https://{api-id}.execute-api.{region}.amazonaws.com/{environment}/`
 - Example: `https://xyz123.execute-api.us-east-1.amazonaws.com/dev/`
-- FastAPI's `root_path` set to `/{environment}` for correct URL generation
+
+**How routing works internally**:
+- When a request comes in like `https://.../dev/api/user/info`
+- API Gateway strips the stage prefix (`/dev`) before sending to Lambda
+- Lambda receives just `/api/user/info`
+- FastAPI's `root_path` is set to `/api` to match incoming paths
+- This ensures API documentation URLs and redirects work correctly
+
+**Why stages?**
+Stages let you have multiple deployments (dev, staging, prod) from the same API Gateway, each with its own configuration and endpoints.
 
 ---
 
@@ -627,48 +694,58 @@ Example: `sts-dev-api-a1b2c3d4`
 
 ### Why Step Functions Instead of Lambda Executor?
 
-**Previous Architecture**: Single Lambda Executor function handled all execution logic.
+**Previous Architecture**: A single Lambda Executor function handled all execution logic in code.
 
-**Current Architecture**: Step Functions state machine orchestrates execution flow.
+**Current Architecture**: Step Functions state machine orchestrates the execution flow visually.
 
-**Benefits**:
-1. **Visual Workflow**: State machine provides graphical representation of execution flow
-2. **Built-in Error Handling**: Parallel state with centralized catch/finally
-3. **Native Integration**: Direct ECS and nested Step Functions support without custom code
-4. **Execution History**: Full execution history in Step Functions console
-5. **Retry Logic**: Declarative retry configuration without custom code
-6. **Long-Running Support**: ECS tasks can run longer than Lambda's 15-minute limit
-7. **Scalability**: Step Functions handles concurrency automatically
+**Why the change? (Benefits)**:
+1. **Visual Workflow**: State machine provides a graphical flowchart of the execution process - you can see exactly what's happening
+2. **Built-in Error Handling**: Parallel states with centralized catch/finally blocks (like try-catch in programming)
+3. **Native Integration**: Direct support for ECS and nested Step Functions without writing custom invocation code
+4. **Execution History**: Full execution history automatically saved in Step Functions console for debugging
+5. **Retry Logic**: Declare retry behavior in configuration instead of writing retry loops in code
+6. **Long-Running Support**: ECS tasks can run longer than Lambda's 15-minute maximum timeout
+7. **Scalability**: Step Functions automatically handles concurrent executions without manual scaling configuration
 
-**Trade-offs**:
-- Slightly higher cost per execution (Step Functions vs Lambda)
-- More complex initial setup
-- Additional Lambda functions for pre/post processing
+**Trade-offs** (nothing is perfect):
+- Slightly higher cost per execution compared to Lambda-only approach
+- More complex initial setup and learning curve
+- Additional Lambda functions needed for pre/post processing steps
 
 ### Why EventBridge for Postprocessing?
 
-Instead of calling postprocessing directly from the state machine, we use an EventBridge rule that triggers on execution status changes.
+Instead of calling the postprocessing Lambda directly from the state machine's final step, we use an EventBridge rule that automatically triggers when the execution finishes.
+
+**Why this approach? (Benefits)**:
+1. **Decoupling**: State machine doesn't need to know postprocessing exists - cleaner separation of concerns
+2. **Reliability**: EventBridge guarantees at-least-once delivery (won't lose the event)
+3. **Automatic Retry**: EventBridge automatically retries if postprocessing Lambda fails temporarily
+4. **Extensibility**: Easy to add more handlers (e.g., send email notification, update dashboard) without changing the state machine
+5. **Error Isolation**: If postprocessing fails, it doesn't affect the main execution's success status
+
+**How it works**:
+- Step Functions emits an event when execution finishes (status: SUCCEEDED, FAILED, TIMED_OUT, ABORTED)
+- EventBridge rule listens for these events and triggers PostprocessingLambda
+- Postprocessing reads full execution details and saves to DynamoDB
+
+### Why S3 for Static Files?
+
+Instead of serving static files through the FastAPI Lambda function, the React UI is hosted in S3 and served via API Gateway integration.
 
 **Benefits**:
-1. **Decoupling**: State machine doesn't need to know about postprocessing
-2. **Reliability**: EventBridge guarantees at-least-once delivery
-3. **Retry**: EventBridge automatically retries failed invocations
-4. **Extensibility**: Easy to add additional handlers (e.g., SNS notifications)
-5. **Error Handling**: Postprocessing failures don't affect execution status
+1. **Performance**: S3 serves static files faster than Lambda without cold start delays
+2. **Cost**: S3 + API Gateway is cheaper than Lambda invocations for static content
+3. **Scalability**: S3 handles high traffic automatically without Lambda concurrency limits
+4. **Caching**: CloudFront-style cache headers work better with direct S3 integration
+5. **Separation of Concerns**: Static UI separated from dynamic API logic
 
-### Why Custom Static File Handler?
-
-Instead of using FastAPI's StaticFiles, the application uses a custom file handler (main.py lines 189-254).
-
-**Reason**: API Gateway REST APIs always strip the stage name (e.g., `/dev`) before passing requests to Lambda. This causes path mismatches with StaticFiles mounted at `/app` when accessed via `/dev/app`.
-
-**Custom Handler Features**:
-- Multiple layers of path traversal protection
-- SPA routing support (serves index.html for non-existent paths)
-- Proper MIME type detection
-- Security validations using `os.path.normpath()` and `os.path.realpath()`
-
-**Note**: Snyk security scanner flags this as a potential path traversal vulnerability because it uses `FileResponse` with user input. The code includes comprehensive security measures, but static analysis tools cannot verify custom validation logic.
+**Implementation**:
+- API Gateway defines three route patterns:
+  - `/api/{proxy+}` → Routes to AppLambda for API calls
+  - `/` → Serves index.html from S3 (root path)
+  - `/{proxy+}` → Serves files from S3, falls back to index.html for SPA routing
+- S3 bucket is private; API Gateway uses IAM role (ApiGatewayS3Role) to access files
+- Cache headers: Static assets cached for 1 year, index.html not cached for updates
 
 ---
 
@@ -681,6 +758,10 @@ Instead of using FastAPI's StaticFiles, the application uses a custom file handl
 - `/aws/lambda/{StackName}-{Environment}-executor-preprocessing-{suffix}` - Preprocessing logs
 - `/aws/lambda/{StackName}-{Environment}-executor-lambda-helper-{suffix}` - Lambda helper logs
 - `/aws/lambda/{StackName}-{Environment}-executor-postprocessing-{suffix}` - Postprocessing logs
+
+**Log Retention**:
+- All Lambda log groups configured with 14-day retention
+- Reduces storage costs while maintaining recent history for debugging
 
 **Target Lambda Logs**:
 - Each target Lambda/ECS task logs to its own log group
@@ -720,57 +801,72 @@ All Lambda functions and the Step Functions state machine have X-Ray tracing ena
 
 ### DynamoDB On-Demand Billing
 - No capacity planning required
-- Pay only for reads/writes
+- Pay only for actual reads/writes performed
 - Automatic scaling for traffic spikes
+- Ideal for unpredictable workload patterns
 
 ### Lambda Memory Optimization
-- API Lambda: 512 MB (handles web UI serving and API logic)
-- Helper Lambdas: 256 MB (lightweight processing)
-- Tuned for balance between cost and performance
+- API Lambda: 512 MB (handles API logic with good performance)
+- Helper Lambdas: 256 MB (lightweight processing tasks)
+- Memory settings tuned for balance between cost and performance
+- Right-sizing reduces cost without sacrificing speed
+
+### S3 Static File Hosting
+- S3 storage costs significantly less than bundling files in Lambda packages
+- Reduced Lambda package size improves cold start times
+- No Lambda invocation costs for serving static content
+- Efficient serving of images, CSS, and JavaScript without compute charges
 
 ### Execution History TTL
 - TargetExecutionsTable has TTL enabled on `ttl` attribute
 - Automatic deletion of old executions (e.g., after 30/60/90 days)
-- Reduces storage costs
+- Reduces long-term storage costs
 - Configurable per schedule or globally
 
 ### Step Functions Express vs Standard
 - Currently uses STANDARD for full execution history and long-running support
 - Consider EXPRESS for high-volume, short-duration executions (< 5 minutes)
-- EXPRESS is cheaper but lacks detailed history
+- EXPRESS is significantly cheaper but lacks detailed execution history
 
 ---
 
 ## Future Enhancements
 
 ### Potential Improvements
-1. **S3 + CloudFront for Static Files**: Move React UI to S3 with CloudFront for better performance and Snyk compliance
-2. **API Gateway HTTP API**: Migrate from REST API to HTTP API for lower cost and better stage path handling
-3. **Multi-Region Support**: Deploy to multiple regions with Route 53 failover
+1. **CloudFront CDN**: Add CloudFront in front of API Gateway for global edge caching and lower latency
+2. **API Gateway HTTP API**: Migrate from REST API to HTTP API for lower cost and simpler configuration
+3. **Multi-Region Support**: Deploy to multiple regions with Route 53 failover for high availability
 4. **Enhanced Monitoring**: CloudWatch dashboards, alarms, and SNS notifications for execution failures
-5. **Execution History Archival**: Archive old executions to S3 before TTL deletion
-6. **Advanced Scheduling**: Support for schedule dependencies and conditional execution
-7. **Webhook Targets**: Add support for HTTP webhook targets
-8. **Batch Execution**: Execute multiple targets in parallel or sequence
+5. **Execution History Archival**: Archive old executions to S3 before TTL deletion for long-term storage
+6. **Advanced Scheduling**: Support for schedule dependencies and conditional execution workflows
+7. **Webhook Targets**: Add support for HTTP webhook targets (invoke external APIs)
+8. **Batch Execution**: Execute multiple targets in parallel or sequence with coordination
 9. **Execution Approval Workflow**: Require manual approval before executing high-risk targets
 
 ---
 
 ## Conclusion
 
-The Serverless Task Scheduler is a well-architected multi-tenant execution platform that leverages AWS serverless services for scalability, reliability, and security. The modular design separates concerns between API management, execution orchestration, and data storage, making the system maintainable and extensible.
+The Serverless Task Scheduler is a production-ready, multi-tenant execution platform that leverages AWS serverless services for scalability, reliability, and security. The modular design separates concerns between API management, execution orchestration, and data storage, making the system both maintainable and extensible.
 
 **Key Strengths**:
-- Multi-tenant isolation at the database level
-- Centralized execution through Step Functions for security and observability
-- Comprehensive IAM role separation following least privilege
-- Automated deployment with infrastructure as code
-- Built-in execution history and audit trail
-- Support for multiple target types (Lambda, ECS, Step Functions)
+- **Multi-tenant isolation**: Data separated at the database level for security
+- **Centralized execution**: All task execution flows through Step Functions for consistent security controls and observability
+- **Comprehensive IAM separation**: Follows least privilege principle with distinct roles for API, scheduler, and executor
+- **Automated deployment**: Single-command deployment with infrastructure as code
+- **Built-in execution history**: Complete audit trail stored automatically in DynamoDB
+- **Multiple target types**: Supports Lambda functions, ECS containers, and Step Functions workflows
+- **Optimized architecture**: S3 for static files, on-demand DynamoDB, and efficient Lambda sizing reduce costs
 
 **Operational Simplicity**:
-- Single command deployment (`quickdeploy.ps1`)
-- Automatic resource naming and tagging
-- Environment-based configuration
-- No servers to manage
-- Pay-per-use pricing model
+- Single command deployment via `quickdeploy.sh` script
+- Automatic resource naming and tagging for easy management
+- Environment-based configuration (dev, staging, prod)
+- No servers to manage - fully serverless
+- Pay-per-use pricing model keeps costs aligned with usage
+
+**Modern Web Architecture**:
+- React UI served from S3 for optimal performance
+- API Gateway integrates both static files and dynamic API
+- FastAPI backend with automatic OpenAPI documentation
+- JWT-based authentication via AWS Cognito
