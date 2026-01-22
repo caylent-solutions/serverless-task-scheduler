@@ -29,11 +29,12 @@ export const authenticatedFetch = async (url, options = {}) => {
       credentials: options.credentials || 'include'
     });
 
-    // If unauthorized, just return the response - let the app handle it
-    // Don't redirect here as it causes issues with API Gateway stages
+    // If unauthorized, emit event for App.jsx to handle
+    // This allows centralized auth state management
     if (response.status === 401) {
-      console.log('Unauthorized request detected');
-      // Just return the response - App.js will handle showing the login screen
+      console.log('Unauthorized request detected - emitting auth failure event');
+      // Dispatch custom event that App.jsx will listen for
+      window.dispatchEvent(new CustomEvent('auth-failure'));
       return response;
     }
 
