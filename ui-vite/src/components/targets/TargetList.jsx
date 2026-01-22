@@ -172,8 +172,18 @@ const TargetList = ({ isAdmin }) => {
         target_parameter_schema: parameterSchema
       };
 
-      const response = await authenticatedFetch('../targets', {
-        method: 'POST',
+      // Detect if this is a new target or editing existing one
+      const isNew = !targets.some(t => t.target_id === selectedTarget.target_id);
+
+      // Use correct endpoint and method
+      const url = isNew
+        ? '../targets'
+        : `../targets/${selectedTarget.target_id}`;
+
+      const method = isNew ? 'POST' : 'PUT';
+
+      const response = await authenticatedFetch(url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json'
         },
@@ -181,7 +191,12 @@ const TargetList = ({ isAdmin }) => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (parseErr) {
+          throw new Error(`Failed to save target: ${response.status}`);
+        }
         throw new Error(errorData.detail || `Failed to save target: ${response.status}`);
       }
 
