@@ -7,8 +7,9 @@ state machines both synchronously and asynchronously.
 
 import json
 import logging
-import uuid
 from typing import Any, Dict
+
+from uuid_v7.base import uuid7
 
 from . import get_session
 
@@ -36,7 +37,7 @@ class StepFunctionsAdapter:
             Dictionary with execution details
         """
         logger.info(f"Starting Step Functions execution: {state_machine_arn}")
-        execution_id = str(uuid.uuid4())
+        execution_id = str(uuid7())
         input_with_id = {**payload, "execution_id": execution_id}
 
         response = self._sfn_client.start_execution(
@@ -66,7 +67,7 @@ class StepFunctionsAdapter:
             Dictionary with execution result
         """
         logger.info(f"Starting Step Functions execution synchronously: {state_machine_arn}")
-        execution_id = str(uuid.uuid4())
+        execution_id = str(uuid7())
         input_with_id = {**payload, "execution_id": execution_id}
 
         # Start execution

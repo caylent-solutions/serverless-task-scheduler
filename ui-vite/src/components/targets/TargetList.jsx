@@ -74,7 +74,10 @@ const TargetList = ({ isAdmin }) => {
       setTargets(targets.filter(t => t.target_id !== targetId));
     } catch (err) {
       console.error('Error deleting target:', err);
-      alert(`Error deleting target: ${err.message}`);
+      // Skip alert for authentication errors (handled by redirect)
+      if (!err.message.includes('401')) {
+        alert(`Error deleting target: ${err.message}`);
+      }
     }
   };
 
@@ -207,7 +210,10 @@ const TargetList = ({ isAdmin }) => {
       setSelectedTarget(null);
     } catch (err) {
       console.error('Error saving target:', err);
-      alert(`Error saving target: ${err.message}`);
+      // Skip alert for authentication errors (handled by redirect)
+      if (!err.message.includes('401')) {
+        alert(`Error saving target: ${err.message}`);
+      }
     }
   };
 

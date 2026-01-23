@@ -82,7 +82,10 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
       setSchedules(schedules.filter(s => s.schedule_id !== scheduleId));
     } catch (err) {
       console.error('Error deleting schedule:', err);
-      alert(`Error deleting schedule: ${err.message}`);
+      // Skip alert for authentication errors (handled by redirect)
+      if (!err.message.includes('401')) {
+        alert(`Error deleting schedule: ${err.message}`);
+      }
     }
   };
 
@@ -160,7 +163,10 @@ const ScheduleList = ({ tenantName = 'admin' }) => {
       setSelectedSchedule(null);
     } catch (err) {
       console.error('Error saving schedule:', err);
-      alert(`Error saving schedule: ${err.message}`);
+      // Skip alert for authentication errors (handled by redirect)
+      if (!err.message.includes('401')) {
+        alert(`Error saving schedule: ${err.message}`);
+      }
     }
   };
 

@@ -85,7 +85,10 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
       setMappings(mappings.filter(m => !(m.tenant_id === tenantId && m.target_alias === targetAlias)));
     } catch (err) {
       console.error('Error deleting mapping:', err);
-      globalThis.alert(`Error deleting mapping: ${err.message}`);
+      // Skip alert for authentication errors (handled by redirect)
+      if (!err.message.includes('401')) {
+        globalThis.alert(`Error deleting mapping: ${err.message}`);
+      }
     }
   };
 
@@ -189,7 +192,10 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
       setSelectedMapping(null);
     } catch (err) {
       console.error('Error saving mapping:', err);
-      globalThis.alert(`Error saving mapping: ${err.message}`);
+      // Skip alert for authentication errors (handled by redirect)
+      if (!err.message.includes('401')) {
+        globalThis.alert(`Error saving mapping: ${err.message}`);
+      }
     }
   };
 

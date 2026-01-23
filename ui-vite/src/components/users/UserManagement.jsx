@@ -137,7 +137,10 @@ const UserManagement = ({ isAdmin }) => {
       setSelectedUser(null);
     } catch (err) {
       console.error('Error saving user:', err);
-      alert(`Error saving user: ${err.message}`);
+      // Skip alert for authentication errors (handled by redirect)
+      if (!err.message.includes('401')) {
+        alert(`Error saving user: ${err.message}`);
+      }
     }
   };
 
@@ -204,7 +207,10 @@ const UserManagement = ({ isAdmin }) => {
 
     } catch (err) {
       console.error('Error inviting user:', err);
-      alert(`Error inviting user: ${err.message}`);
+      // Skip alert for authentication errors (handled by redirect)
+      if (!err.message.includes('401')) {
+        alert(`Error inviting user: ${err.message}`);
+      }
     } finally {
       setInviteLoading(false);
     }
@@ -233,7 +239,10 @@ const UserManagement = ({ isAdmin }) => {
       await fetchData(filter);
     } catch (err) {
       console.error('Error syncing IdP:', err);
-      alert(`Error syncing IdP: ${err.message}`);
+      // Skip alert for authentication errors (handled by redirect)
+      if (!err.message.includes('401')) {
+        alert(`Error syncing IdP: ${err.message}`);
+      }
     } finally {
       setSyncLoading(false);
     }

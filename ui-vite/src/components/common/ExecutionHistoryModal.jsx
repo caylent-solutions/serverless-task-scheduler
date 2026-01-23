@@ -156,7 +156,10 @@ const ExecutionHistoryModal = ({
 
     } catch (err) {
       console.error('Error redriving execution:', err);
-      alert(`Failed to redrive execution:\n\n${err.message}`);
+      // Skip alert for authentication errors (handled by redirect)
+      if (!err.message.includes('401')) {
+        alert(`Failed to redrive execution:\n\n${err.message}`);
+      }
 
       // Remove from redriving set on error
       setRedrivingExecutions(prev => {
