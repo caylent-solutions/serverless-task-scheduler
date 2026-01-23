@@ -866,6 +866,15 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
+              # CloudWatch Logs permissions
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*'
+
               # DynamoDB write access to record executions
               - Effect: Allow
                 Action:

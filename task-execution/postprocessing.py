@@ -43,7 +43,7 @@ import json
 import logging
 import os
 import boto3
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
 from botocore.exceptions import ClientError
 
