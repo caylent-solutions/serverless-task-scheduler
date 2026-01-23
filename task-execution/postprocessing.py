@@ -303,9 +303,15 @@ def record_execution(
 
         # Generate appropriate console URL based on target type
         cloudwatch_url = result.get('cloudwatch_logs_url')
+        
+        # For Step Functions targets, use the actual execution ARN from the result if available
+        target_execution_arn = state_machine_execution_arn
+        if ':states:' in target_arn and 'ExecutionArn' in result:
+            target_execution_arn = result['ExecutionArn']
+        
         console_url = generate_console_url(
             target_arn=target_arn,
-            execution_arn=state_machine_execution_arn,
+            execution_arn=target_execution_arn,
             cloudwatch_logs_url=cloudwatch_url
         )
         
