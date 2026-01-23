@@ -115,7 +115,8 @@
         "execution_result.$": "$[0].execution_result",
         "tenant_id.$": "$[0].tenant_id",
         "target_alias.$": "$[0].target_alias",
-        "schedule_id.$": "$[0].schedule_id"
+        "schedule_id.$": "$[0].schedule_id",
+        "target_arn.$": "$[0].target_arn"
       },
       "Next": "EventBridgeHandoff"
     },

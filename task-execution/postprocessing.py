@@ -58,9 +58,64 @@ sfn_client = boto3.client('stepfunctions')
 # Environment variables
 EXECUTIONS_TABLE = os.environ['DYNAMODB_EXECUTIONS_TABLE']
 APP_ENV = os.environ.get('APP_ENV', 'prod').lower()
+AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
 
 # Determine if we should log sensitive information (non-production environments)
 VERBOSE_LOGGING = APP_ENV in ['dev', 'qa', 'uat']
+
+
+def generate_console_url(
+    target_arn: str,
+    execution_arn: str,
+    cloudwatch_logs_url: Optional[str] = None
+) -> Optional[str]:
+    """
+    Generate appropriate console URL based on target type.
+    
+    Args:
+        target_arn: The target ARN (lambda, states, ecs, etc.)
+        execution_arn: Step Functions execution ARN or name
+        cloudwatch_logs_url: CloudWatch URL for Lambda (if available)
+        
+    Returns:
+        Console URL for viewing execution details, or None if not available
+    """
+    # If CloudWatch URL exists (Lambda with logs), use it
+    if cloudwatch_logs_url:
+        return cloudwatch_logs_url
+    
+    # Detect target type from ARN
+    if target_arn and ':states:' in target_arn:
+        # Step Functions target - link to Step Functions console
+        # Format: https://region.console.aws.amazon.com/states/home?region=region#/v2/executions/details/execution-arn
+        # Need to construct full execution ARN if we only have the name
+        if not execution_arn.startswith('arn:'):
+            # Extract region and account from target ARN
+            # target_arn format: arn:aws:states:region:account:stateMachine:name
+            arn_parts = target_arn.split(':')
+            if len(arn_parts) >= 5:
+                region = arn_parts[3]
+                account = arn_parts[4]
+                # Execution ARN format: arn:aws:states:region:account:execution:stateMachineName:executionName
+                state_machine_name = arn_parts[6] if len(arn_parts) > 6 else 'unknown'
+                execution_arn = f"arn:aws:states:{region}:{account}:execution:{state_machine_name}:{execution_arn}"
+        
+        # Extract region from execution ARN or use default
+        if execution_arn.startswith('arn:'):
+            arn_parts = execution_arn.split(':')
+            region = arn_parts[3] if len(arn_parts) > 3 else AWS_REGION
+        else:
+            region = AWS_REGION
+        
+        return f"https://{region}.console.aws.amazon.com/states/home?region={region}#/v2/executions/details/{execution_arn}"
+    
+    elif target_arn and ':ecs:' in target_arn:
+        # ECS target - no direct logs URL available
+        # Could potentially link to ECS task console, but would need task ARN
+        return None
+    
+    # Unknown or unsupported target type
+    return None
 
 
 def handler(event, context):
@@ -115,6 +170,7 @@ def handle_eventbridge_event(event, context):
         # Get output for successful executions
         output_data = json.loads(execution_details.get('output', '{}'))
         execution_result = output_data.get('execution_result', {})
+        target_arn = output_data.get('target_arn', '')
         failed_state = None
         redrive_info = None
     else:
@@ -124,6 +180,9 @@ def handle_eventbridge_event(event, context):
             'Error': detail.get('error', status),
             'Cause': detail.get('cause', f'Execution {status.lower()}')
         }
+        # Try to get target_arn from output (may be partial), or fall back to input
+        output_data = json.loads(execution_details.get('output', '{}'))
+        target_arn = output_data.get('target_arn', input_data.get('target_arn', ''))
         failed_state = detail.get('stopDate', 'Unknown')
         redrive_info = {
             'can_redrive': True,
@@ -152,7 +211,8 @@ def handle_eventbridge_event(event, context):
         state_machine_execution_arn=execution_name,
         execution_start_time=execution_start_time,
         failed_state=failed_state,
-        redrive_info=redrive_info
+        redrive_info=redrive_info,
+        target_arn=target_arn
     )
 
     logger.info(f"Successfully recorded execution from EventBridge: {execution_id}")
@@ -171,7 +231,8 @@ def record_execution(
     state_machine_execution_arn: str,
     execution_start_time: str,
     failed_state: str = None,
-    redrive_info: Dict[str, Any] = None
+    redrive_info: Optional[Dict[str, Any]] = None,
+    target_arn: str = ''
 ) -> str:
     """
     Record execution in DynamoDB executions table.
@@ -240,38 +301,56 @@ def record_execution(
                     'message': 'This execution can be redriven from the failed state using Step Functions redrive capability'
                 }
 
-        # Add CloudWatch logs URL if present (for Lambda executions)
-        if 'cloudwatch_logs_url' in result:
-            item['cloudwatch_logs_url'] = result['cloudwatch_logs_url']
-        # For failed executions, try to extract CloudWatch URL from error Cause
+        # Generate appropriate console URL based on target type
+        cloudwatch_url = result.get('cloudwatch_logs_url')
+        console_url = generate_console_url(
+            target_arn=target_arn,
+            execution_arn=state_machine_execution_arn,
+            cloudwatch_logs_url=cloudwatch_url
+        )
+        
+        if console_url:
+            item['cloudwatch_logs_url'] = console_url
+            if VERBOSE_LOGGING:
+                logger.info(f"Generated console URL for target type: {console_url}")
+        # For failed Lambda executions, try to extract CloudWatch URL from error Cause
         # The lambda_execution_helper includes the CloudWatch URL in the error JSON
-        elif status == 'FAILED' and 'Cause' in result:
+        elif status == 'FAILED' and 'Cause' in result and not cloudwatch_url:
             try:
                 if VERBOSE_LOGGING:
-                    logger.info(f"Attempting to parse Cause for CloudWatch URL. Cause type: {type(result['Cause'])}, Cause: {result['Cause'][:500] if isinstance(result['Cause'], str) else result['Cause']}")
+                    logger.info(f"Attempting to parse Cause for CloudWatch URL from failed Lambda")
 
                 # Parse the Cause field - it contains an object with errorMessage
                 cause_data = json.loads(result['Cause'])
 
                 # Check if cloudwatch_logs_url is at the top level
                 if 'cloudwatch_logs_url' in cause_data:
-                    item['cloudwatch_logs_url'] = cause_data['cloudwatch_logs_url']
-                    logger.info(f"Extracted CloudWatch URL from error Cause: {item['cloudwatch_logs_url']}")
+                    # Re-run generate_console_url with the extracted URL
+                    console_url = generate_console_url(
+                        target_arn=target_arn,
+                        execution_arn=state_machine_execution_arn,
+                        cloudwatch_logs_url=cause_data['cloudwatch_logs_url']
+                    )
+                    if console_url:
+                        item['cloudwatch_logs_url'] = console_url
+                        logger.info(f"Extracted CloudWatch URL from error Cause: {console_url}")
                 # If not, check if it's nested in the errorMessage field (double-encoded JSON)
                 elif 'errorMessage' in cause_data:
                     try:
                         # Parse the nested JSON in errorMessage
                         error_message_data = json.loads(cause_data['errorMessage'])
                         if 'cloudwatch_logs_url' in error_message_data:
-                            item['cloudwatch_logs_url'] = error_message_data['cloudwatch_logs_url']
-                            logger.info(f"Extracted CloudWatch URL from nested errorMessage: {item['cloudwatch_logs_url']}")
-                        elif VERBOSE_LOGGING:
-                            logger.info(f"No cloudwatch_logs_url in nested errorMessage. Keys: {list(error_message_data.keys())}")
+                            console_url = generate_console_url(
+                                target_arn=target_arn,
+                                execution_arn=state_machine_execution_arn,
+                                cloudwatch_logs_url=error_message_data['cloudwatch_logs_url']
+                            )
+                            if console_url:
+                                item['cloudwatch_logs_url'] = console_url
+                                logger.info(f"Extracted CloudWatch URL from nested errorMessage: {console_url}")
                     except (json.JSONDecodeError, TypeError) as nested_error:
                         if VERBOSE_LOGGING:
                             logger.warning(f"Failed to parse nested errorMessage: {nested_error}")
-                elif VERBOSE_LOGGING:
-                    logger.info(f"No cloudwatch_logs_url in parsed Cause. Keys: {list(cause_data.keys())}")
             except (json.JSONDecodeError, TypeError, KeyError) as e:
                 # If parsing fails, continue without CloudWatch URL
                 if VERBOSE_LOGGING:
