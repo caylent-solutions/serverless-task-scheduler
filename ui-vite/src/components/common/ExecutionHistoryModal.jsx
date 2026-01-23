@@ -104,7 +104,12 @@ const ExecutionHistoryModal = ({
   };
 
   // Server-side filtering is now handled by the API, so we use executions directly
-  const filteredExecutions = executions;
+  // Sort by timestamp descending (newest first)
+  const filteredExecutions = [...executions].sort((a, b) => {
+    const timeA = new Date(a.timestamp).getTime();
+    const timeB = new Date(b.timestamp).getTime();
+    return timeB - timeA; // Descending order (newest first)
+  });
 
   // Get CloudWatch logs URL from execution record
   const getCloudWatchUrl = (execution) => {
