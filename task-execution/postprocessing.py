@@ -89,25 +89,29 @@ def generate_console_url(
         # Step Functions target - link to Step Functions console
         # Format: https://region.console.aws.amazon.com/states/home?region=region#/v2/executions/details/execution-arn
         # Need to construct full execution ARN if we only have the name
-        if not execution_arn.startswith('arn:'):
-            # Extract region and account from target ARN
-            # target_arn format: arn:aws:states:region:account:stateMachine:name
-            arn_parts = target_arn.split(':')
-            if len(arn_parts) >= 5:
-                region = arn_parts[3]
-                account = arn_parts[4]
-                # Execution ARN format: arn:aws:states:region:account:execution:stateMachineName:executionName
-                state_machine_name = arn_parts[6] if len(arn_parts) > 6 else 'unknown'
-                execution_arn = f"arn:aws:states:{region}:{account}:execution:{state_machine_name}:{execution_arn}"
-        
-        # Extract region from execution ARN or use default
-        if execution_arn.startswith('arn:'):
-            arn_parts = execution_arn.split(':')
-            region = arn_parts[3] if len(arn_parts) > 3 else AWS_REGION
-        else:
-            region = AWS_REGION
-        
-        return f"https://{region}.console.aws.amazon.com/states/home?region={region}#/v2/executions/details/{execution_arn}"
+        try:
+            if not execution_arn.startswith('arn:'):
+                # Extract region and account from target ARN
+                # target_arn format: arn:aws:states:region:account:stateMachine:name
+                arn_parts = target_arn.split(':')
+                if len(arn_parts) >= 5:
+                    region = arn_parts[3]
+                    account = arn_parts[4]
+                    # Execution ARN format: arn:aws:states:region:account:execution:stateMachineName:executionName
+                    state_machine_name = arn_parts[6] if len(arn_parts) > 6 else 'unknown'
+                    execution_arn = f"arn:aws:states:{region}:{account}:execution:{state_machine_name}:{execution_arn}"
+            
+            # Extract region from execution ARN or use default
+            if execution_arn.startswith('arn:'):
+                arn_parts = execution_arn.split(':')
+                region = arn_parts[3] if len(arn_parts) > 3 else AWS_REGION
+            else:
+                region = AWS_REGION
+            
+            return f"https://{region}.console.aws.amazon.com/states/home?region={region}#/v2/executions/details/{execution_arn}"
+        except (IndexError, ValueError) as e:
+            logger.warning(f"Failed to parse Step Functions ARN: {e}. Target ARN: {target_arn}, Execution ARN: {execution_arn}")
+            return None
     
     elif target_arn and ':ecs:' in target_arn:
         # ECS target - no direct logs URL available
@@ -194,8 +198,19 @@ def handle_eventbridge_event(event, context):
     target_alias = input_data.get('target_alias')
     schedule_id = input_data.get('schedule_id', 'unknown')
 
-    # Extract execution name (UUID) from ARN
-    execution_name = execution_arn.split(':')[-1]
+    # Extract execution name (UUID) from ARN with error handling
+    try:
+        execution_name = execution_arn.split(':')[-1]
+        if not execution_name:
+            raise ValueError("Execution name is empty after ARN parsing")
+    except (IndexError, ValueError) as e:
+        logger.error(f"Failed to parse execution name from ARN '{execution_arn}': {e}")
+        return {
+            'statusCode': 400,
+            'error': 'Invalid execution ARN format',
+            'message': f'Failed to parse execution ARN: {str(e)}'
+        }
+    
     execution_start_time = execution_details['startDate'].isoformat()
 
     if VERBOSE_LOGGING:
