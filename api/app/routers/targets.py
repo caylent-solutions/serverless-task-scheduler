@@ -189,7 +189,8 @@ async def delete_target(target_id: str, _: dict = Depends(require_admin)):
     dispatch("route-deleted", payload=RouteChangedEvent(
         name=target["target_id"],
         description=target["target_description"],
-        path=f"/targets/{target['target_id']}"
+        path=f"/targets/{target['target_id']}",
+        parameters=target.get("target_parameter_schema", {})
     ))
 
     return TargetBase(**target)

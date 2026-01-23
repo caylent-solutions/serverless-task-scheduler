@@ -96,6 +96,10 @@ class OpenAPIHelpers:
             else:
                 schema_obj = schema
 
+            # Flatten the schema if it's nested under 'schema' key (from DynamoDB format)
+            if isinstance(schema_obj, dict) and 'schema' in schema_obj:
+                schema_obj = schema_obj['schema']
+
             # Extract properties and required fields
             properties = {}
 

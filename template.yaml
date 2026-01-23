@@ -1041,6 +1041,7 @@ Resources:
       RoleName: !Sub
         - ${StackName}-${Environment}-lambda-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      Description: Execution role for the API Lambda function with CloudWatch Logs permissions
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -1053,6 +1054,14 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
+              # CloudWatch Logs permissions for Lambda execution
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${StackName}-${Environment}-api-*:*'
+
               # DynamoDB CRUD on app tables
               - Effect: Allow
                 Action:
