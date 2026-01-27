@@ -93,10 +93,11 @@
             },
             "ExecuteStepFunctionTarget": {
               "Type": "Task",
-              "Comment": "Start execution of another Step Functions state machine",
+              "Comment": "Start execution of another Step Functions state machine with predictable execution name",
               "Resource": "arn:aws:states:::states:startExecution.sync:2",
               "Parameters": {
                 "StateMachineArn.$": "$.target_arn",
+                "Name.$": "States.Format('{}-nested', $$.Execution.Name)",
                 "Input.$": "$.merged_payload"
               },
               "ResultPath": "$.execution_result",

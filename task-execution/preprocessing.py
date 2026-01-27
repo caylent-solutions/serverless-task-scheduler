@@ -89,6 +89,52 @@ def parse_target_type_from_arn(target_arn: str) -> str:
         raise ValueError(f"Unsupported target service in ARN: {service}. Must be one of: lambda, ecs, states")
 
 
+def generate_stepfunctions_console_url(
+    target_arn: str,
+    execution_id: str
+) -> str:
+    """
+    Generate Step Functions console URL for viewing execution details.
+    
+    This can be called early (in preprocessing) because we control the execution name
+    (it's the UUIDv7 execution_id passed to the state machine).
+    
+    Args:
+        target_arn: The Step Functions state machine ARN
+        execution_id: The execution name (UUIDv7)
+        
+    Returns:
+        Console URL for viewing the Step Functions execution
+        
+    Raises:
+        ValueError: If ARN parsing fails
+    """
+    try:
+        # Extract region and account from target ARN
+        # target_arn format: arn:aws:states:region:account:stateMachine:name
+        arn_parts = target_arn.split(':')
+        if len(arn_parts) < 7:
+            raise ValueError(f"Invalid Step Functions ARN format: {target_arn}")
+        
+        region = arn_parts[3]
+        account = arn_parts[4]
+        state_machine_name = arn_parts[6]
+        
+        # Construct full execution ARN
+        # Execution ARN format: arn:aws:states:region:account:execution:stateMachineName:executionName
+        execution_arn = f"arn:aws:states:{region}:{account}:execution:{state_machine_name}:{execution_id}"
+        
+        # Build console URL
+        console_url = f"https://{region}.console.aws.amazon.com/states/home?region={region}#/v2/executions/details/{execution_arn}"
+        
+        logger.info(f"Generated Step Functions console URL: {console_url}")
+        return console_url
+        
+    except (IndexError, ValueError) as e:
+        logger.error(f"Failed to generate Step Functions console URL: {e}")
+        raise ValueError(f"Failed to generate Step Functions console URL: {e}")
+
+
 def handler(event, context):
     """
     Preprocessing handler for ExecutorStepFunction.
@@ -130,18 +176,37 @@ def handler(event, context):
             execution_id = context.aws_request_id
             logger.warning(f"No execution_id in event, using Lambda request ID: {execution_id}")
 
-        # Record initial IN_PROGRESS status
+        # Resolve target from tenant mapping first to get target type
+        target_info = resolve_target(tenant_id, target_alias)
+        if not target_info:
+            raise ValueError(f"Target not found: {tenant_id}/{target_alias}")
+        
+        # Generate console URL for Step Functions targets (predictable execution ARN)
+        # For Lambda, we can't generate the URL yet (need CloudWatch request ID after invocation)
+        # For ECS, we can't generate the URL yet (need task ARN after task starts)
+        cloudwatch_logs_url = None
+        if target_info['target_type'] == 'stepfunctions':
+            try:
+                # For nested Step Functions, the execution name will be parent execution name + "-nested"
+                # This allows us to construct the nested execution ARN predictably
+                nested_execution_id = f"{execution_id}-nested"
+                cloudwatch_logs_url = generate_stepfunctions_console_url(
+                    target_arn=target_info['target_arn'],
+                    execution_id=nested_execution_id
+                )
+                logger.info(f"Generated Step Functions console URL for nested execution: {cloudwatch_logs_url}")
+            except Exception as e:
+                logger.warning(f"Failed to generate Step Functions console URL: {e}")
+                # Continue without URL - not critical
+
+        # Record initial IN_PROGRESS status with console URL if available
         record_initial_execution(
             execution_id=execution_id,
             tenant_id=tenant_id,
             target_alias=target_alias,
-            schedule_id=schedule_id
+            schedule_id=schedule_id,
+            cloudwatch_logs_url=cloudwatch_logs_url
         )
-
-        # Resolve target from tenant mapping
-        target_info = resolve_target(tenant_id, target_alias)
-        if not target_info:
-            raise ValueError(f"Target not found: {tenant_id}/{target_alias}")
 
         # Merge default payload with runtime payload (runtime overrides defaults)
         default_payload = target_info.get('default_payload', {})
@@ -181,7 +246,8 @@ def record_initial_execution(
     execution_id: str,
     tenant_id: str,
     target_alias: str,
-    schedule_id: str
+    schedule_id: str,
+    cloudwatch_logs_url: str = None
 ) -> None:
     """
     Record the initial IN_PROGRESS status for an execution in DynamoDB.
@@ -191,6 +257,7 @@ def record_initial_execution(
         tenant_id: Tenant identifier
         target_alias: Target alias
         schedule_id: Schedule identifier
+        cloudwatch_logs_url: Pre-generated console/logs URL (for Step Functions, optional)
     """
     if not EXECUTIONS_TABLE:
         logger.warning("DYNAMODB_EXECUTIONS_TABLE not configured, skipping initial execution record")
@@ -220,6 +287,11 @@ def record_initial_execution(
             'execution_start_time': timestamp,
             'ttl': ttl
         }
+        
+        # Add cloudwatch_logs_url if provided (for Step Functions targets)
+        if cloudwatch_logs_url:
+            item['cloudwatch_logs_url'] = cloudwatch_logs_url
+            logger.info(f"Including pre-generated logs URL: {cloudwatch_logs_url}")
 
         executions_table.put_item(Item=item)
         logger.info(f"Recorded initial IN_PROGRESS execution: {execution_id}")

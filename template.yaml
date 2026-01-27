@@ -350,6 +350,34 @@ Resources:
   # --------------------------------------------------------------------------
   # S3 Bucket - Static file hosting for React app
   # --------------------------------------------------------------------------
+  # S3 Bucket for access logs
+  LoggingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Join
+        - '-'
+        - - !Ref StackName
+          - !Ref Environment
+          - 'logs'
+          - !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireLogs
+            Status: Enabled
+            ExpirationInDays: 90
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
   StaticFilesBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -364,6 +392,9 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+      LoggingConfiguration:
+        DestinationBucketName: !Ref LoggingBucket
+        LogFilePrefix: static-bucket-logs/
       CorsConfiguration:
         CorsRules:
           - AllowedOrigins:
@@ -718,6 +749,7 @@ Resources:
         Variables:
           DYNAMODB_TABLE: !Ref TargetsTable
           DYNAMODB_TENANT_TABLE: !Ref TenantMappingsTable
+          DYNAMODB_EXECUTIONS_TABLE: !Ref TargetExecutionsTable
           APP_ENV: !Ref Environment
       Tags:
         caylent:owner: !Ref Owner
@@ -742,6 +774,15 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
+              # CloudWatch Logs permissions
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*'
+
               # DynamoDB read access to resolve targets
               - Effect: Allow
                 Action:
@@ -749,6 +790,12 @@ Resources:
                 Resource:
                   - !GetAtt TargetsTable.Arn
                   - !GetAtt TenantMappingsTable.Arn
+              # DynamoDB write access to record initial execution status
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                Resource:
+                  - !GetAtt TargetExecutionsTable.Arn
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Tags:
@@ -875,12 +922,21 @@ Resources:
                 Resource:
                   - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*'
 
-              # DynamoDB write access to record executions
+              # DynamoDB read and write access to record executions
               - Effect: Allow
                 Action:
+                  - dynamodb:GetItem
                   - dynamodb:PutItem
                 Resource:
                   - !GetAtt TargetExecutionsTable.Arn
+
+              # DynamoDB read access to lookup tenant mappings and targets for nested execution ARN construction
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                Resource:
+                  - !GetAtt TenantMappingsTable.Arn
+                  - !GetAtt TargetsTable.Arn
 
               # Step Functions read access to get execution details
               - Effect: Allow
@@ -1118,14 +1174,12 @@ Resources:
                 Resource: '*'
 
               # Step Functions Re-drive operations
-              # Allows API Lambda to re-drive failed task-execution executions
+              # Allows API Lambda to re-drive failed executions (parent executor and nested state machines)
               - Effect: Allow
                 Action:
                   - states:RedriveExecution
                   - states:DescribeExecution
-                Resource: !Sub
-                  - arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:${StackName}-${Environment}-executor-sfn-${StackIdSuffix}:*
-                  - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+                Resource: !Sub 'arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:*:*'
 
               # Cognito operations for user authentication and management
               - Effect: Allow
