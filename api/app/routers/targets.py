@@ -11,6 +11,7 @@ from ..awssdk.lambdas import get_lambda_runner
 from ..awssdk.targets import get_target_invoker
 from ..models.target import TargetBase, Target, TargetList, RouteChangedEvent
 from ..authorization import require_admin
+from ..routers.user import get_current_user
 
 router = APIRouter()
 logger = logging.getLogger("app.routers.targets")
@@ -113,9 +114,9 @@ def create_execute_target(target_id, execution_data_schema):
 @router.get("/targets", response_model=TargetList)
 async def get_targets(
     filter: Optional[str] = Query(default=None, description="Filter targets by ID, description, or ARN"),
-    _: dict = Depends(require_admin)
+    _: dict = Depends(get_current_user)
 ):
-    """Get all targets - Admin only"""
+    """Get all targets - Authenticated users"""
     targets = db_client.get_all_targets(filter=filter)
     return {"targets": targets}
 
@@ -188,7 +189,8 @@ async def delete_target(target_id: str, _: dict = Depends(require_admin)):
     dispatch("route-deleted", payload=RouteChangedEvent(
         name=target["target_id"],
         description=target["target_description"],
-        path=f"/targets/{target['target_id']}"
+        path=f"/targets/{target['target_id']}",
+        parameters=target.get("target_parameter_schema", {})
     ))
 
     return TargetBase(**target)

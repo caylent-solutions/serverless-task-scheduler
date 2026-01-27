@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from typing import Dict, Any, Optional, Union, Type
 from pydantic import BaseModel, create_model, Field
 from fastapi.responses import HTMLResponse
@@ -6,6 +6,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from ..models.target import RouteChangedEvent, TargetWithExecutionInfo
 from .targets import create_get_target
+from .user import get_current_user
 from ..awssdk.dynamodb import get_database_client
 import logging
 import json
@@ -94,6 +95,10 @@ class OpenAPIHelpers:
                     return create_model(model_name)
             else:
                 schema_obj = schema
+
+            # Flatten the schema if it's nested under 'schema' key (from DynamoDB format)
+            if isinstance(schema_obj, dict) and 'schema' in schema_obj:
+                schema_obj = schema_obj['schema']
 
             # Extract properties and required fields
             properties = {}
@@ -356,7 +361,8 @@ class OpenAPIHelpers:
             methods=["GET"],
             summary=f"Get info for {event.name}",
             description=f"{event.description}",
-            response_model=TargetWithExecutionInfo
+            response_model=TargetWithExecutionInfo,
+            dependencies=[Depends(get_current_user)]
         )
         # Note: Direct execution via /targets/{target_id}/_execute has been removed
         # All executions must go through tenant context: /tenants/{tenant_id}/targets/{target_id}/_execute

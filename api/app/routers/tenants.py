@@ -735,9 +735,22 @@ async def redrive_execution(
                 detail="State machine ARN not configured"
             )
 
-        # Construct the full execution ARN using the execution_id (UUID)
-        # Format: arn:aws:states:region:account:execution:stateMachineName:executionName
-        sfn_execution_arn = f"{state_machine_arn.replace(':stateMachine:', ':execution:')}:{execution_id}"
+        # Check if this is a nested Step Functions execution that should be redriven instead
+        redrive_info = execution_record.get('redrive_info', {})
+        nested_execution_arn = redrive_info.get('nested_execution_arn')
+        
+        logger.info(f"Execution record redrive_info: {redrive_info}")
+        logger.info(f"Nested execution ARN from redrive_info: {nested_execution_arn}")
+        
+        if nested_execution_arn:
+            # Redrive the nested execution instead of the parent
+            logger.info(f"Detected nested Step Functions execution. Will redrive nested execution: {nested_execution_arn}")
+            sfn_execution_arn = nested_execution_arn
+        else:
+            # Construct the full parent execution ARN using the execution_id (UUID)
+            # Format: arn:aws:states:region:account:execution:stateMachineName:executionName
+            sfn_execution_arn = f"{state_machine_arn.replace(':stateMachine:', ':execution:')}:{execution_id}"
+            logger.info(f"Will redrive parent execution: {sfn_execution_arn}")
 
         # Initialize Step Functions client
         sfn_client = boto3.client('stepfunctions')
@@ -752,6 +765,7 @@ async def redrive_execution(
             logger.info(f"Successfully redriven execution: {sfn_execution_arn}")
 
             # Only update status to IN_PROGRESS after redrive succeeds
+            # Use update_item to preserve redrive_info, cloudwatch_logs_url, and other metadata
             try:
                 from datetime import datetime, timezone, timedelta
 
@@ -763,20 +777,25 @@ async def redrive_execution(
                 ttl_date = datetime.now(timezone.utc) + timedelta(days=15)
                 ttl = int(ttl_date.timestamp())
 
-                # Update the execution record to IN_PROGRESS status
-                table.put_item(Item={
-                    'tenant_schedule': tenant_schedule,
-                    'execution_id': execution_id,
-                    'tenant_target': tenant_target,
-                    'timestamp': timestamp,
-                    'status': 'IN_PROGRESS',
-                    'result': {},
-                    'executed_at': timestamp,
-                    'state_machine_execution_arn': execution_id,
-                    'execution_start_time': timestamp,
-                    'ttl': ttl
-                })
-                logger.info(f"Updated execution to IN_PROGRESS after successful redrive: {execution_id}")
+                # Update only the status and TTL, preserving all other fields
+                table.update_item(
+                    Key={
+                        'tenant_schedule': tenant_schedule,
+                        'execution_id': execution_id
+                    },
+                    UpdateExpression='SET #status = :status, #timestamp = :timestamp, #ttl = :ttl',
+                    ExpressionAttributeNames={
+                        '#status': 'status',
+                        '#timestamp': 'timestamp',
+                        '#ttl': 'ttl'
+                    },
+                    ExpressionAttributeValues={
+                        ':status': 'IN_PROGRESS',
+                        ':timestamp': timestamp,
+                        ':ttl': ttl
+                    }
+                )
+                logger.info(f"Updated execution status to IN_PROGRESS after successful redrive: {execution_id}")
             except Exception as e:
                 logger.warning(f"Failed to update execution status to IN_PROGRESS after redrive: {e}")
                 # Don't fail the request - redrive succeeded

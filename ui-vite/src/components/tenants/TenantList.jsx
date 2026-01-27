@@ -74,7 +74,10 @@ const TenantList = ({ isAdmin }) => {
       setTenants(tenants.filter(t => t.tenant_id !== tenantId));
     } catch (err) {
       console.error('Error deleting tenant:', err);
-      alert(`Error deleting tenant: ${err.message}`);
+      // Skip alert for authentication errors (handled by redirect)
+      if (!err.message.includes('401')) {
+        alert(`Error deleting tenant: ${err.message}`);
+      }
     }
   };
 
@@ -125,7 +128,10 @@ const TenantList = ({ isAdmin }) => {
       setSelectedTenant(null);
     } catch (err) {
       console.error('Error saving tenant:', err);
-      alert(`Error saving tenant: ${err.message}`);
+      // Skip alert for authentication errors (handled by redirect)
+      if (!err.message.includes('401')) {
+        alert(`Error saving tenant: ${err.message}`);
+      }
     }
   };
 

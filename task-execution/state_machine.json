@@ -46,16 +46,8 @@
                   "Next": "ExecuteECSTarget"
                 },
                 {
-                  "Or": [
-                    {
-                      "Variable": "$.target_type",
-                      "StringEquals": "stepfunctions"
-                    },
-                    {
-                      "Variable": "$.target_type",
-                      "StringEquals": "step-functions"
-                    }
-                  ],
+                  "Variable": "$.target_type",
+                  "StringEquals": "stepfunctions",
                   "Next": "ExecuteStepFunctionTarget"
                 }
               ],
@@ -101,10 +93,11 @@
             },
             "ExecuteStepFunctionTarget": {
               "Type": "Task",
-              "Comment": "Start execution of another Step Functions state machine",
+              "Comment": "Start execution of another Step Functions state machine with predictable execution name",
               "Resource": "arn:aws:states:::states:startExecution.sync:2",
               "Parameters": {
                 "StateMachineArn.$": "$.target_arn",
+                "Name.$": "States.Format('{}-nested', $$.Execution.Name)",
                 "Input.$": "$.merged_payload"
               },
               "ResultPath": "$.execution_result",
@@ -114,7 +107,7 @@
               "Type": "Fail",
               "Comment": "Target type is not supported",
               "Error": "UnsupportedTargetType",
-              "Cause": "The specified target_type is not supported. Must be one of: lambda, ecs, stepfunctions, step-functions"
+              "Cause": "The specified target_type is not supported. Must be one of: lambda, ecs, stepfunctions"
             }
           }
         }
@@ -123,7 +116,8 @@
         "execution_result.$": "$[0].execution_result",
         "tenant_id.$": "$[0].tenant_id",
         "target_alias.$": "$[0].target_alias",
-        "schedule_id.$": "$[0].schedule_id"
+        "schedule_id.$": "$[0].schedule_id",
+        "target_arn.$": "$[0].target_arn"
       },
       "Next": "EventBridgeHandoff"
     },

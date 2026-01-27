@@ -84,6 +84,21 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Listen for authentication failures from any component
+  useEffect(() => {
+    const handleAuthFailure = () => {
+      console.log('Authentication failure detected - logging out user');
+      setIsAuthenticated(false);
+      sessionStorage.removeItem('selectedTenant');
+    };
+
+    window.addEventListener('auth-failure', handleAuthFailure);
+
+    return () => {
+      window.removeEventListener('auth-failure', handleAuthFailure);
+    };
+  }, []);
+
   const handleNavigate = (view) => {
     setCurrentView(view);
   };

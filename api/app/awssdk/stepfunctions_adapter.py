@@ -7,13 +7,39 @@ state machines both synchronously and asynchronously.
 
 import json
 import logging
-import uuid
+import re
 from typing import Any, Dict
+
+from uuid_v7.base import uuid7
 
 from . import get_session
 
 
 logger = logging.getLogger("app.awssdk.stepfunctions_adapter")
+
+
+def validate_state_machine_arn(arn: str) -> None:
+    """Validate that the provided ARN is a valid Step Functions state machine ARN.
+    
+    Args:
+        arn: The ARN to validate
+        
+    Raises:
+        ValueError: If the ARN is invalid or not a Step Functions state machine ARN
+    """
+    if not arn:
+        raise ValueError("State machine ARN cannot be empty")
+    
+    # AWS ARN pattern for Step Functions state machines
+    # Format: arn:aws:states:region:account-id:stateMachine:name
+    arn_pattern = r'^arn:aws:states:[a-z0-9-]+:[0-9]{12}:stateMachine:[a-zA-Z0-9_-]+$'
+    
+    if not re.match(arn_pattern, arn):
+        raise ValueError(f"Invalid Step Functions state machine ARN format: {arn}")
+    
+    # Additional check for injection attempts
+    if any(char in arn for char in ['\n', '\r', '\t', ';', '&', '|', '`', '$', '(', ')']):
+        raise ValueError("ARN contains invalid characters")
 
 
 class StepFunctionsAdapter:
@@ -34,9 +60,15 @@ class StepFunctionsAdapter:
 
         Returns:
             Dictionary with execution details
+            
+        Raises:
+            ValueError: If the state machine ARN is invalid
         """
+        # Validate ARN to prevent injection attacks
+        validate_state_machine_arn(state_machine_arn)
+        
         logger.info(f"Starting Step Functions execution: {state_machine_arn}")
-        execution_id = str(uuid.uuid4())
+        execution_id = str(uuid7())
         input_with_id = {**payload, "execution_id": execution_id}
 
         response = self._sfn_client.start_execution(
@@ -64,9 +96,15 @@ class StepFunctionsAdapter:
 
         Returns:
             Dictionary with execution result
+            
+        Raises:
+            ValueError: If the state machine ARN is invalid
         """
+        # Validate ARN to prevent injection attacks
+        validate_state_machine_arn(state_machine_arn)
+        
         logger.info(f"Starting Step Functions execution synchronously: {state_machine_arn}")
-        execution_id = str(uuid.uuid4())
+        execution_id = str(uuid7())
         input_with_id = {**payload, "execution_id": execution_id}
 
         # Start execution

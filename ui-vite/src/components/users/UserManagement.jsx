@@ -15,6 +15,7 @@ const UserManagement = ({ isAdmin }) => {
   const [inviteTenants, setInviteTenants] = useState([]);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState(null);
 
   // Fetch users and tenants from API
   const fetchData = async (searchFilter = '') => {
@@ -93,6 +94,7 @@ const UserManagement = ({ isAdmin }) => {
     }
 
     try {
+      setDeletingUserId(user.user_id);
       const response = await authenticatedFetch(`../user/management/${encodeURIComponent(user.user_id)}?delete_from_cognito=${deleteFromCognito}`, {
         method: 'DELETE'
       });
@@ -107,6 +109,8 @@ const UserManagement = ({ isAdmin }) => {
     } catch (err) {
       console.error('Error deleting user:', err);
       alert(`Error deleting user: ${err.message}`);
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -133,7 +137,10 @@ const UserManagement = ({ isAdmin }) => {
       setSelectedUser(null);
     } catch (err) {
       console.error('Error saving user:', err);
-      alert(`Error saving user: ${err.message}`);
+      // Skip alert for authentication errors (handled by redirect)
+      if (!err.message.includes('401')) {
+        alert(`Error saving user: ${err.message}`);
+      }
     }
   };
 
@@ -200,7 +207,10 @@ const UserManagement = ({ isAdmin }) => {
 
     } catch (err) {
       console.error('Error inviting user:', err);
-      alert(`Error inviting user: ${err.message}`);
+      // Skip alert for authentication errors (handled by redirect)
+      if (!err.message.includes('401')) {
+        alert(`Error inviting user: ${err.message}`);
+      }
     } finally {
       setInviteLoading(false);
     }
@@ -229,7 +239,10 @@ const UserManagement = ({ isAdmin }) => {
       await fetchData(filter);
     } catch (err) {
       console.error('Error syncing IdP:', err);
-      alert(`Error syncing IdP: ${err.message}`);
+      // Skip alert for authentication errors (handled by redirect)
+      if (!err.message.includes('401')) {
+        alert(`Error syncing IdP: ${err.message}`);
+      }
     } finally {
       setSyncLoading(false);
     }
@@ -312,6 +325,7 @@ const UserManagement = ({ isAdmin }) => {
                       className="btn-icon btn-edit"
                       onClick={() => handleEdit(user)}
                       title="Edit"
+                      disabled={deletingUserId === user.user_id}
                     >
                       ✏️
                     </button>
@@ -319,8 +333,9 @@ const UserManagement = ({ isAdmin }) => {
                       className="btn-icon btn-delete"
                       onClick={() => handleDelete(user)}
                       title="Delete"
+                      disabled={deletingUserId === user.user_id}
                     >
-                      🗑️
+                      {deletingUserId === user.user_id ? '⏳' : '🗑️'}
                     </button>
                   </td>
                   <td>
@@ -598,6 +613,16 @@ const UserManagement = ({ isAdmin }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {deletingUserId && (
+        <div className="modal-overlay" style={{backgroundColor: 'rgba(0, 0, 0, 0.5)'}}>
+          <div className="flex flex-col items-center justify-center">
+            <div className="text-white text-6xl mb-4 animate-spin">⏳</div>
+            <div className="text-white text-xl font-semibold">Deleting user...</div>
+            <div className="text-white text-sm mt-2">This may take a few moments</div>
           </div>
         </div>
       )}

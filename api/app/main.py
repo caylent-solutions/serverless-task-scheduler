@@ -212,13 +212,14 @@ app.openapi = custom_openapi
 
 
 @local_handler.register(event_name="route-added")
-def handle_route_added_event(event: RouteChangedEvent):
+def handle_route_added_event(event):
     from .routers.openapi import OpenAPIHelpers
-    logger.warning(f"Handling route added event: {event[1].name} - {event[1].description} at {event[1].path}")
+    event_name, payload = event
+    logger.warning(f"Handling route added event: {payload.name} - {payload.description} at {payload.path}")
     app.openapi_schema = None
     helpers = OpenAPIHelpers(app.router)
 
-    app.include_router(helpers.add_dynamic_route(event[1]))
+    app.include_router(helpers.add_dynamic_route(payload))
     for route in app.routes:
         print(f"path: {route.path}, name: {route.name}, methods: {list(route.methods)}")
 
@@ -226,12 +227,13 @@ def handle_route_added_event(event: RouteChangedEvent):
 
 
 @local_handler.register(event_name="route-deleted")
-def handle_route_deleted_event(event: RouteChangedEvent):
+def handle_route_deleted_event(event):
     from .routers.openapi import OpenAPIHelpers
-    logger.warning(f"Handling route deleted event: {event[1].name} - {event[1].description} at {event[1].path}")
+    event_name, payload = event
+    logger.warning(f"Handling route deleted event: {payload.name} - {payload.description} at {payload.path}")
 
-    app.routes[:] = [route for route in app.routes if route.path != event[1].path]
-    app.routes[:] = [route for route in app.routes if route.path != (event[1].path + "/_execute")]
+    app.routes[:] = [route for route in app.routes if route.path != payload.path]
+    app.routes[:] = [route for route in app.routes if route.path != (payload.path + "/_execute")]
 
     app.openapi_schema = None
     helpers = OpenAPIHelpers(app.router)

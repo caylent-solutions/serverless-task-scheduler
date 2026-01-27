@@ -104,7 +104,12 @@ const ExecutionHistoryModal = ({
   };
 
   // Server-side filtering is now handled by the API, so we use executions directly
-  const filteredExecutions = executions;
+  // Sort by timestamp descending (newest first)
+  const filteredExecutions = [...executions].sort((a, b) => {
+    const timeA = new Date(a.timestamp).getTime();
+    const timeB = new Date(b.timestamp).getTime();
+    return timeB - timeA; // Descending order (newest first)
+  });
 
   // Get CloudWatch logs URL from execution record
   const getCloudWatchUrl = (execution) => {
@@ -156,7 +161,10 @@ const ExecutionHistoryModal = ({
 
     } catch (err) {
       console.error('Error redriving execution:', err);
-      alert(`Failed to redrive execution:\n\n${err.message}`);
+      // Skip alert for authentication errors (handled by redirect)
+      if (!err.message.includes('401')) {
+        alert(`Failed to redrive execution:\n\n${err.message}`);
+      }
 
       // Remove from redriving set on error
       setRedrivingExecutions(prev => {
