@@ -365,11 +365,16 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
       LifecycleConfiguration:
         Rules:
           - Id: ExpireLogs
             Status: Enabled
             ExpirationInDays: 90
+          - Id: ExpireNoncurrentVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
       Tags:
         - Key: caylent:owner
           Value: !Ref Owner
@@ -377,6 +382,24 @@ Resources:
           Value: !Ref Environment
         - Key: cfn:stack
           Value: !Ref StackName
+
+  LoggingBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref LoggingBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt LoggingBucket.Arn
+              - !Sub '${LoggingBucket.Arn}/*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
 
   StaticFilesBucket:
     Type: AWS::S3::Bucket
