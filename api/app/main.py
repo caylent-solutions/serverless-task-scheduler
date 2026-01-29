@@ -47,8 +47,12 @@ def get_cookie_value(cookie_string: str, cookie_name: str) -> Optional[str]:
             name, _, value = cookie_pair.partition('=')
             name = name.strip()
             # Only return if name matches exactly (case-sensitive)
+            # Only return if name matches exactly (case-sensitive)
             if name == cookie_name:
-                return value.strip()
+                value = value.strip()
+                # Validate cookie value format to prevent injection attacks
+                if value and all(c.isprintable() and c not in ';=' for c in value):
+                    return value
     return None
 
 
