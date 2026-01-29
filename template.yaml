@@ -22,6 +22,16 @@ Parameters:
     Type: String
     Description: Name of the CloudFormation stack (used as prefix for all resources)
     Default: "sts"
+  ExistingLogsBucket:
+    Type: String
+    Description: "Optional: Name of existing S3 bucket for access logs (leave empty to create a new one)"
+    Default: ""
+
+# ----------------------------------------------------------------------------
+# Conditions
+# ----------------------------------------------------------------------------
+Conditions:
+  CreateLogsBucket: !Equals [!Ref ExistingLogsBucket, ""]
 
 # ----------------------------------------------------------------------------
 # Globals (applies to all Lambda functions and other resources)
@@ -350,9 +360,10 @@ Resources:
   # --------------------------------------------------------------------------
   # S3 Bucket - Static file hosting for React app
   # --------------------------------------------------------------------------
-  # S3 Bucket for access logs
+  # S3 Bucket for access logs (conditionally created)
   LoggingBucket:
     Type: AWS::S3::Bucket
+    Condition: CreateLogsBucket
     Properties:
       BucketName: !Join
         - '-'
@@ -365,11 +376,16 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
       LifecycleConfiguration:
         Rules:
           - Id: ExpireLogs
             Status: Enabled
             ExpirationInDays: 90
+          - Id: ExpireNoncurrentVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
       Tags:
         - Key: caylent:owner
           Value: !Ref Owner
@@ -377,6 +393,25 @@ Resources:
           Value: !Ref Environment
         - Key: cfn:stack
           Value: !Ref StackName
+
+  LoggingBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: CreateLogsBucket
+    Properties:
+      Bucket: !Ref LoggingBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt LoggingBucket.Arn
+              - !Sub '${LoggingBucket.Arn}/*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
 
   StaticFilesBucket:
     Type: AWS::S3::Bucket
@@ -393,7 +428,7 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
       LoggingConfiguration:
-        DestinationBucketName: !Ref LoggingBucket
+        DestinationBucketName: !If [CreateLogsBucket, !Ref LoggingBucket, !Ref ExistingLogsBucket]
         LogFilePrefix: static-bucket-logs/
       CorsConfiguration:
         CorsRules:
