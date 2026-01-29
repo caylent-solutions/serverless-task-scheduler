@@ -200,5 +200,8 @@ api/app/wwwroot/
 
 samconfig.toml
 
+# Node.js package lock files - regenerated on npm install
+**/package-lock.json
+
 # Terraform iac
 **/.terraform/*
