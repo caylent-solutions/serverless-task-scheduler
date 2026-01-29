@@ -9,6 +9,7 @@ from .awssdk.dynamodb import get_database_client
 import logging
 import time
 import os
+from typing import Optional
 from fastapi_events.middleware import EventHandlerASGIMiddleware
 from fastapi_events.handlers.local import local_handler
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +18,47 @@ from fastapi.responses import RedirectResponse
 # Configure logging - use the custom handler from __init__.py
 logger = logging.getLogger("app")
 logger.setLevel(logging.DEBUG)
+
+
+def get_cookie_value(cookie_string: str, cookie_name: str) -> Optional[str]:
+    """
+    Safely extract a specific cookie value from cookie header string.
+    Only extracts cookies with whitelisted names to prevent cookie injection.
+    
+    Args:
+        cookie_string: Raw cookie header string from HTTP request
+        cookie_name: Name of the cookie to extract (must be in whitelist)
+        
+    Returns:
+        Cookie value if found and whitelisted, None otherwise
+    """
+    if not cookie_string or not cookie_name:
+        return None
+    
+    # Validate cookie header format to prevent header injection
+    if '\n' in cookie_string or '\r' in cookie_string:
+        return None
+    
+    # Only allow specific cookie names (whitelist) - prevents user-controlled cookie names
+    ALLOWED_COOKIES = {'idToken', 'accessToken', 'refreshToken'}
+    if cookie_name not in ALLOWED_COOKIES:
+        return None
+    
+    # Parse cookies manually with validation
+    for cookie_pair in cookie_string.split(';'):
+        cookie_pair = cookie_pair.strip()
+        if '=' in cookie_pair:
+            name, _, value = cookie_pair.partition('=')
+            name = name.strip()
+            # Only return if name matches exactly (case-sensitive)
+            # Only return if name matches exactly (case-sensitive)
+            if name == cookie_name:
+                value = value.strip()
+                # Validate cookie value format to prevent injection attacks
+                if value and all(c.isprintable() and c not in ';=' for c in value):
+                    return value
+    return None
+
 
 # Set database target environment variable
 # Options: 'memory', 'local' (default), or 'aws'
@@ -87,13 +129,8 @@ async def log_and_time_requests(request: Request, call_next):
                 cookie_header = request.headers.get('cookie', '')
                 auth_token = request.cookies.get('idToken') or request.cookies.get('accessToken')
                 if not auth_token and 'idToken' in cookie_header:
-                    # Manually parse cookie header as fallback
-                    import http.cookies
-                    cookie = http.cookies.SimpleCookie()
-                    cookie.load(cookie_header)
-                    id_token_morsel = cookie.get('idToken')
-                    access_token_morsel = cookie.get('accessToken')
-                    auth_token = id_token_morsel.value if id_token_morsel else (access_token_morsel.value if access_token_morsel else None)
+                    # Securely parse cookie header with whitelisted cookie names
+                    auth_token = get_cookie_value(cookie_header, 'idToken') or get_cookie_value(cookie_header, 'accessToken')
 
             # If authentication is configured, require valid token
             if os.environ.get('COGNITO_USER_POOL_ID'):
