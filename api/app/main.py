@@ -35,6 +35,10 @@ def get_cookie_value(cookie_string: str, cookie_name: str) -> Optional[str]:
     if not cookie_string or not cookie_name:
         return None
     
+    # Validate cookie header format to prevent header injection
+    if '\n' in cookie_string or '\r' in cookie_string:
+        return None
+    
     # Only allow specific cookie names (whitelist) - prevents user-controlled cookie names
     ALLOWED_COOKIES = {'idToken', 'accessToken', 'refreshToken'}
     if cookie_name not in ALLOWED_COOKIES:
