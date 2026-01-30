@@ -63,6 +63,9 @@ AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
 # Determine if we should log sensitive information (non-production environments)
 VERBOSE_LOGGING = APP_ENV in ['dev', 'qa', 'uat']
 
+# Constants
+STATES_SERVICE_IDENTIFIER = ':states:'  # Used to identify Step Functions ARNs
+ECS_SERVICE_IDENTIFIER = ':ecs:'  # Used to identify ECS ARNs
 
 def generate_console_url(
     target_arn: str,
@@ -85,7 +88,7 @@ def generate_console_url(
         return cloudwatch_logs_url
     
     # Detect target type from ARN
-    if target_arn and ':states:' in target_arn:
+    if target_arn and STATES_SERVICE_IDENTIFIER in target_arn:
         # Step Functions target - link to Step Functions console
         # Format: https://region.console.aws.amazon.com/states/home?region=region#/v2/executions/details/execution-arn
         # Need to construct full execution ARN if we only have the name
@@ -113,7 +116,7 @@ def generate_console_url(
             logger.warning(f"Failed to parse Step Functions ARN: {e}. Target ARN: {target_arn}, Execution ARN: {execution_arn}")
             return None
     
-    elif target_arn and ':ecs:' in target_arn:
+    elif target_arn and ECS_SERVICE_IDENTIFIER in target_arn:
         # ECS target - no direct logs URL available
         # Could potentially link to ECS task console, but would need task ARN
         return None
@@ -147,6 +150,150 @@ def handler(event, context):
         raise
 
 
+def lookup_target_arn_from_dynamodb(tenant_id: str, target_alias: str) -> str:
+    """
+    Lookup target ARN from DynamoDB using tenant_id and target_alias.
+    
+    Args:
+        tenant_id: Tenant identifier
+        target_alias: Target alias
+        
+    Returns:
+        Target ARN if found, empty string otherwise
+    """
+    try:
+        tenant_mappings_table_name = os.environ.get('DYNAMODB_TENANT_TABLE')
+        targets_table_name = os.environ.get('DYNAMODB_TABLE')
+        
+        if not tenant_mappings_table_name or not targets_table_name:
+            return ''
+        
+        if not tenant_id or not target_alias:
+            return ''
+        
+        # Query tenant mapping to get target_id
+        mappings_table = dynamodb.Table(tenant_mappings_table_name)
+        mapping_response = mappings_table.get_item(
+            Key={'tenant_id': tenant_id, 'target_alias': target_alias}
+        )
+        
+        if 'Item' not in mapping_response:
+            return ''
+        
+        target_id = mapping_response['Item'].get('target_id')
+        if not target_id:
+            return ''
+        
+        # Get target details to get target_arn
+        targets_table = dynamodb.Table(targets_table_name)
+        target_response = targets_table.get_item(
+            Key={'target_id': target_id}
+        )
+        
+        if 'Item' in target_response:
+            target_arn = target_response['Item'].get('target_arn', '')
+            if target_arn:
+                logger.info(f"Retrieved target_arn from DynamoDB for failed execution: {target_arn}")
+            return target_arn
+        
+        return ''
+    except Exception as e:
+        logger.warning(f"Failed to retrieve target_arn from DynamoDB: {e}")
+        return ''
+
+
+def construct_nested_execution_arn(target_arn: str, execution_arn: str) -> Optional[str]:
+    """
+    Construct nested Step Functions execution ARN from parent execution ARN.
+    
+    Args:
+        target_arn: Target state machine ARN
+        execution_arn: Parent execution ARN
+        
+    Returns:
+        Nested execution ARN or None if construction fails
+    """
+    if not target_arn or STATES_SERVICE_IDENTIFIER not in target_arn:
+        return None
+    
+    try:
+        # Extract execution name from parent execution ARN
+        execution_name = execution_arn.split(':')[-1]
+        
+        # Parse nested state machine ARN to construct child execution ARN
+        arn_parts = target_arn.split(':')
+        if len(arn_parts) < 7:
+            return None
+        
+        region = arn_parts[3]
+        account = arn_parts[4]
+        state_machine_name = arn_parts[6]
+        
+        # Construct nested execution ARN (uses parent execution name + "-nested" suffix)
+        nested_execution_arn = f"arn:aws:states:{region}:{account}:execution:{state_machine_name}:{execution_name}-nested"
+        logger.info(f"Constructed nested execution ARN for redrive: {nested_execution_arn}")
+        return nested_execution_arn
+    except (IndexError, ValueError) as e:
+        logger.warning(f"Failed to construct nested execution ARN: {e}")
+        return None
+
+
+def process_success_status(execution_details: dict) -> tuple:
+    """
+    Process successful execution status.
+    
+    Returns:
+        Tuple of (our_status, execution_result, target_arn, failed_state, redrive_info)
+    """
+    output_data = json.loads(execution_details.get('output', '{}'))
+    execution_result = output_data.get('execution_result', {})
+    target_arn = output_data.get('target_arn', '')
+    return 'SUCCESS', execution_result, target_arn, None, None
+
+
+def process_failure_status(detail: dict, execution_details: dict, input_data: dict, status: str, execution_arn: str) -> tuple:
+    """
+    Process failed execution status.
+    
+    Returns:
+        Tuple of (our_status, execution_result, target_arn, failed_state, redrive_info)
+    """
+    our_status = 'FAILED'
+    execution_result = {
+        'Error': detail.get('error', status),
+        'Cause': detail.get('cause', f'Execution {status.lower()}')
+    }
+    
+    # Try to get target_arn from output (may be partial), or fall back to input
+    output_data = json.loads(execution_details.get('output', '{}'))
+    target_arn = output_data.get('target_arn', input_data.get('target_arn', ''))
+    
+    # If still no target_arn, try to look it up from DynamoDB
+    if not target_arn:
+        tenant_id = input_data.get('tenant_id')
+        target_alias = input_data.get('target_alias')
+        target_arn = lookup_target_arn_from_dynamodb(tenant_id, target_alias)
+    
+    failed_state = detail.get('stopDate', 'Unknown')
+    
+    # Build redrive info
+    redrive_info = {
+        'can_redrive': True,
+        'redrive_from_state': 'ExecuteTargetWithErrorHandling',
+        'message': f'Execution {status.lower()}. Can be redriven from the Parallel state.'
+    }
+    
+    # For nested Step Functions, construct the child execution ARN
+    nested_execution_arn = construct_nested_execution_arn(target_arn, execution_arn)
+    if nested_execution_arn:
+        redrive_info['nested_execution_arn'] = nested_execution_arn
+        redrive_info['message'] = (
+            f'Execution {status.lower()}. Redrive will automatically target the nested Step Functions execution: {nested_execution_arn}'
+        )
+    
+    return our_status, execution_result, target_arn, failed_state, redrive_info
+
+
 def handle_eventbridge_event(event, context):
     """
     Handle EventBridge Step Functions execution status change event.
@@ -170,89 +317,11 @@ def handle_eventbridge_event(event, context):
 
     # Map Step Functions status to our status
     if status == 'SUCCEEDED':
-        our_status = 'SUCCESS'
-        # Get output for successful executions
-        output_data = json.loads(execution_details.get('output', '{}'))
-        execution_result = output_data.get('execution_result', {})
-        target_arn = output_data.get('target_arn', '')
-        failed_state = None
-        redrive_info = None
+        our_status, execution_result, target_arn, failed_state, redrive_info = process_success_status(execution_details)
     else:
-        our_status = 'FAILED'
-        # For failures, get error details
-        execution_result = {
-            'Error': detail.get('error', status),
-            'Cause': detail.get('cause', f'Execution {status.lower()}')
-        }
-        # Try to get target_arn from output (may be partial), or fall back to input
-        output_data = json.loads(execution_details.get('output', '{}'))
-        target_arn = output_data.get('target_arn', input_data.get('target_arn', ''))
-        
-        # If still no target_arn, try to look it up from DynamoDB using tenant_id and target_alias
-        if not target_arn:
-            try:
-                tenant_mappings_table_name = os.environ.get('DYNAMODB_TENANT_TABLE')
-                targets_table_name = os.environ.get('DYNAMODB_TABLE')
-                
-                if tenant_mappings_table_name and targets_table_name:
-                    tenant_id = input_data.get('tenant_id')
-                    target_alias = input_data.get('target_alias')
-                    
-                    if tenant_id and target_alias:
-                        # Query tenant mapping to get target_id
-                        mappings_table = dynamodb.Table(tenant_mappings_table_name)
-                        mapping_response = mappings_table.get_item(
-                            Key={'tenant_id': tenant_id, 'target_alias': target_alias}
-                        )
-                        
-                        if 'Item' in mapping_response:
-                            target_id = mapping_response['Item'].get('target_id')
-                            
-                            # Get target details to get target_arn
-                            targets_table = dynamodb.Table(targets_table_name)
-                            target_response = targets_table.get_item(
-                                Key={'target_id': target_id}
-                            )
-                            
-                            if 'Item' in target_response:
-                                target_arn = target_response['Item'].get('target_arn', '')
-                                logger.info(f"Retrieved target_arn from DynamoDB for failed execution: {target_arn}")
-            except Exception as e:
-                logger.warning(f"Failed to retrieve target_arn from DynamoDB: {e}")
-        
-        failed_state = detail.get('stopDate', 'Unknown')
-        
-        # Build redrive info
-        redrive_info = {
-            'can_redrive': True,
-            'redrive_from_state': 'ExecuteTargetWithErrorHandling',
-            'message': f'Execution {status.lower()}. Can be redriven from the Parallel state.'
-        }
-        
-        # For nested Step Functions, construct the child execution ARN
-        # We use the parent execution name with "-nested" suffix for the child
-        if target_arn and ':states:' in target_arn:
-            try:
-                # Extract execution name from parent execution ARN
-                execution_name = execution_arn.split(':')[-1]
-                
-                # Parse nested state machine ARN to construct child execution ARN
-                arn_parts = target_arn.split(':')
-                if len(arn_parts) >= 7:
-                    region = arn_parts[3]
-                    account = arn_parts[4]
-                    state_machine_name = arn_parts[6]
-                    
-                    # Construct nested execution ARN (uses parent execution name + "-nested" suffix)
-                    nested_execution_arn = f"arn:aws:states:{region}:{account}:execution:{state_machine_name}:{execution_name}-nested"
-                    
-                    redrive_info['nested_execution_arn'] = nested_execution_arn
-                    redrive_info['message'] = (
-                        f'Execution {status.lower()}. Redrive will automatically target the nested Step Functions execution: {nested_execution_arn}'
-                    )
-                    logger.info(f"Constructed nested execution ARN for redrive: {nested_execution_arn}")
-            except (IndexError, ValueError) as e:
-                logger.warning(f"Failed to construct nested execution ARN: {e}")
+        our_status, execution_result, target_arn, failed_state, redrive_info = process_failure_status(
+            detail, execution_details, input_data, status, execution_arn
+        )
 
     tenant_id = input_data.get('tenant_id')
     target_alias = input_data.get('target_alias')
@@ -404,7 +473,7 @@ def record_execution(
             
             # For Step Functions targets, use the actual execution ARN from the result if available
             target_execution_arn = state_machine_execution_arn
-            if ':states:' in target_arn and 'ExecutionArn' in result:
+            if STATES_SERVICE_IDENTIFIER in target_arn and 'ExecutionArn' in result:
                 target_execution_arn = result['ExecutionArn']
             
             console_url = generate_console_url(
