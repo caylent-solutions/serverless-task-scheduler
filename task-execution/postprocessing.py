@@ -491,7 +491,7 @@ def record_execution(
             elif status == 'FAILED' and 'Cause' in result and not cloudwatch_url:
                 try:
                     if VERBOSE_LOGGING:
-                        logger.info(f"Attempting to parse Cause for CloudWatch URL from failed Lambda")
+                        logger.info("Attempting to parse Cause for CloudWatch URL from failed Lambda")
 
                     # Parse the Cause field - it contains an object with errorMessage
                     cause_data = json.loads(result['Cause'])
