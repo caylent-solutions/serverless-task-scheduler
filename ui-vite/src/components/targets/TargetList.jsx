@@ -197,7 +197,9 @@ const TargetList = ({ isAdmin }) => {
         let errorData;
         try {
           errorData = await response.json();
-        } catch (parseErr) {
+        } catch (error_) {
+          // Response body is not valid JSON, use status code for error message
+          console.warn('Failed to parse error response as JSON:', error_);
           throw new Error(`Failed to save target: ${response.status}`);
         }
         throw new Error(errorData.detail || `Failed to save target: ${response.status}`);

@@ -32,6 +32,7 @@ def get_cookie_value(cookie_string: str, cookie_name: str) -> Optional[str]:
     Returns:
         Cookie value if found and whitelisted, None otherwise
     """
+    # Early returns to reduce complexity
     if not cookie_string or not cookie_name:
         return None
     
@@ -47,16 +48,24 @@ def get_cookie_value(cookie_string: str, cookie_name: str) -> Optional[str]:
     # Parse cookies manually with validation
     for cookie_pair in cookie_string.split(';'):
         cookie_pair = cookie_pair.strip()
-        if '=' in cookie_pair:
-            name, _, value = cookie_pair.partition('=')
-            name = name.strip()
-            # Only return if name matches exactly (case-sensitive)
-            # Only return if name matches exactly (case-sensitive)
-            if name == cookie_name:
-                value = value.strip()
-                # Validate cookie value format to prevent injection attacks
-                if value and all(c.isprintable() and c not in ';=' for c in value):
-                    return value
+        if '=' not in cookie_pair:
+            continue
+            
+        name, _, value = cookie_pair.partition('=')
+        name = name.strip()
+        
+        # Check if this is the cookie we're looking for
+        if name != cookie_name:
+            continue
+        
+        value = value.strip()
+        # Validate cookie value format to prevent injection attacks
+        if not value:
+            return None
+        
+        if all(c.isprintable() and c not in ';=' for c in value):
+            return value
+    
     return None
 
 
@@ -251,7 +260,7 @@ app.openapi = custom_openapi
 @local_handler.register(event_name="route-added")
 def handle_route_added_event(event):
     from .routers.openapi import OpenAPIHelpers
-    event_name, payload = event
+    _, payload = event
     logger.warning(f"Handling route added event: {payload.name} - {payload.description} at {payload.path}")
     app.openapi_schema = None
     helpers = OpenAPIHelpers(app.router)
@@ -266,7 +275,7 @@ def handle_route_added_event(event):
 @local_handler.register(event_name="route-deleted")
 def handle_route_deleted_event(event):
     from .routers.openapi import OpenAPIHelpers
-    event_name, payload = event
+    _, payload = event
     logger.warning(f"Handling route deleted event: {payload.name} - {payload.description} at {payload.path}")
 
     app.routes[:] = [route for route in app.routes if route.path != payload.path]
