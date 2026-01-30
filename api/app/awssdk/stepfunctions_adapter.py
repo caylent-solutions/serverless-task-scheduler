@@ -32,7 +32,7 @@ def validate_state_machine_arn(arn: str) -> None:
     
     # AWS ARN pattern for Step Functions state machines
     # Format: arn:aws:states:region:account-id:stateMachine:name
-    arn_pattern = r'^arn:aws:states:[a-z0-9-]+:[0-9]{12}:stateMachine:[a-zA-Z0-9_-]+$'
+    arn_pattern = r'^arn:aws:states:[a-z0-9-]+:\d{12}:stateMachine:[a-zA-Z0-9_-]+$'
     
     if not re.match(arn_pattern, arn):
         raise ValueError(f"Invalid Step Functions state machine ARN format: {arn}")

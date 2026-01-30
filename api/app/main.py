@@ -260,7 +260,7 @@ app.openapi = custom_openapi
 @local_handler.register(event_name="route-added")
 def handle_route_added_event(event):
     from .routers.openapi import OpenAPIHelpers
-    event_name, payload = event
+    _, payload = event
     logger.warning(f"Handling route added event: {payload.name} - {payload.description} at {payload.path}")
     app.openapi_schema = None
     helpers = OpenAPIHelpers(app.router)
@@ -275,7 +275,7 @@ def handle_route_added_event(event):
 @local_handler.register(event_name="route-deleted")
 def handle_route_deleted_event(event):
     from .routers.openapi import OpenAPIHelpers
-    event_name, payload = event
+    _, payload = event
     logger.warning(f"Handling route deleted event: {payload.name} - {payload.description} at {payload.path}")
 
     app.routes[:] = [route for route in app.routes if route.path != payload.path]
