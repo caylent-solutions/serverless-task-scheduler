@@ -67,6 +67,77 @@ VERBOSE_LOGGING = APP_ENV in ['dev', 'qa', 'uat']
 STATES_SERVICE_IDENTIFIER = ':states:'  # Used to identify Step Functions ARNs
 ECS_SERVICE_IDENTIFIER = ':ecs:'  # Used to identify ECS ARNs
 
+
+def _parse_stepfunctions_arn(arn: str) -> Optional[dict]:
+    """
+    Parse Step Functions ARN and extract components.
+    
+    Args:
+        arn: Step Functions ARN (stateMachine or execution)
+        
+    Returns:
+        Dictionary with region, account, state_machine_name, or None if parsing fails
+    """
+    try:
+        arn_parts = arn.split(':')
+        if len(arn_parts) < 5:
+            return None
+        
+        return {
+            'region': arn_parts[3],
+            'account': arn_parts[4],
+            'state_machine_name': arn_parts[6] if len(arn_parts) > 6 else 'unknown'
+        }
+    except (IndexError, ValueError):
+        return None
+
+
+def _build_full_execution_arn(target_arn: str, execution_name: str) -> Optional[str]:
+    """
+    Construct full Step Functions execution ARN from target ARN and execution name.
+    
+    Args:
+        target_arn: State machine ARN
+        execution_name: Execution name or ARN
+        
+    Returns:
+        Full execution ARN, or the original execution_name if already an ARN or if parsing fails
+    """
+    # Already a full ARN
+    if execution_name.startswith('arn:'):
+        return execution_name
+    
+    # Parse target ARN to get components
+    arn_components = _parse_stepfunctions_arn(target_arn)
+    if not arn_components:
+        return execution_name
+    
+    # Build execution ARN
+    return (f"arn:aws:states:{arn_components['region']}:{arn_components['account']}:"
+            f"execution:{arn_components['state_machine_name']}:{execution_name}")
+
+
+def _extract_region_from_arn(arn: str, default_region: str = AWS_REGION) -> str:
+    """
+    Extract AWS region from ARN.
+    
+    Args:
+        arn: AWS ARN string
+        default_region: Default region if extraction fails
+        
+    Returns:
+        Region string
+    """
+    if not arn.startswith('arn:'):
+        return default_region
+    
+    try:
+        arn_parts = arn.split(':')
+        return arn_parts[3] if len(arn_parts) > 3 else default_region
+    except (IndexError, ValueError):
+        return default_region
+
+
 def generate_console_url(
     target_arn: str,
     execution_arn: str,
@@ -87,38 +158,23 @@ def generate_console_url(
     if cloudwatch_logs_url:
         return cloudwatch_logs_url
     
-    # Detect target type from ARN
+    # Handle Step Functions targets
     if target_arn and STATES_SERVICE_IDENTIFIER in target_arn:
-        # Step Functions target - link to Step Functions console
-        # Format: https://region.console.aws.amazon.com/states/home?region=region#/v2/executions/details/execution-arn
-        # Need to construct full execution ARN if we only have the name
         try:
-            if not execution_arn.startswith('arn:'):
-                # Extract region and account from target ARN
-                # target_arn format: arn:aws:states:region:account:stateMachine:name
-                arn_parts = target_arn.split(':')
-                if len(arn_parts) >= 5:
-                    region = arn_parts[3]
-                    account = arn_parts[4]
-                    # Execution ARN format: arn:aws:states:region:account:execution:stateMachineName:executionName
-                    state_machine_name = arn_parts[6] if len(arn_parts) > 6 else 'unknown'
-                    execution_arn = f"arn:aws:states:{region}:{account}:execution:{state_machine_name}:{execution_arn}"
+            # Construct full execution ARN if needed
+            full_execution_arn = _build_full_execution_arn(target_arn, execution_arn)
             
-            # Extract region from execution ARN or use default
-            if execution_arn.startswith('arn:'):
-                arn_parts = execution_arn.split(':')
-                region = arn_parts[3] if len(arn_parts) > 3 else AWS_REGION
-            else:
-                region = AWS_REGION
+            # Extract region for console URL
+            region = _extract_region_from_arn(full_execution_arn)
             
-            return f"https://{region}.console.aws.amazon.com/states/home?region={region}#/v2/executions/details/{execution_arn}"
-        except (IndexError, ValueError) as e:
-            logger.warning(f"Failed to parse Step Functions ARN: {e}. Target ARN: {target_arn}, Execution ARN: {execution_arn}")
+            # Build Step Functions console URL
+            return f"https://{region}.console.aws.amazon.com/states/home?region={region}#/v2/executions/details/{full_execution_arn}"
+        except Exception as e:
+            logger.warning(f"Failed to generate Step Functions console URL: {e}. Target ARN: {target_arn}, Execution ARN: {execution_arn}")
             return None
     
-    elif target_arn and ECS_SERVICE_IDENTIFIER in target_arn:
-        # ECS target - no direct logs URL available
-        # Could potentially link to ECS task console, but would need task ARN
+    # ECS target - no direct logs URL available
+    if target_arn and ECS_SERVICE_IDENTIFIER in target_arn:
         return None
     
     # Unknown or unsupported target type
