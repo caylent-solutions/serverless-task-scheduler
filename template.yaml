@@ -26,12 +26,17 @@ Parameters:
     Type: String
     Description: "Optional: Name of existing S3 bucket for access logs (leave empty to create a new one)"
     Default: ""
+  ReplicaRegions:
+    Type: CommaDelimitedList
+    Description: Comma-separated list of AWS regions for DynamoDB Global Table replicas (e.g., us-west-2,eu-west-1). Leave empty for single-region table.
+    Default: ""
 
 # ----------------------------------------------------------------------------
 # Conditions
 # ----------------------------------------------------------------------------
 Conditions:
   CreateLogsBucket: !Equals [!Ref ExistingLogsBucket, ""]
+  HasReplicaRegions: !Not [!Equals [!Join ['', !Ref ReplicaRegions], '']]
 
 # ----------------------------------------------------------------------------
 # Globals (applies to all Lambda functions and other resources)
@@ -106,43 +111,70 @@ Resources:
           Value: !Ref StackName
 
   # --------------------------------------------------------------------------
-  # DynamoDB: Tenants table
+  # DynamoDB: Tenants table (Global Table)
   # Stores tenant definitions (primary key: tenant_id)
   # --------------------------------------------------------------------------
   TenantsTable:
-    Type: AWS::DynamoDB::Table
+    Type: AWS::DynamoDB::GlobalTable
     Properties:
       TableName: !Sub
         - ${StackName}-${Environment}-tenants-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       AttributeDefinitions:
         - AttributeName: tenant_id
           AttributeType: S
       KeySchema:
         - AttributeName: tenant_id
           KeyType: HASH
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      Tags:
-        - Key: caylent:owner
-          Value: !Ref Owner
-        - Key: caylent:env
-          Value: !Ref Environment
-        - Key: cfn:stack
-          Value: !Ref StackName
+      Replicas: !If
+        - HasReplicaRegions
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+          - Region: !Select [0, !Ref ReplicaRegions]
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
 
   # --------------------------------------------------------------------------
-  # DynamoDB: Tenant mappings
+  # DynamoDB: Tenant mappings (Global Table)
   # Maps tenants to target aliases (composite key: tenant_id + target_alias)
   # --------------------------------------------------------------------------
   TenantMappingsTable:
-    Type: AWS::DynamoDB::Table
+    Type: AWS::DynamoDB::GlobalTable
     Properties:
       TableName: !Sub
         - ${StackName}-${Environment}-tenant-mappings-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       AttributeDefinitions:
         - AttributeName: tenant_id
           AttributeType: S
@@ -153,18 +185,41 @@ Resources:
           KeyType: HASH
         - AttributeName: target_alias
           KeyType: RANGE
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      Tags:
-        - Key: caylent:owner
-          Value: !Ref Owner
-        - Key: caylent:env
-          Value: !Ref Environment
-        - Key: cfn:stack
-          Value: !Ref StackName
+      Replicas: !If
+        - HasReplicaRegions
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+          - Region: !Select [0, !Ref ReplicaRegions]
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
 
   # --------------------------------------------------------------------------
-  # DynamoDB: Target executions
+  # DynamoDB: Target executions (Global Table)
   # Tracks execution records (composite key: tenant_schedule + execution_id)
   # Primary key: tenant_id#schedule_id (PK) + execution_id (SK)
   # - Allows querying all executions for a specific tenant's schedule
@@ -172,12 +227,14 @@ Resources:
   # GSI: tenant_target (tenant_id#target_alias) + timestamp for listing all executions by tenant/target
   # --------------------------------------------------------------------------
   TargetExecutionsTable:
-    Type: AWS::DynamoDB::Table
+    Type: AWS::DynamoDB::GlobalTable
     Properties:
       TableName: !Sub
         - ${StackName}-${Environment}-executions-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       AttributeDefinitions:
         - AttributeName: tenant_schedule
           AttributeType: S
@@ -204,23 +261,48 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      Tags:
-        - Key: caylent:owner
-          Value: !Ref Owner
-        - Key: caylent:env
-          Value: !Ref Environment
-        - Key: cfn:stack
-          Value: !Ref StackName
+      Replicas: !If
+        - HasReplicaRegions
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+          - Region: !Select [0, !Ref ReplicaRegions]
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
 
   SchedulesTable:
-    Type: AWS::DynamoDB::Table
+    Type: AWS::DynamoDB::GlobalTable
     Properties:
       TableName: !Sub
         - ${StackName}-${Environment}-schedules-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       AttributeDefinitions:
         - AttributeName: tenant_id
           AttributeType: S
@@ -242,29 +324,54 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      Tags:
-        - Key: caylent:owner
-          Value: !Ref Owner
-        - Key: caylent:env
-          Value: !Ref Environment
-        - Key: cfn:stack
-          Value: !Ref StackName
+      Replicas: !If
+        - HasReplicaRegions
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+          - Region: !Select [0, !Ref ReplicaRegions]
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
 
   # --------------------------------------------------------------------------
-  # DynamoDB: User Mappings
+  # DynamoDB: User Mappings (Global Table)
   # Maps users to tenants (composite key: user_id + tenant_id)
   # Primary access pattern: Get all tenants for a user (user login)
   # GSI access pattern: Get all users for a tenant (tenant management)
   # --------------------------------------------------------------------------
   UserMappingsTable:
-    Type: AWS::DynamoDB::Table
+    Type: AWS::DynamoDB::GlobalTable
     Properties:
       TableName: !Sub
         - ${StackName}-${Environment}-user-mappings-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       AttributeDefinitions:
         - AttributeName: user_id
           AttributeType: S
@@ -284,15 +391,38 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      Tags:
-        - Key: caylent:owner
-          Value: !Ref Owner
-        - Key: caylent:env
-          Value: !Ref Environment
-        - Key: cfn:stack
-          Value: !Ref StackName
+      Replicas: !If
+        - HasReplicaRegions
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+          - Region: !Select [0, !Ref ReplicaRegions]
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
 
   # --------------------------------------------------------------------------
   # CloudWatch Log Groups - Set retention policies for all Lambda functions
