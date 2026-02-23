@@ -1,0 +1,6 @@
+# DR Resync Lambda dependencies
+# Minimal - reuses shared dependencies from API Lambda
+# Core AWS SDK is included in Lambda runtime
+
+boto3>=1.26.0
+botocore>=1.29.0

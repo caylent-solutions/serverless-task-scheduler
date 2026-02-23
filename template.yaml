@@ -578,6 +578,24 @@ Resources:
         - Key: cfn:stack
           Value: !Ref StackName
 
+  StaticFilesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StaticFilesBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt StaticFilesBucket.Arn
+              - !Sub '${StaticFilesBucket.Arn}/*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
+
   # IAM Role for API Gateway S3 Integration
   ApiGatewayS3Role:
     Type: AWS::IAM::Role
@@ -1120,6 +1138,52 @@ Resources:
           Value: !Ref StackName
 
   # --------------------------------------------------------------------------
+  # Lambda: DR Resync - Recreate EventBridge schedules during DR failover
+  # Reuses AppLambdaRole to avoid permission duplication
+  # --------------------------------------------------------------------------
+  DRResyncLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub
+        - /aws/lambda/${StackName}-${Environment}-dr-resync-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      RetentionInDays: 14
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  DRResyncLambda:
+    Type: AWS::Serverless::Function
+    DependsOn: DRResyncLambdaLogGroup
+    Properties:
+      FunctionName: !Sub
+        - ${StackName}-${Environment}-dr-resync-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      CodeUri: .
+      Handler: dr-resync/lambda_handler.handler
+      Runtime: python3.13
+      Timeout: 900
+      MemorySize: 512
+      Role: !GetAtt AppLambdaRole.Arn
+      Environment:
+        Variables:
+          # Table names (used by resync logic)
+          DYNAMODB_TABLE: !Ref TargetsTable
+          DYNAMODB_TENANT_TABLE: !Ref TenantMappingsTable
+          DYNAMODB_SCHEDULES_TABLE: !Ref SchedulesTable
+          # EventBridge Scheduler configuration (used by resync logic)
+          SCHEDULER_ROLE_ARN: !GetAtt EventBridgeSchedulerRole.Arn
+          SCHEDULER_GROUP_NAME: !Sub ${StackName}-${Environment}-schedules
+      Tags:
+        caylent:owner: !Ref Owner
+        caylent:env: !Ref Environment
+        cfn:stack: !Ref StackName
+
+  # --------------------------------------------------------------------------
   # Step Functions State Machine - Orchestrates target execution
   # --------------------------------------------------------------------------
   ExecutorStateMachine:
@@ -1468,3 +1532,11 @@ Outputs:
   PostprocessingLambdaArn:
     Description: ARN of the Postprocessing Lambda
     Value: !GetAtt PostprocessingLambda.Arn
+
+  DRResyncLambdaArn:
+    Description: ARN of the DR Resync Lambda
+    Value: !GetAtt DRResyncLambda.Arn
+
+  DRResyncLambdaName:
+    Description: Name of the DR Resync Lambda
+    Value: !Ref DRResyncLambda
