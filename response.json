@@ -1,1 +1,1 @@
-{"errorMessage": "Unable to import module 'lambda_handler': No module named 'api'", "errorType": "Runtime.ImportModuleError", "requestId": "", "stackTrace": []}
+{"status": "success", "mode": "enable", "region": "us-east-2", "execution_time": "2026-02-25T21:52:30.847336Z", "duration_seconds": 0.347716, "summary": {"total_schedules": 1, "processed": 1, "created": 1, "skipped": 0, "failed": 0, "missing_targets": 0, "missing_mappings": 0}, "errors": [], "warnings": []}

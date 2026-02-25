@@ -1159,12 +1159,14 @@ Resources:
   DRResyncLambda:
     Type: AWS::Serverless::Function
     DependsOn: DRResyncLambdaLogGroup
+    Metadata:
+      BuildMethod: makefile
     Properties:
       FunctionName: !Sub
         - ${StackName}-${Environment}-dr-resync-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
-      CodeUri: .
-      Handler: dr-resync/lambda_handler.handler
+      CodeUri: dr-resync/
+      Handler: lambda_handler.handler
       Runtime: python3.13
       Timeout: 900
       MemorySize: 512
@@ -1175,9 +1177,12 @@ Resources:
           DYNAMODB_TABLE: !Ref TargetsTable
           DYNAMODB_TENANT_TABLE: !Ref TenantMappingsTable
           DYNAMODB_SCHEDULES_TABLE: !Ref SchedulesTable
+          # Required by DynamoDBClient to connect to AWS instead of localhost
+          DB_TARGET: aws
           # EventBridge Scheduler configuration (used by resync logic)
           SCHEDULER_ROLE_ARN: !GetAtt EventBridgeSchedulerRole.Arn
           SCHEDULER_GROUP_NAME: !Sub ${StackName}-${Environment}-schedules
+          STEP_FUNCTIONS_EXECUTOR_ARN: !GetAtt ExecutorStateMachine.Arn
       Tags:
         caylent:owner: !Ref Owner
         caylent:env: !Ref Environment

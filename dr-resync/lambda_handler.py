@@ -25,7 +25,12 @@ Output:
 import json
 import logging
 import os
+import sys
 from datetime import datetime
+
+# Ensure the dr-resync directory is in the path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from resync_logic import ResyncManager
 
 # Configure logging

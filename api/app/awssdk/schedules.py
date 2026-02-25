@@ -420,22 +420,24 @@ class EventBridgeScheduler:
                 'error_message': str(e)
             }
 
-    def get_schedule(self, schedule_name: str) -> Dict[str, Any]:
+    def get_schedule(self, schedule_name: str, group_name: Optional[str] = None) -> Dict[str, Any]:
         """
         Get details of a specific schedule.
 
         Args:
             schedule_name: Name of the schedule to retrieve
+            group_name: Optional custom group name (defaults to configured group)
 
         Returns:
             Dictionary with schedule details or error information
         """
         try:
+            target_group = group_name or self.group_name
             logger.info(f"Getting schedule: {schedule_name}")
 
             response = self.scheduler_client.get_schedule(
                 Name=schedule_name,
-                GroupName=self.group_name
+                GroupName=target_group
             )
 
             logger.info(f"Successfully retrieved schedule: {schedule_name}")

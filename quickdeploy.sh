@@ -33,6 +33,16 @@ else
     exit 1
 fi
 
+# Check for required tools
+echo -e "\n${YELLOW}Checking required tools...${NC}"
+for tool in aws sam npm make; do
+    if ! command -v "$tool" &> /dev/null; then
+        echo -e "${RED}Error: '$tool' is not installed or not in PATH${NC}"
+        exit 1
+    fi
+done
+echo -e "${GREEN}All required tools found.${NC}"
+
 # Step 1: Build the UI
 echo -e "\n${YELLOW}[1/7] Building UI (Vite)...${NC}"
 (
