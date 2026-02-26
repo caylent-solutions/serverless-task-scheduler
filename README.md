@@ -114,12 +114,7 @@ Three IAM roles provide defense-in-depth:
 ### Deploy
 
 ```bash
-# Quick deploy (builds UI + deploys everything)
 ./quickdeploy.sh
-
-# Or deploy manually:
-sam build
-sam deploy --guided
 ```
 
 The deploy creates:
@@ -163,6 +158,74 @@ Authorization: Bearer <your-jwt-token>
 
 Get your JWT token by logging into the web UI at your API Gateway URL.
 
+## Disaster Recovery
+
+The system supports **active-passive multi-region DR** using DynamoDB Global Tables for data replication and the DR Resync Lambda to manage EventBridge schedules during failover.
+
+### How it works
+
+| Resource | Primary (us-east-2) | DR (us-west-2) |
+|---|---|---|
+| API Gateway + Lambdas | Active, receiving traffic | Deployed, idle |
+| DynamoDB Global Tables | Source | Auto-replicated replica |
+| DynamoDB Targets table | Regional ARNs | Regional ARNs (populated separately) |
+| EventBridge Schedules | Active | **None until failover** |
+
+**Alias-based scheduling enables seamless failover.** Schedules store a `target_alias` (e.g. `send-email`), never a hard-coded ARN. At execution time, the Preprocessing Lambda resolves `alias → target_id → ARN` using the **local region's Targets table**. As long as the DR Targets table contains valid us-west-2 ARNs, schedules execute against the correct regional resources automatically — no schedule data modification needed during failover.
+
+**EventBridge schedules are only active in one region at a time** to prevent duplicate executions. The DR Resync Lambda (`enable` / `disable` / `validate`) manages this lifecycle explicitly.
+
+**The Targets table is regional by design.** It maps `target_id` to a region-specific ARN and is not a Global Table. It must be populated in each region by your CD pipeline using the appropriate regional ARNs. Tenant mappings (which reference `target_id` by alias) are stored in a Global Table and replicate automatically.
+
+### Prerequisites
+
+- Primary region stack deployed with `ReplicaRegions` set to include the DR region (configures Global Table replication)
+- `samconfig.toml` has a `[dr.*]` profile configured
+- AWS CLI access to both regions
+- Each target registered in the DR region's Targets table with us-west-2 ARNs (see below)
+
+### Deploying the DR stack
+
+```bash
+./quickdeploy.sh --dr-region us-west-2
+```
+
+This queries the primary stack's CloudFormation outputs to get the existing Global Table names, then deploys all compute resources (Lambdas, Step Functions, API Gateway, EventBridge roles, Cognito) to us-west-2 reusing the already-replicated tables. Configure the DR stack name, owner, and environment in `samconfig.toml` under `[dr.deploy.parameters]`.
+
+### Registering targets in the DR region
+
+> **Required before failover.** If the DR Targets table is empty, schedules will fire but all executions will fail because the Preprocessing Lambda cannot resolve targets.
+
+Register each target in both regions using the same `target_id` but region-specific ARNs:
+
+```bash
+# Primary region
+curl -X POST https://{PRIMARY_API_URL}/api/targets \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"target_id": "my-processor", "target_arn": "arn:aws:lambda:us-east-2:...", "target_type": "lambda"}'
+
+# DR region — same target_id, different ARN
+curl -X POST https://{DR_API_URL}/api/targets \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"target_id": "my-processor", "target_arn": "arn:aws:lambda:us-west-2:...", "target_type": "lambda"}'
+```
+
+Validate DR readiness before any failover:
+
+```bash
+aws lambda invoke \
+  --region us-west-2 --function-name {DR_RESYNC_FUNCTION_NAME} \
+  --cli-binary-format raw-in-base64-out \
+  --payload '{"mode": "validate"}' \
+  response.json && cat response.json | jq .
+```
+
+`status: success` means all schedules have resolvable targets in us-west-2. Warnings identify any gaps.
+
+For step-by-step failover and failback commands, see the [Disaster Recovery Runbook](DISASTER_RECOVERY.md).
+
 ## Testing
 
 ### Bruno API Collection
@@ -172,24 +235,6 @@ The `api/bruno/` directory contains a complete API test suite.
 2. Set `authToken` variable with your JWT
 3. Update tenant IDs as needed
 4. Run requests
-
-### Local Development
-
-**API (FastAPI):**
-```bash
-cd api
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8080
-```
-
-**UI (React):**
-```bash
-cd ui-react
-npm install
-npm start
-```
 
 ## Project Structure
 
@@ -201,8 +246,7 @@ serverless-task-scheduler/
 │   │   ├── lambda_handler.py # AWS Lambda entry point
 │   │   ├── routers/         # API routes
 │   │   ├── models/          # Pydantic models
-│   │   ├── awssdk/          # AWS SDK wrappers
-│   │   └── wwwroot/         # Static UI files (auto-generated)
+│   │   └── awssdk/          # AWS SDK wrappers
 │   └── requirements.txt     # Python dependencies
 │
 ├── task-execution/          # Step Functions executor
@@ -212,13 +256,19 @@ serverless-task-scheduler/
 │   ├── postprocessing.py    # Record execution results
 │   └── requirements.txt
 │
-├── ui-react/                # React web interface
+├── dr-resync/               # DR Resync Lambda (enable/disable/validate EventBridge schedules)
+│   ├── lambda_handler.py
+│   ├── resync_logic.py
+│   └── requirements.txt
+│
+├── ui-vite/                 # React + Vite web interface
 │   ├── src/
-│   │   ├── App.js          # Main app component
+│   │   ├── App.jsx         # Main app component
 │   │   ├── components/     # React components
 │   │   └── config.js       # API configuration
 │   └── package.json
 │
+├── quickdeploy.sh           # Build + deploy script (primary and DR region)
 └── template.yaml            # AWS SAM template
 ```
 
@@ -232,7 +282,7 @@ serverless-task-scheduler/
 
 **FastAPI** - Modern Python web framework with automatic API docs and type validation
 
-**React** - Popular UI framework with component-based architecture
+**React + Vite** - Modern UI framework with fast builds and hot module replacement
 
 ## Contributing
 
@@ -246,13 +296,6 @@ serverless-task-scheduler/
 All code has been linted and formatted:
 - Python: flake8 compliant (except line length)
 - JavaScript: ESLint + Prettier
-
-### Recent Updates
-- ✅ Updated all Python packages (including python-jose security fix)
-- ✅ Updated all Node packages (React 19.2+)
-- ✅ Fixed all linting warnings in Python and JavaScript
-- ✅ Cleaned up unused imports and variables
-- ✅ Directory structure reorganization (ExecutionAPI→api, ExecutorStepFunction→task-execution, ui→ui-react)
 
 ## License
 

@@ -269,7 +269,7 @@ async def create_target_schedule(
         "tenant_id": tenant_id,
         "target_alias": target_alias,
         "schedule_id": schedule_model.schedule_id,
-        "payload": schedule.get("target_input", {})
+        "payload": {}
     }
 
     result = scheduler.create_schedule(
@@ -356,7 +356,7 @@ async def update_target_schedule(
         "tenant_id": tenant_id,
         "target_alias": target_alias,
         "schedule_id": schedule_model.schedule_id,
-        "payload": schedule.get("target_input", {})
+        "payload": {}
     }
 
     result = scheduler.update_schedule(

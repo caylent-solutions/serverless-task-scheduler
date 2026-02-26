@@ -10,9 +10,26 @@ from .user import get_current_user
 from ..awssdk.dynamodb import get_database_client
 import logging
 import json
+from decimal import Decimal
 
 router = APIRouter()
 logger = logging.getLogger("app.routers.openapi")
+
+
+def convert_decimals(obj):
+    """Convert DynamoDB Decimal types to int or float for JSON serialization"""
+    if isinstance(obj, list):
+        return [convert_decimals(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {key: convert_decimals(value) for key, value in obj.items()}
+    elif isinstance(obj, Decimal):
+        # Convert to int if it's a whole number, otherwise float
+        if obj % 1 == 0:
+            return int(obj)
+        else:
+            return float(obj)
+    else:
+        return obj
 
 
 class OpenAPIHelpers:
@@ -198,6 +215,8 @@ class OpenAPIHelpers:
             # Fetch all targets from database
             try:
                 targets = db.get_all_targets()
+                # Convert all Decimal types to JSON-serializable types
+                targets = convert_decimals(targets)
                 for target in targets:
                     target_id = target.get('target_id')
                     target_schema = target.get('target_parameter_schema', {})

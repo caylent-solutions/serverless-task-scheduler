@@ -29,7 +29,8 @@ import json
 import logging
 import os
 import boto3
-from typing import Dict, Any
+from decimal import Decimal
+from typing import Any, Dict
 from datetime import datetime, timezone, timedelta
 from botocore.exceptions import ClientError
 
@@ -48,6 +49,17 @@ APP_ENV = os.environ.get('APP_ENV', 'prod').lower()
 
 # Determine if we should log sensitive information (non-production environments)
 VERBOSE_LOGGING = APP_ENV in ['dev', 'qa', 'uat']
+
+
+def decimal_to_native(obj: Any) -> Any:
+    """Recursively convert DynamoDB Decimal values to int or float."""
+    if isinstance(obj, Decimal):
+        return int(obj) if obj % 1 == 0 else float(obj)
+    if isinstance(obj, dict):
+        return {k: decimal_to_native(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [decimal_to_native(i) for i in obj]
+    return obj
 
 
 def parse_target_type_from_arn(target_arn: str) -> str:
@@ -213,7 +225,7 @@ def handler(event, context):
         merged_payload = {**default_payload, **runtime_payload}
 
         if VERBOSE_LOGGING:
-            logger.info(f"Payload merge: default={json.dumps(default_payload)}, runtime={json.dumps(runtime_payload)}, merged={json.dumps(merged_payload)}")
+            logger.info(f"Payload merge: default={json.dumps(default_payload, default=str)}, runtime={json.dumps(runtime_payload, default=str)}, merged={json.dumps(merged_payload, default=str)}")
         else:
             logger.info(f"Merged payload with {len(default_payload)} default keys and {len(runtime_payload)} runtime keys")
 
@@ -327,7 +339,7 @@ def resolve_target(tenant_id: str, target_alias: str) -> Dict[str, Any]:
 
         mapping = mapping_response['Item']
         target_id = mapping['target_id']
-        default_payload = mapping.get('default_payload', {})
+        default_payload = decimal_to_native(mapping.get('default_payload', {}))
 
         # Get target details
         targets_table = dynamodb.Table(TARGETS_TABLE)
@@ -350,7 +362,7 @@ def resolve_target(tenant_id: str, target_alias: str) -> Dict[str, Any]:
             'target_id': target_id,
             'target_arn': target_arn,
             'target_type': target_type,
-            'config': target.get('config', {}),
+            'config': decimal_to_native(target.get('config', {})),
             'default_payload': default_payload
         }
 

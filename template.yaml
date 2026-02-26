@@ -26,12 +26,38 @@ Parameters:
     Type: String
     Description: "Optional: Name of existing S3 bucket for access logs (leave empty to create a new one)"
     Default: ""
+  ReplicaRegions:
+    Type: CommaDelimitedList
+    Description: Comma-separated list of AWS regions for DynamoDB Global Table replicas (e.g., us-west-2,eu-west-1). Leave empty for single-region table.
+    Default: ""
+  ExistingTenantsTable:
+    Type: String
+    Description: "DR mode: Name of existing Tenants Global Table to reuse (leave empty to create)"
+    Default: ""
+  ExistingTenantMappingsTable:
+    Type: String
+    Description: "DR mode: Name of existing TenantMappings Global Table to reuse (leave empty to create)"
+    Default: ""
+  ExistingTargetExecutionsTable:
+    Type: String
+    Description: "DR mode: Name of existing TargetExecutions Global Table to reuse (leave empty to create)"
+    Default: ""
+  ExistingSchedulesTable:
+    Type: String
+    Description: "DR mode: Name of existing Schedules Global Table to reuse (leave empty to create)"
+    Default: ""
+  ExistingUserMappingsTable:
+    Type: String
+    Description: "DR mode: Name of existing UserMappings Global Table to reuse (leave empty to create)"
+    Default: ""
 
 # ----------------------------------------------------------------------------
 # Conditions
 # ----------------------------------------------------------------------------
 Conditions:
   CreateLogsBucket: !Equals [!Ref ExistingLogsBucket, ""]
+  HasReplicaRegions: !Not [!Equals [!Join ['', !Ref ReplicaRegions], '']]
+  CreateGlobalTables: !Equals [!Ref ExistingSchedulesTable, ""]
 
 # ----------------------------------------------------------------------------
 # Globals (applies to all Lambda functions and other resources)
@@ -54,11 +80,11 @@ Globals:
         DB_TARGET: aws
         # Table names passed to the application
         DYNAMODB_TABLE: !Ref TargetsTable
-        DYNAMODB_TENANTS_TABLE: !Ref TenantsTable
-        DYNAMODB_TENANT_TABLE: !Ref TenantMappingsTable
-        DYNAMODB_EXECUTIONS_TABLE: !Ref TargetExecutionsTable
-        DYNAMODB_SCHEDULES_TABLE: !Ref SchedulesTable
-        DYNAMODB_USER_MAPPINGS_TABLE: !Ref UserMappingsTable
+        DYNAMODB_TENANTS_TABLE: !If [CreateGlobalTables, !Ref TenantsTable, !Ref ExistingTenantsTable]
+        DYNAMODB_TENANT_TABLE: !If [CreateGlobalTables, !Ref TenantMappingsTable, !Ref ExistingTenantMappingsTable]
+        DYNAMODB_EXECUTIONS_TABLE: !If [CreateGlobalTables, !Ref TargetExecutionsTable, !Ref ExistingTargetExecutionsTable]
+        DYNAMODB_SCHEDULES_TABLE: !If [CreateGlobalTables, !Ref SchedulesTable, !Ref ExistingSchedulesTable]
+        DYNAMODB_USER_MAPPINGS_TABLE: !If [CreateGlobalTables, !Ref UserMappingsTable, !Ref ExistingUserMappingsTable]
         # Base path for the FastAPI app (environment name)
         API_BASE_PATH: !Ref Environment
         # EventBridge Scheduler role ARN
@@ -106,43 +132,72 @@ Resources:
           Value: !Ref StackName
 
   # --------------------------------------------------------------------------
-  # DynamoDB: Tenants table
+  # DynamoDB: Tenants table (Global Table)
   # Stores tenant definitions (primary key: tenant_id)
   # --------------------------------------------------------------------------
   TenantsTable:
-    Type: AWS::DynamoDB::Table
+    Type: AWS::DynamoDB::GlobalTable
+    Condition: CreateGlobalTables
     Properties:
       TableName: !Sub
         - ${StackName}-${Environment}-tenants-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       AttributeDefinitions:
         - AttributeName: tenant_id
           AttributeType: S
       KeySchema:
         - AttributeName: tenant_id
           KeyType: HASH
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      Tags:
-        - Key: caylent:owner
-          Value: !Ref Owner
-        - Key: caylent:env
-          Value: !Ref Environment
-        - Key: cfn:stack
-          Value: !Ref StackName
+      Replicas: !If
+        - HasReplicaRegions
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+          - Region: !Select [0, !Ref ReplicaRegions]
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
 
   # --------------------------------------------------------------------------
-  # DynamoDB: Tenant mappings
+  # DynamoDB: Tenant mappings (Global Table)
   # Maps tenants to target aliases (composite key: tenant_id + target_alias)
   # --------------------------------------------------------------------------
   TenantMappingsTable:
-    Type: AWS::DynamoDB::Table
+    Type: AWS::DynamoDB::GlobalTable
+    Condition: CreateGlobalTables
     Properties:
       TableName: !Sub
         - ${StackName}-${Environment}-tenant-mappings-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       AttributeDefinitions:
         - AttributeName: tenant_id
           AttributeType: S
@@ -153,18 +208,41 @@ Resources:
           KeyType: HASH
         - AttributeName: target_alias
           KeyType: RANGE
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      Tags:
-        - Key: caylent:owner
-          Value: !Ref Owner
-        - Key: caylent:env
-          Value: !Ref Environment
-        - Key: cfn:stack
-          Value: !Ref StackName
+      Replicas: !If
+        - HasReplicaRegions
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+          - Region: !Select [0, !Ref ReplicaRegions]
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
 
   # --------------------------------------------------------------------------
-  # DynamoDB: Target executions
+  # DynamoDB: Target executions (Global Table)
   # Tracks execution records (composite key: tenant_schedule + execution_id)
   # Primary key: tenant_id#schedule_id (PK) + execution_id (SK)
   # - Allows querying all executions for a specific tenant's schedule
@@ -172,12 +250,15 @@ Resources:
   # GSI: tenant_target (tenant_id#target_alias) + timestamp for listing all executions by tenant/target
   # --------------------------------------------------------------------------
   TargetExecutionsTable:
-    Type: AWS::DynamoDB::Table
+    Type: AWS::DynamoDB::GlobalTable
+    Condition: CreateGlobalTables
     Properties:
       TableName: !Sub
         - ${StackName}-${Environment}-executions-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       AttributeDefinitions:
         - AttributeName: tenant_schedule
           AttributeType: S
@@ -204,23 +285,49 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      Tags:
-        - Key: caylent:owner
-          Value: !Ref Owner
-        - Key: caylent:env
-          Value: !Ref Environment
-        - Key: cfn:stack
-          Value: !Ref StackName
+      Replicas: !If
+        - HasReplicaRegions
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+          - Region: !Select [0, !Ref ReplicaRegions]
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
 
   SchedulesTable:
-    Type: AWS::DynamoDB::Table
+    Type: AWS::DynamoDB::GlobalTable
+    Condition: CreateGlobalTables
     Properties:
       TableName: !Sub
         - ${StackName}-${Environment}-schedules-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       AttributeDefinitions:
         - AttributeName: tenant_id
           AttributeType: S
@@ -242,29 +349,55 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      Tags:
-        - Key: caylent:owner
-          Value: !Ref Owner
-        - Key: caylent:env
-          Value: !Ref Environment
-        - Key: cfn:stack
-          Value: !Ref StackName
+      Replicas: !If
+        - HasReplicaRegions
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+          - Region: !Select [0, !Ref ReplicaRegions]
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
 
   # --------------------------------------------------------------------------
-  # DynamoDB: User Mappings
+  # DynamoDB: User Mappings (Global Table)
   # Maps users to tenants (composite key: user_id + tenant_id)
   # Primary access pattern: Get all tenants for a user (user login)
   # GSI access pattern: Get all users for a tenant (tenant management)
   # --------------------------------------------------------------------------
   UserMappingsTable:
-    Type: AWS::DynamoDB::Table
+    Type: AWS::DynamoDB::GlobalTable
+    Condition: CreateGlobalTables
     Properties:
       TableName: !Sub
         - ${StackName}-${Environment}-user-mappings-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
       BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       AttributeDefinitions:
         - AttributeName: user_id
           AttributeType: S
@@ -284,15 +417,38 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      Tags:
-        - Key: caylent:owner
-          Value: !Ref Owner
-        - Key: caylent:env
-          Value: !Ref Environment
-        - Key: cfn:stack
-          Value: !Ref StackName
+      Replicas: !If
+        - HasReplicaRegions
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+          - Region: !Select [0, !Ref ReplicaRegions]
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
+        - - Region: !Ref AWS::Region
+            PointInTimeRecoverySpecification:
+              PointInTimeRecoveryEnabled: true
+            Tags:
+              - Key: caylent:owner
+                Value: !Ref Owner
+              - Key: caylent:env
+                Value: !Ref Environment
+              - Key: cfn:stack
+                Value: !Ref StackName
 
   # --------------------------------------------------------------------------
   # CloudWatch Log Groups - Set retention policies for all Lambda functions
@@ -447,6 +603,24 @@ Resources:
           Value: !Ref Environment
         - Key: cfn:stack
           Value: !Ref StackName
+
+  StaticFilesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StaticFilesBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt StaticFilesBucket.Arn
+              - !Sub '${StaticFilesBucket.Arn}/*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
 
   # IAM Role for API Gateway S3 Integration
   ApiGatewayS3Role:
@@ -783,8 +957,8 @@ Resources:
       Environment:
         Variables:
           DYNAMODB_TABLE: !Ref TargetsTable
-          DYNAMODB_TENANT_TABLE: !Ref TenantMappingsTable
-          DYNAMODB_EXECUTIONS_TABLE: !Ref TargetExecutionsTable
+          DYNAMODB_TENANT_TABLE: !If [CreateGlobalTables, !Ref TenantMappingsTable, !Ref ExistingTenantMappingsTable]
+          DYNAMODB_EXECUTIONS_TABLE: !If [CreateGlobalTables, !Ref TargetExecutionsTable, !Ref ExistingTargetExecutionsTable]
           APP_ENV: !Ref Environment
       Tags:
         caylent:owner: !Ref Owner
@@ -824,13 +998,19 @@ Resources:
                   - dynamodb:GetItem
                 Resource:
                   - !GetAtt TargetsTable.Arn
-                  - !GetAtt TenantMappingsTable.Arn
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt TenantMappingsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTenantMappingsTable}'
               # DynamoDB write access to record initial execution status
               - Effect: Allow
                 Action:
                   - dynamodb:PutItem
                 Resource:
-                  - !GetAtt TargetExecutionsTable.Arn
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt TargetExecutionsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTargetExecutionsTable}'
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Tags:
@@ -923,7 +1103,7 @@ Resources:
       Role: !GetAtt PostprocessingLambdaRole.Arn
       Environment:
         Variables:
-          DYNAMODB_EXECUTIONS_TABLE: !Ref TargetExecutionsTable
+          DYNAMODB_EXECUTIONS_TABLE: !If [CreateGlobalTables, !Ref TargetExecutionsTable, !Ref ExistingTargetExecutionsTable]
           APP_ENV: !Ref Environment
       Tags:
         caylent:owner: !Ref Owner
@@ -963,14 +1143,20 @@ Resources:
                   - dynamodb:GetItem
                   - dynamodb:PutItem
                 Resource:
-                  - !GetAtt TargetExecutionsTable.Arn
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt TargetExecutionsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTargetExecutionsTable}'
 
               # DynamoDB read access to lookup tenant mappings and targets for nested execution ARN construction
               - Effect: Allow
                 Action:
                   - dynamodb:GetItem
                 Resource:
-                  - !GetAtt TenantMappingsTable.Arn
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt TenantMappingsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTenantMappingsTable}'
                   - !GetAtt TargetsTable.Arn
 
               # Step Functions read access to get execution details
@@ -988,6 +1174,57 @@ Resources:
           Value: !Ref Environment
         - Key: cfn:stack
           Value: !Ref StackName
+
+  # --------------------------------------------------------------------------
+  # Lambda: DR Resync - Recreate EventBridge schedules during DR failover
+  # Reuses AppLambdaRole to avoid permission duplication
+  # --------------------------------------------------------------------------
+  DRResyncLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub
+        - /aws/lambda/${StackName}-${Environment}-dr-resync-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      RetentionInDays: 14
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  DRResyncLambda:
+    Type: AWS::Serverless::Function
+    DependsOn: DRResyncLambdaLogGroup
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      FunctionName: !Sub
+        - ${StackName}-${Environment}-dr-resync-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      CodeUri: dr-resync/
+      Handler: lambda_handler.handler
+      Runtime: python3.13
+      Timeout: 900
+      MemorySize: 512
+      Role: !GetAtt AppLambdaRole.Arn
+      Environment:
+        Variables:
+          # Table names (used by resync logic)
+          DYNAMODB_TABLE: !Ref TargetsTable
+          DYNAMODB_TENANT_TABLE: !If [CreateGlobalTables, !Ref TenantMappingsTable, !Ref ExistingTenantMappingsTable]
+          DYNAMODB_SCHEDULES_TABLE: !If [CreateGlobalTables, !Ref SchedulesTable, !Ref ExistingSchedulesTable]
+          # Required by DynamoDBClient to connect to AWS instead of localhost
+          DB_TARGET: aws
+          # EventBridge Scheduler configuration (used by resync logic)
+          SCHEDULER_ROLE_ARN: !GetAtt EventBridgeSchedulerRole.Arn
+          SCHEDULER_GROUP_NAME: !Sub ${StackName}-${Environment}-schedules
+          STEP_FUNCTIONS_EXECUTOR_ARN: !GetAtt ExecutorStateMachine.Arn
+      Tags:
+        caylent:owner: !Ref Owner
+        caylent:env: !Ref Environment
+        cfn:stack: !Ref StackName
 
   # --------------------------------------------------------------------------
   # Step Functions State Machine - Orchestrates target execution
@@ -1175,14 +1412,38 @@ Resources:
                   - dynamodb:Scan
                 Resource:
                   - !GetAtt TargetsTable.Arn
-                  - !GetAtt TenantsTable.Arn
-                  - !GetAtt TenantMappingsTable.Arn
-                  - !GetAtt TargetExecutionsTable.Arn
-                  - !GetAtt SchedulesTable.Arn
-                  - !GetAtt UserMappingsTable.Arn
-                  - !Sub '${SchedulesTable.Arn}/index/*'
-                  - !Sub '${UserMappingsTable.Arn}/index/*'
-                  - !Sub '${TargetExecutionsTable.Arn}/index/*'
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt TenantsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTenantsTable}'
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt TenantMappingsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTenantMappingsTable}'
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt TargetExecutionsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTargetExecutionsTable}'
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt SchedulesTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingSchedulesTable}'
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt UserMappingsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingUserMappingsTable}'
+                  - !If
+                    - CreateGlobalTables
+                    - !Sub '${SchedulesTable.Arn}/index/*'
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingSchedulesTable}/index/*'
+                  - !If
+                    - CreateGlobalTables
+                    - !Sub '${UserMappingsTable.Arn}/index/*'
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingUserMappingsTable}/index/*'
+                  - !If
+                    - CreateGlobalTables
+                    - !Sub '${TargetExecutionsTable.Arn}/index/*'
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTargetExecutionsTable}/index/*'
 
               # EventBridge Scheduler operations
               # Note: API Lambda creates schedules that start task-execution
@@ -1265,21 +1526,25 @@ Outputs:
     Description: Name of the Targets DynamoDB table
     Value: !Ref TargetsTable
 
+  TenantsTableName:
+    Description: Name of the Tenants DynamoDB table
+    Value: !If [CreateGlobalTables, !Ref TenantsTable, !Ref ExistingTenantsTable]
+
   TenantMappingsTableName:
     Description: Name of the TenantMappings DynamoDB table
-    Value: !Ref TenantMappingsTable
+    Value: !If [CreateGlobalTables, !Ref TenantMappingsTable, !Ref ExistingTenantMappingsTable]
 
   TargetExecutionsTableName:
     Description: Name of the TargetExecutions DynamoDB table
-    Value: !Ref TargetExecutionsTable
+    Value: !If [CreateGlobalTables, !Ref TargetExecutionsTable, !Ref ExistingTargetExecutionsTable]
 
   SchedulesTableName:
     Description: Name of the Schedules DynamoDB table
-    Value: !Ref SchedulesTable
+    Value: !If [CreateGlobalTables, !Ref SchedulesTable, !Ref ExistingSchedulesTable]
 
   UserMappingsTableName:
     Description: Name of the UserMappings DynamoDB table
-    Value: !Ref UserMappingsTable
+    Value: !If [CreateGlobalTables, !Ref UserMappingsTable, !Ref ExistingUserMappingsTable]
 
   CognitoUserPoolId:
     Description: ID of the Cognito User Pool
@@ -1338,3 +1603,11 @@ Outputs:
   PostprocessingLambdaArn:
     Description: ARN of the Postprocessing Lambda
     Value: !GetAtt PostprocessingLambda.Arn
+
+  DRResyncLambdaArn:
+    Description: ARN of the DR Resync Lambda
+    Value: !GetAtt DRResyncLambda.Arn
+
+  DRResyncLambdaName:
+    Description: Name of the DR Resync Lambda
+    Value: !Ref DRResyncLambda
