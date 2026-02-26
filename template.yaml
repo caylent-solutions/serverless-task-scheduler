@@ -30,6 +30,26 @@ Parameters:
     Type: CommaDelimitedList
     Description: Comma-separated list of AWS regions for DynamoDB Global Table replicas (e.g., us-west-2,eu-west-1). Leave empty for single-region table.
     Default: ""
+  ExistingTenantsTable:
+    Type: String
+    Description: "DR mode: Name of existing Tenants Global Table to reuse (leave empty to create)"
+    Default: ""
+  ExistingTenantMappingsTable:
+    Type: String
+    Description: "DR mode: Name of existing TenantMappings Global Table to reuse (leave empty to create)"
+    Default: ""
+  ExistingTargetExecutionsTable:
+    Type: String
+    Description: "DR mode: Name of existing TargetExecutions Global Table to reuse (leave empty to create)"
+    Default: ""
+  ExistingSchedulesTable:
+    Type: String
+    Description: "DR mode: Name of existing Schedules Global Table to reuse (leave empty to create)"
+    Default: ""
+  ExistingUserMappingsTable:
+    Type: String
+    Description: "DR mode: Name of existing UserMappings Global Table to reuse (leave empty to create)"
+    Default: ""
 
 # ----------------------------------------------------------------------------
 # Conditions
@@ -37,6 +57,7 @@ Parameters:
 Conditions:
   CreateLogsBucket: !Equals [!Ref ExistingLogsBucket, ""]
   HasReplicaRegions: !Not [!Equals [!Join ['', !Ref ReplicaRegions], '']]
+  CreateGlobalTables: !Equals [!Ref ExistingSchedulesTable, ""]
 
 # ----------------------------------------------------------------------------
 # Globals (applies to all Lambda functions and other resources)
@@ -59,11 +80,11 @@ Globals:
         DB_TARGET: aws
         # Table names passed to the application
         DYNAMODB_TABLE: !Ref TargetsTable
-        DYNAMODB_TENANTS_TABLE: !Ref TenantsTable
-        DYNAMODB_TENANT_TABLE: !Ref TenantMappingsTable
-        DYNAMODB_EXECUTIONS_TABLE: !Ref TargetExecutionsTable
-        DYNAMODB_SCHEDULES_TABLE: !Ref SchedulesTable
-        DYNAMODB_USER_MAPPINGS_TABLE: !Ref UserMappingsTable
+        DYNAMODB_TENANTS_TABLE: !If [CreateGlobalTables, !Ref TenantsTable, !Ref ExistingTenantsTable]
+        DYNAMODB_TENANT_TABLE: !If [CreateGlobalTables, !Ref TenantMappingsTable, !Ref ExistingTenantMappingsTable]
+        DYNAMODB_EXECUTIONS_TABLE: !If [CreateGlobalTables, !Ref TargetExecutionsTable, !Ref ExistingTargetExecutionsTable]
+        DYNAMODB_SCHEDULES_TABLE: !If [CreateGlobalTables, !Ref SchedulesTable, !Ref ExistingSchedulesTable]
+        DYNAMODB_USER_MAPPINGS_TABLE: !If [CreateGlobalTables, !Ref UserMappingsTable, !Ref ExistingUserMappingsTable]
         # Base path for the FastAPI app (environment name)
         API_BASE_PATH: !Ref Environment
         # EventBridge Scheduler role ARN
@@ -116,6 +137,7 @@ Resources:
   # --------------------------------------------------------------------------
   TenantsTable:
     Type: AWS::DynamoDB::GlobalTable
+    Condition: CreateGlobalTables
     Properties:
       TableName: !Sub
         - ${StackName}-${Environment}-tenants-${StackIdSuffix}
@@ -168,6 +190,7 @@ Resources:
   # --------------------------------------------------------------------------
   TenantMappingsTable:
     Type: AWS::DynamoDB::GlobalTable
+    Condition: CreateGlobalTables
     Properties:
       TableName: !Sub
         - ${StackName}-${Environment}-tenant-mappings-${StackIdSuffix}
@@ -228,6 +251,7 @@ Resources:
   # --------------------------------------------------------------------------
   TargetExecutionsTable:
     Type: AWS::DynamoDB::GlobalTable
+    Condition: CreateGlobalTables
     Properties:
       TableName: !Sub
         - ${StackName}-${Environment}-executions-${StackIdSuffix}
@@ -296,6 +320,7 @@ Resources:
 
   SchedulesTable:
     Type: AWS::DynamoDB::GlobalTable
+    Condition: CreateGlobalTables
     Properties:
       TableName: !Sub
         - ${StackName}-${Environment}-schedules-${StackIdSuffix}
@@ -365,6 +390,7 @@ Resources:
   # --------------------------------------------------------------------------
   UserMappingsTable:
     Type: AWS::DynamoDB::GlobalTable
+    Condition: CreateGlobalTables
     Properties:
       TableName: !Sub
         - ${StackName}-${Environment}-user-mappings-${StackIdSuffix}
@@ -931,8 +957,8 @@ Resources:
       Environment:
         Variables:
           DYNAMODB_TABLE: !Ref TargetsTable
-          DYNAMODB_TENANT_TABLE: !Ref TenantMappingsTable
-          DYNAMODB_EXECUTIONS_TABLE: !Ref TargetExecutionsTable
+          DYNAMODB_TENANT_TABLE: !If [CreateGlobalTables, !Ref TenantMappingsTable, !Ref ExistingTenantMappingsTable]
+          DYNAMODB_EXECUTIONS_TABLE: !If [CreateGlobalTables, !Ref TargetExecutionsTable, !Ref ExistingTargetExecutionsTable]
           APP_ENV: !Ref Environment
       Tags:
         caylent:owner: !Ref Owner
@@ -972,13 +998,19 @@ Resources:
                   - dynamodb:GetItem
                 Resource:
                   - !GetAtt TargetsTable.Arn
-                  - !GetAtt TenantMappingsTable.Arn
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt TenantMappingsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTenantMappingsTable}'
               # DynamoDB write access to record initial execution status
               - Effect: Allow
                 Action:
                   - dynamodb:PutItem
                 Resource:
-                  - !GetAtt TargetExecutionsTable.Arn
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt TargetExecutionsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTargetExecutionsTable}'
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Tags:
@@ -1071,7 +1103,7 @@ Resources:
       Role: !GetAtt PostprocessingLambdaRole.Arn
       Environment:
         Variables:
-          DYNAMODB_EXECUTIONS_TABLE: !Ref TargetExecutionsTable
+          DYNAMODB_EXECUTIONS_TABLE: !If [CreateGlobalTables, !Ref TargetExecutionsTable, !Ref ExistingTargetExecutionsTable]
           APP_ENV: !Ref Environment
       Tags:
         caylent:owner: !Ref Owner
@@ -1111,14 +1143,20 @@ Resources:
                   - dynamodb:GetItem
                   - dynamodb:PutItem
                 Resource:
-                  - !GetAtt TargetExecutionsTable.Arn
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt TargetExecutionsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTargetExecutionsTable}'
 
               # DynamoDB read access to lookup tenant mappings and targets for nested execution ARN construction
               - Effect: Allow
                 Action:
                   - dynamodb:GetItem
                 Resource:
-                  - !GetAtt TenantMappingsTable.Arn
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt TenantMappingsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTenantMappingsTable}'
                   - !GetAtt TargetsTable.Arn
 
               # Step Functions read access to get execution details
@@ -1175,8 +1213,8 @@ Resources:
         Variables:
           # Table names (used by resync logic)
           DYNAMODB_TABLE: !Ref TargetsTable
-          DYNAMODB_TENANT_TABLE: !Ref TenantMappingsTable
-          DYNAMODB_SCHEDULES_TABLE: !Ref SchedulesTable
+          DYNAMODB_TENANT_TABLE: !If [CreateGlobalTables, !Ref TenantMappingsTable, !Ref ExistingTenantMappingsTable]
+          DYNAMODB_SCHEDULES_TABLE: !If [CreateGlobalTables, !Ref SchedulesTable, !Ref ExistingSchedulesTable]
           # Required by DynamoDBClient to connect to AWS instead of localhost
           DB_TARGET: aws
           # EventBridge Scheduler configuration (used by resync logic)
@@ -1374,14 +1412,38 @@ Resources:
                   - dynamodb:Scan
                 Resource:
                   - !GetAtt TargetsTable.Arn
-                  - !GetAtt TenantsTable.Arn
-                  - !GetAtt TenantMappingsTable.Arn
-                  - !GetAtt TargetExecutionsTable.Arn
-                  - !GetAtt SchedulesTable.Arn
-                  - !GetAtt UserMappingsTable.Arn
-                  - !Sub '${SchedulesTable.Arn}/index/*'
-                  - !Sub '${UserMappingsTable.Arn}/index/*'
-                  - !Sub '${TargetExecutionsTable.Arn}/index/*'
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt TenantsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTenantsTable}'
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt TenantMappingsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTenantMappingsTable}'
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt TargetExecutionsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTargetExecutionsTable}'
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt SchedulesTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingSchedulesTable}'
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt UserMappingsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingUserMappingsTable}'
+                  - !If
+                    - CreateGlobalTables
+                    - !Sub '${SchedulesTable.Arn}/index/*'
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingSchedulesTable}/index/*'
+                  - !If
+                    - CreateGlobalTables
+                    - !Sub '${UserMappingsTable.Arn}/index/*'
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingUserMappingsTable}/index/*'
+                  - !If
+                    - CreateGlobalTables
+                    - !Sub '${TargetExecutionsTable.Arn}/index/*'
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTargetExecutionsTable}/index/*'
 
               # EventBridge Scheduler operations
               # Note: API Lambda creates schedules that start task-execution
@@ -1464,21 +1526,25 @@ Outputs:
     Description: Name of the Targets DynamoDB table
     Value: !Ref TargetsTable
 
+  TenantsTableName:
+    Description: Name of the Tenants DynamoDB table
+    Value: !If [CreateGlobalTables, !Ref TenantsTable, !Ref ExistingTenantsTable]
+
   TenantMappingsTableName:
     Description: Name of the TenantMappings DynamoDB table
-    Value: !Ref TenantMappingsTable
+    Value: !If [CreateGlobalTables, !Ref TenantMappingsTable, !Ref ExistingTenantMappingsTable]
 
   TargetExecutionsTableName:
     Description: Name of the TargetExecutions DynamoDB table
-    Value: !Ref TargetExecutionsTable
+    Value: !If [CreateGlobalTables, !Ref TargetExecutionsTable, !Ref ExistingTargetExecutionsTable]
 
   SchedulesTableName:
     Description: Name of the Schedules DynamoDB table
-    Value: !Ref SchedulesTable
+    Value: !If [CreateGlobalTables, !Ref SchedulesTable, !Ref ExistingSchedulesTable]
 
   UserMappingsTableName:
     Description: Name of the UserMappings DynamoDB table
-    Value: !Ref UserMappingsTable
+    Value: !If [CreateGlobalTables, !Ref UserMappingsTable, !Ref ExistingUserMappingsTable]
 
   CognitoUserPoolId:
     Description: ID of the Cognito User Pool
