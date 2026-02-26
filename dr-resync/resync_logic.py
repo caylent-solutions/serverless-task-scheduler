@@ -353,6 +353,9 @@ class ResyncManager:
         # EventBridge calls the executor Step Functions, not the target directly.
         # The executor receives target_alias in its input and resolves the target itself.
         executor_arn = os.environ.get('STEP_FUNCTIONS_EXECUTOR_ARN')
+        if not executor_arn:
+            logger.error("STEP_FUNCTIONS_EXECUTOR_ARN environment variable is not configured")
+            return {'action': 'error', 'error': 'STEP_FUNCTIONS_EXECUTOR_ARN not configured'}
 
         # Build tenant-specific schedule group name
         base_group_name = os.environ.get('SCHEDULER_GROUP_NAME', 'default')
