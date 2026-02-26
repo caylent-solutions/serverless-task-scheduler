@@ -195,16 +195,34 @@ The [Makefile](Makefile) `build-DRResyncLambda` target:
 
 ## Deployment
 
+The DR Resync Lambda is part of the full stack and is deployed alongside all other resources. There is no separate deployment step for this Lambda alone.
+
+### Deploying the DR Region Stack
+
+Use `quickdeploy.sh` with the `--dr-region` flag to deploy the full stack to a secondary region. This automatically fetches the existing DynamoDB Global Table names from the primary stack and passes them to the DR deployment so new tables are not created:
+
 ```bash
-# Build and deploy via quickdeploy
+./quickdeploy.sh --dr-region us-west-2
+```
+
+This requires:
+- The primary region stack is already deployed
+- The DR profile is configured in `samconfig.toml` (see `[dr.*]` sections)
+- DynamoDB Global Tables in the primary stack have `ReplicaRegions` set to include the DR region
+
+The DR stack creates all compute resources (Lambdas, Step Functions, API Gateway, EventBridge roles, Cognito) in us-west-2 and reuses the already-replicated Global Tables. The regional `Targets` table is created fresh — see the [Disaster Recovery Guide](../DISASTER_RECOVERY.md#pre-populating-targets-in-the-dr-region) for how to populate it before failover.
+
+### Primary Region Only
+
+```bash
+# Deploy primary region only
 ./quickdeploy.sh
 
 # Or build only
 sam build
-
-# Or deploy to a specific region
-sam deploy --region us-east-2
 ```
+
+For the full DR operational procedure — failover, failback, and validation — see the [Disaster Recovery Guide](../DISASTER_RECOVERY.md).
 
 ## Runbook
 
