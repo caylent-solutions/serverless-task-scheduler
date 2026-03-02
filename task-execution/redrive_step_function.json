@@ -1,0 +1,85 @@
+{
+  "Comment": "Polls a redriven child Step Functions execution and records the result to DynamoDB when complete.",
+  "StartAt": "WaitForChildExecution",
+  "States": {
+    "WaitForChildExecution": {
+      "Type": "Wait",
+      "Comment": "Poll interval between child execution status checks",
+      "Seconds": 10,
+      "Next": "CheckChildExecutionStatus"
+    },
+    "CheckChildExecutionStatus": {
+      "Type": "Task",
+      "Comment": "Describe child execution status via native SDK integration - no Lambda needed",
+      "Resource": "arn:aws:states:::aws-sdk:sfn:describeExecution",
+      "Parameters": {
+        "ExecutionArn.$": "$.child_execution_arn"
+      },
+      "ResultSelector": {
+        "Status.$": "$.Status"
+      },
+      "ResultPath": "$.child_status_check",
+      "Next": "IsChildExecutionComplete",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "WaitForChildExecution",
+          "ResultPath": null
+        }
+      ]
+    },
+    "IsChildExecutionComplete": {
+      "Type": "Choice",
+      "Comment": "Loop until child reaches a terminal state",
+      "Choices": [
+        {
+          "Variable": "$.child_status_check.Status",
+          "StringEquals": "SUCCEEDED",
+          "Next": "RecordResult"
+        },
+        {
+          "Variable": "$.child_status_check.Status",
+          "StringEquals": "FAILED",
+          "Next": "RecordResult"
+        },
+        {
+          "Variable": "$.child_status_check.Status",
+          "StringEquals": "TIMED_OUT",
+          "Next": "RecordResult"
+        },
+        {
+          "Variable": "$.child_status_check.Status",
+          "StringEquals": "ABORTED",
+          "Next": "RecordResult"
+        }
+      ],
+      "Default": "WaitForChildExecution"
+    },
+    "RecordResult": {
+      "Type": "Task",
+      "Comment": "Write final execution result to DynamoDB, overwriting the IN_PROGRESS record",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${RecordRedriveResultLambdaArn}",
+        "Payload.$": "$"
+      },
+      "End": true,
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed", "Lambda.ServiceException"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ]
+    }
+  }
+}

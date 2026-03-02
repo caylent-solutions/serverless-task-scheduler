@@ -63,7 +63,7 @@
             "ExecuteECSTarget": {
               "Type": "Task",
               "Comment": "Execute ECS task with payload and task token for result callback",
-              "Resource": "arn:aws:states:::ecs:runTask.waitForTaskToken",
+              "Resource": "arn:aws:states:::ecs:runTask.sync",
               "HeartbeatSeconds": 300,
               "Parameters": {
                 "Cluster.$": "$.target_config.cluster",

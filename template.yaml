@@ -513,6 +513,36 @@ Resources:
         - Key: cfn:stack
           Value: !Ref StackName
 
+  RecordRedriveResultLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub
+        - /aws/lambda/${StackName}-${Environment}-executor-record-redrive-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      RetentionInDays: 14
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  RedriveMonitorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub
+        - /aws/states/${StackName}-${Environment}-redrive-monitor-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      RetentionInDays: 14
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
   # --------------------------------------------------------------------------
   # S3 Bucket - Static file hosting for React app
   # --------------------------------------------------------------------------
@@ -881,6 +911,8 @@ Resources:
         Variables:
           # Step Functions Executor ARN for EventBridge Scheduler
           STEP_FUNCTIONS_EXECUTOR_ARN: !GetAtt ExecutorStateMachine.Arn
+          # Redrive monitor state machine ARN (started by redrive endpoint for SF targets)
+          REDRIVE_MONITOR_STATE_MACHINE_ARN: !GetAtt RedriveMonitorStateMachine.Arn
 
   # --------------------------------------------------------------------------
   # Lambda Permission for API Gateway to invoke AppLambda
@@ -1176,6 +1208,194 @@ Resources:
           Value: !Ref StackName
 
   # --------------------------------------------------------------------------
+  # Lambda: Record Redrive Result - Terminal state of RedriveMonitorStateMachine
+  # Writes final child execution result to DynamoDB, overwriting IN_PROGRESS
+  # --------------------------------------------------------------------------
+  RecordRedriveResultLambda:
+    Type: AWS::Serverless::Function
+    DependsOn: RecordRedriveResultLambdaLogGroup
+    Properties:
+      FunctionName: !Sub
+        - ${StackName}-${Environment}-executor-record-redrive-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      CodeUri: task-execution/
+      Handler: record_redrive_result.handler
+      Runtime: python3.13
+      Timeout: 30
+      MemorySize: 256
+      Role: !GetAtt RecordRedriveResultLambdaRole.Arn
+      Environment:
+        Variables:
+          DYNAMODB_EXECUTIONS_TABLE: !If [CreateGlobalTables, !Ref TargetExecutionsTable, !Ref ExistingTargetExecutionsTable]
+          DYNAMODB_TABLE: !Ref TargetsTable
+          DYNAMODB_TENANT_TABLE: !If [CreateGlobalTables, !Ref TenantMappingsTable, !Ref ExistingTenantMappingsTable]
+          APP_ENV: !Ref Environment
+      Tags:
+        caylent:owner: !Ref Owner
+        caylent:env: !Ref Environment
+        cfn:stack: !Ref StackName
+
+  RecordRedriveResultLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub
+        - ${StackName}-${Environment}-record-redrive-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub RecordRedriveResultPolicy-${Environment}
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # CloudWatch Logs permissions
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*'
+
+              # DynamoDB read and write to record execution results
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                Resource:
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt TargetExecutionsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTargetExecutionsTable}'
+
+              # DynamoDB read to look up target ARN from tenant mappings and targets
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                Resource:
+                  - !If
+                    - CreateGlobalTables
+                    - !GetAtt TenantMappingsTable.Arn
+                    - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTenantMappingsTable}'
+                  - !GetAtt TargetsTable.Arn
+
+              # Step Functions read access to describe the redriven child execution
+              - Effect: Allow
+                Action:
+                  - states:DescribeExecution
+                Resource:
+                  - !Sub 'arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:*'
+
+              # X-Ray tracing
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                Resource: '*'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  # --------------------------------------------------------------------------
+  # Step Functions State Machine: Redrive Monitor
+  # Polls a redriven child execution and records the result when complete
+  # --------------------------------------------------------------------------
+  RedriveMonitorStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: !Sub
+        - ${StackName}-${Environment}-redrive-monitor-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      DefinitionUri: task-execution/redrive_step_function.json
+      DefinitionSubstitutions:
+        RecordRedriveResultLambdaArn: !GetAtt RecordRedriveResultLambda.Arn
+      Role: !GetAtt RedriveMonitorStateMachineRole.Arn
+      Type: STANDARD
+      Tracing:
+        Enabled: true
+      Logging:
+        Level: ERROR
+        IncludeExecutionData: false
+        Destinations:
+          - CloudWatchLogsLogGroup:
+              LogGroupArn: !GetAtt RedriveMonitorLogGroup.Arn
+      Tags:
+        caylent:owner: !Ref Owner
+        caylent:env: !Ref Environment
+        cfn:stack: !Ref StackName
+
+  RedriveMonitorStateMachineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub
+        - ${StackName}-${Environment}-redrive-monitor-${StackIdSuffix}
+        - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub RedriveMonitorPolicy-${Environment}
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Describe any Step Functions execution (needed for aws-sdk:sfn:describeExecution)
+              - Effect: Allow
+                Action:
+                  - states:DescribeExecution
+                Resource: !Sub 'arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:*'
+
+              # Invoke the record result Lambda
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt RecordRedriveResultLambda.Arn
+
+              # CloudWatch Logs for state machine execution logging
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogDelivery
+                  - logs:PutLogEvents
+                  - logs:GetLogDelivery
+                  - logs:UpdateLogDelivery
+                  - logs:DeleteLogDelivery
+                  - logs:ListLogDeliveries
+                  - logs:PutResourcePolicy
+                  - logs:DescribeResourcePolicies
+                  - logs:DescribeLogGroups
+                Resource: '*'
+
+              # X-Ray tracing
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                  - xray:GetSamplingRules
+                  - xray:GetSamplingTargets
+                Resource: '*'
+      Tags:
+        - Key: caylent:owner
+          Value: !Ref Owner
+        - Key: caylent:env
+          Value: !Ref Environment
+        - Key: cfn:stack
+          Value: !Ref StackName
+
+  # --------------------------------------------------------------------------
   # Lambda: DR Resync - Recreate EventBridge schedules during DR failover
   # Reuses AppLambdaRole to avoid permission duplication
   # --------------------------------------------------------------------------
@@ -1235,7 +1455,7 @@ Resources:
       Name: !Sub
         - ${StackName}-${Environment}-executor-sfn-${StackIdSuffix}
         - StackIdSuffix: !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref 'AWS::StackId']]]]
-      DefinitionUri: task-execution/state_machine.json
+      DefinitionUri: task-execution/executor_step_function.json
       DefinitionSubstitutions:
         PreprocessingLambdaArn: !GetAtt PreprocessingLambda.Arn
         LambdaExecutionHelperArn: !GetAtt LambdaExecutionHelperLambda.Arn
@@ -1477,6 +1697,12 @@ Resources:
                   - states:DescribeExecution
                 Resource: !Sub 'arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:*:*'
 
+              # Start the redrive monitor state machine after a successful SF target redrive
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource: !GetAtt RedriveMonitorStateMachine.Arn
+
               # Cognito operations for user authentication and management
               - Effect: Allow
                 Action:
@@ -1603,6 +1829,14 @@ Outputs:
   PostprocessingLambdaArn:
     Description: ARN of the Postprocessing Lambda
     Value: !GetAtt PostprocessingLambda.Arn
+
+  RedriveMonitorStateMachineArn:
+    Description: ARN of the Redrive Monitor Step Functions state machine
+    Value: !GetAtt RedriveMonitorStateMachine.Arn
+
+  RecordRedriveResultLambdaArn:
+    Description: ARN of the Record Redrive Result Lambda
+    Value: !GetAtt RecordRedriveResultLambda.Arn
 
   DRResyncLambdaArn:
     Description: ARN of the DR Resync Lambda

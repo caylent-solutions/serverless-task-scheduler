@@ -234,16 +234,51 @@ if monitor_arn and nested_execution_arn:
 
 ---
 
-### Files changed
+## Implementation Summary
 
-```
-task-execution/
-├── execution_recorder.py                 (new) shared functions extracted from postprocessing.py
-├── record_redrive_result.py              (new) terminal Lambda for monitor
-├── redrive_monitor_state_machine.json    (new) monitor state machine definition
-└── postprocessing.py                     (modified) imports from execution_recorder.py
+### Problem
+When a Step Functions target execution is redriven via the API, the child execution is redriven directly. When the child completes, its EventBridge event carries the child's state machine ARN, which never matches the `ExecutionStatusEventRule` (scoped to `ExecutorStateMachine` only). The parent remains `FAILED`, postprocessor is never invoked, and DynamoDB stays `IN_PROGRESS` indefinitely.
 
-template.yaml                             (modified) 6 new resources, 2 modified resources
+### Solution
+A `RedriveMonitorStateMachine` is started alongside every Step Functions target redrive. It polls the child execution using a native `aws-sdk:sfn:describeExecution` integration in a `Wait → DescribeExecution → Choice` loop until the child reaches a terminal state, then invokes `RecordRedriveResultLambda` to write the final result to DynamoDB, overwriting the `IN_PROGRESS` record.
 
-api/app/routers/tenants.py               (modified) start monitor after successful SF redrive
-```
+The parent execution name (DynamoDB SK / `execution_id`) is derived at runtime inside `RecordRedriveResultLambda` by stripping the `-nested` suffix from the child execution name — no extra context needs to be reconstructed.
+
+### Files Changed
+
+**`task-execution/state_machine.json`** → **renamed** to `task-execution/executor_step_function.json`
+- No content changes; renamed for clarity now that a second state machine exists alongside it.
+
+**`task-execution/execution_recorder.py`** *(new)*
+- Shared module extracted from `postprocessing.py` containing `record_execution()`, `lookup_target_arn_from_dynamodb()`, `generate_console_url()`, and their private helpers.
+- Both `postprocessing.py` and the new `record_redrive_result.py` import from here so the DynamoDB write logic lives in one place.
+
+**`task-execution/redrive_step_function.json`** *(new)*
+- State machine definition for the redrive monitor.
+- Uses the native `arn:aws:states:::aws-sdk:sfn:describeExecution` integration for polling — no Lambda needed for the status check itself.
+- Loops via `Wait(60s) → DescribeExecution → Choice` until a terminal status is detected, then invokes `RecordRedriveResultLambda`.
+- Retries on `DescribeExecution` failures (3 attempts, exponential backoff) and on the final Lambda invoke (3 attempts).
+
+**`task-execution/record_redrive_result.py`** *(new)*
+- Terminal Lambda invoked by `RedriveMonitorStateMachine` when the child execution completes.
+- Derives `parent_execution_name` from `child_execution_arn` by stripping `-nested` from the last ARN segment. This is the DynamoDB SK (`execution_id`), so the `put_item` call overwrites the existing `IN_PROGRESS` record with the final status.
+- `target_arn` is always fetched via `lookup_target_arn_from_dynamodb()` — child execution output does not carry this field (unlike the parent `ExecutorStateMachine` output shaped by `ResultSelector`).
+- For failed child executions, `redrive_info.nested_execution_arn` is set directly to `child_execution_arn` (already known) rather than reconstructed.
+
+**`task-execution/postprocessing.py`** *(modified)*
+- Imports `record_execution()`, `lookup_target_arn_from_dynamodb()`, and `generate_console_url()` from `execution_recorder.py` instead of defining them locally.
+- All existing behavior is unchanged.
+
+**`template.yaml`** *(modified)*
+- `ExecutorStateMachine.DefinitionUri` updated from `task-execution/state_machine.json` → `task-execution/executor_step_function.json`.
+- `AppLambda` environment: added `REDRIVE_MONITOR_STATE_MACHINE_ARN` pointing to the new monitor state machine.
+- `AppLambdaRole`: added `states:StartExecution` scoped to `RedriveMonitorStateMachine`.
+- New log groups: `RecordRedriveResultLambdaLogGroup` (Lambda), `RedriveMonitorLogGroup` (Step Functions).
+- New `RecordRedriveResultLambda` (256MB, 30s) with `RecordRedriveResultLambdaRole` — permissions for `states:DescribeExecution`, DynamoDB `PutItem`/`GetItem` on executions, targets, and mappings tables.
+- New `RedriveMonitorStateMachine` (STANDARD type, X-Ray tracing, CloudWatch Logs) with `RedriveMonitorStateMachineRole` — permissions for `states:DescribeExecution` and `lambda:InvokeFunction` on the record Lambda.
+- New Outputs: `RedriveMonitorStateMachineArn`, `RecordRedriveResultLambdaArn`.
+
+**`api/app/routers/tenants.py`** *(modified)*
+- Added `import json` to the `redrive_execution` function's local imports (needed for `json.dumps` on the monitor input).
+- After a successful `sfn_client.redrive_execution()` call and DynamoDB `IN_PROGRESS` update, if `nested_execution_arn` is present (Step Functions targets only), `sfn_client.start_execution()` is called to start `RedriveMonitorStateMachine` with `child_execution_arn`, `tenant_id`, `target_alias`, and `schedule_id`.
+- Monitor start failure is caught and logged as a warning — it does not fail the redrive API response, since the redrive itself already succeeded.

@@ -143,7 +143,6 @@ Resources:
                   - states:SendTaskSuccess
                   - states:SendTaskFailure
                   - states:SendTaskHeartbeat
-                Description: Allow ECS task to send Step Functions task token callbacks
                 Resource: '*'
       Tags:
         - Key: caylent:owner
@@ -242,6 +241,7 @@ Outputs:
 
   SampleTargetConfig:
     Description: Sample target configuration for Serverless Task Scheduler
+    Condition: UseExistingVpc
     Value: !Sub |
       {
         "target_type": "ecs",
