@@ -686,12 +686,15 @@ class DynamoDBClient(DatabaseClient):
                 )
                 return response.get('Item')
             else:
-                # Query by tenant_schedule only, get most recent execution
+                # Use the timestamp GSI so Limit=1 + ScanIndexForward=False returns the
+                # single most recent execution directly. Querying the main table would
+                # sort by execution_id (random UUID), making Limit unreliable.
                 response = self.executions.query(
+                    IndexName='tenant-schedule-timestamp-index',
                     KeyConditionExpression='tenant_schedule = :ts',
                     ExpressionAttributeValues={':ts': tenant_schedule},
                     Limit=1,
-                    ScanIndexForward=False  # Most recent first (by execution_id sort key)
+                    ScanIndexForward=False
                 )
                 items = response.get('Items', [])
                 return items[0] if items else None
@@ -727,50 +730,80 @@ class DynamoDBClient(DatabaseClient):
         try:
             tenant_schedule = f"{tenant_id}#{schedule_id}"
 
-            # Build the query
+            # Use the timestamp GSI so ScanIndexForward=False gives true chronological
+            # order. The main table SK is execution_id (random UUID), which sorts
+            # lexicographically rather than by time.
+            key_condition = 'tenant_schedule = :ts'
+            expression_values = {':ts': tenant_schedule}
+            expression_names = {}
+
+            if start_time_lower and start_time_upper:
+                # timestamp is a reserved word in DynamoDB, so alias it as #ts.
+                expression_names['#ts'] = 'timestamp'
+                key_condition += ' AND #ts BETWEEN :start_lower AND :start_upper'
+                expression_values[':start_lower'] = start_time_lower
+                expression_values[':start_upper'] = start_time_upper
+            elif start_time_lower:
+                expression_names['#ts'] = 'timestamp'
+                key_condition += ' AND #ts >= :start_lower'
+                expression_values[':start_lower'] = start_time_lower
+            elif start_time_upper:
+                expression_names['#ts'] = 'timestamp'
+                key_condition += ' AND #ts <= :start_upper'
+                expression_values[':start_upper'] = start_time_upper
+
             query_params = {
-                'KeyConditionExpression': 'tenant_schedule = :ts',
-                'ExpressionAttributeValues': {':ts': tenant_schedule},
-                'Limit': limit,
-                'ScanIndexForward': False  # Most recent first (by execution_id sort key)
+                'IndexName': 'tenant-schedule-timestamp-index',
+                'KeyConditionExpression': key_condition,
+                'ExpressionAttributeValues': expression_values,
+                'ScanIndexForward': False  # Most recent first (by timestamp SK)
             }
+            if expression_names:
+                query_params['ExpressionAttributeNames'] = expression_names
 
-            # Build filter expression for optional filters
+            # Build filter expression for remaining (non-key) filters
             filter_expressions = []
-
-            if start_time_lower:
-                filter_expressions.append('#ts >= :start_lower')
-                query_params['ExpressionAttributeValues'][':start_lower'] = start_time_lower
-                if 'ExpressionAttributeNames' not in query_params:
-                    query_params['ExpressionAttributeNames'] = {}
-                query_params['ExpressionAttributeNames']['#ts'] = 'timestamp'
-
-            if start_time_upper:
-                filter_expressions.append('#ts <= :start_upper')
-                query_params['ExpressionAttributeValues'][':start_upper'] = start_time_upper
-                if 'ExpressionAttributeNames' not in query_params:
-                    query_params['ExpressionAttributeNames'] = {}
-                query_params['ExpressionAttributeNames']['#ts'] = 'timestamp'
 
             if status:
                 filter_expressions.append('#st = :status')
                 query_params['ExpressionAttributeValues'][':status'] = status
-                if 'ExpressionAttributeNames' not in query_params:
-                    query_params['ExpressionAttributeNames'] = {}
-                query_params['ExpressionAttributeNames']['#st'] = 'status'
+                query_params.setdefault('ExpressionAttributeNames', {})['#st'] = 'status'
 
-            # If target_alias is provided, validate it matches
             if target_alias:
-                expected_tenant_target = f"{tenant_id}#{target_alias}"
                 filter_expressions.append('tenant_target = :tt')
-                query_params['ExpressionAttributeValues'][':tt'] = expected_tenant_target
+                query_params['ExpressionAttributeValues'][':tt'] = f"{tenant_id}#{target_alias}"
 
-            # Add filter expression if we have any filters
             if filter_expressions:
                 query_params['FilterExpression'] = ' AND '.join(filter_expressions)
 
-            response = self.executions.query(**query_params)
-            return response.get('Items', [])
+            # Important: DynamoDB applies Limit before FilterExpression.
+            # If we have post-key filters, paginate until we collect enough filtered items.
+            has_post_key_filters = bool(filter_expressions)
+            if not has_post_key_filters:
+                query_params['Limit'] = limit
+                response = self.executions.query(**query_params)
+                return response.get('Items', [])
+
+            collected_items = []
+            exclusive_start_key = None
+            page_limit = max(limit, 25)
+
+            while len(collected_items) < limit:
+                query_params['Limit'] = page_limit
+                if exclusive_start_key:
+                    query_params['ExclusiveStartKey'] = exclusive_start_key
+                elif 'ExclusiveStartKey' in query_params:
+                    query_params.pop('ExclusiveStartKey', None)
+
+                response = self.executions.query(**query_params)
+                items = response.get('Items', [])
+                collected_items.extend(items)
+
+                exclusive_start_key = response.get('LastEvaluatedKey')
+                if not exclusive_start_key:
+                    break
+
+            return collected_items[:limit]
 
         except ClientError as e:
             logger.error(f"Error getting schedule executions for {tenant_id}#{schedule_id}: {e}")
@@ -803,45 +836,68 @@ class DynamoDBClient(DatabaseClient):
         try:
             tenant_target = f"{tenant_id}#{target_alias}"
 
-            # Build the query
+            # timestamp is the sort key on tenant-target-index, so range bounds go in
+            # KeyConditionExpression (not FilterExpression — Limit applies before Filter).
+            # timestamp is a reserved word in DynamoDB, so alias it as #ts when used.
+            key_condition = 'tenant_target = :tt'
+            expression_values = {':tt': tenant_target}
+            expression_names = {}
+
+            if start_time_lower and start_time_upper:
+                expression_names['#ts'] = 'timestamp'
+                key_condition += ' AND #ts BETWEEN :start_lower AND :start_upper'
+                expression_values[':start_lower'] = start_time_lower
+                expression_values[':start_upper'] = start_time_upper
+            elif start_time_lower:
+                expression_names['#ts'] = 'timestamp'
+                key_condition += ' AND #ts >= :start_lower'
+                expression_values[':start_lower'] = start_time_lower
+            elif start_time_upper:
+                expression_names['#ts'] = 'timestamp'
+                key_condition += ' AND #ts <= :start_upper'
+                expression_values[':start_upper'] = start_time_upper
+
             query_params = {
                 'IndexName': 'tenant-target-index',
-                'KeyConditionExpression': 'tenant_target = :tt',
-                'ExpressionAttributeValues': {':tt': tenant_target},
-                'Limit': limit,
-                'ScanIndexForward': False  # Get most recent first (by timestamp)
+                'KeyConditionExpression': key_condition,
+                'ExpressionAttributeValues': expression_values,
+                'ScanIndexForward': False  # Most recent first (by timestamp SK)
             }
-
-            # Build filter expression for optional filters
-            filter_expressions = []
-
-            if start_time_lower:
-                filter_expressions.append('#ts >= :start_lower')
-                query_params['ExpressionAttributeValues'][':start_lower'] = start_time_lower
-                if 'ExpressionAttributeNames' not in query_params:
-                    query_params['ExpressionAttributeNames'] = {}
-                query_params['ExpressionAttributeNames']['#ts'] = 'timestamp'
-
-            if start_time_upper:
-                filter_expressions.append('#ts <= :start_upper')
-                query_params['ExpressionAttributeValues'][':start_upper'] = start_time_upper
-                if 'ExpressionAttributeNames' not in query_params:
-                    query_params['ExpressionAttributeNames'] = {}
-                query_params['ExpressionAttributeNames']['#ts'] = 'timestamp'
+            if expression_names:
+                query_params['ExpressionAttributeNames'] = expression_names
 
             if status:
-                filter_expressions.append('#st = :status')
+                query_params['FilterExpression'] = '#st = :status'
                 query_params['ExpressionAttributeValues'][':status'] = status
-                if 'ExpressionAttributeNames' not in query_params:
-                    query_params['ExpressionAttributeNames'] = {}
-                query_params['ExpressionAttributeNames']['#st'] = 'status'
+                query_params.setdefault('ExpressionAttributeNames', {})['#st'] = 'status'
 
-            # Add filter expression if we have any filters
-            if filter_expressions:
-                query_params['FilterExpression'] = ' AND '.join(filter_expressions)
+            # Important: DynamoDB applies Limit before FilterExpression.
+            # If status filter is present, paginate until we collect enough filtered items.
+            if not status:
+                query_params['Limit'] = limit
+                response = self.executions.query(**query_params)
+                return response.get('Items', [])
 
-            response = self.executions.query(**query_params)
-            return response.get('Items', [])
+            collected_items = []
+            exclusive_start_key = None
+            page_limit = max(limit, 25)
+
+            while len(collected_items) < limit:
+                query_params['Limit'] = page_limit
+                if exclusive_start_key:
+                    query_params['ExclusiveStartKey'] = exclusive_start_key
+                elif 'ExclusiveStartKey' in query_params:
+                    query_params.pop('ExclusiveStartKey', None)
+
+                response = self.executions.query(**query_params)
+                items = response.get('Items', [])
+                collected_items.extend(items)
+
+                exclusive_start_key = response.get('LastEvaluatedKey')
+                if not exclusive_start_key:
+                    break
+
+            return collected_items[:limit]
 
         except ClientError as e:
             logger.error(f"Error listing executions for {tenant_id}/{target_alias}: {e}")

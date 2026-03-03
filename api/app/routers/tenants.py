@@ -684,6 +684,7 @@ async def redrive_execution(
         400: If execution is not in FAILED status
         500: If redrive operation fails
     """
+    import json
     import boto3
     from botocore.exceptions import ClientError
 
@@ -799,6 +800,28 @@ async def redrive_execution(
             except Exception as e:
                 logger.warning(f"Failed to update execution status to IN_PROGRESS after redrive: {e}")
                 # Don't fail the request - redrive succeeded
+
+            # For Step Functions targets the child execution was redriven directly.
+            # The parent ExecutorStateMachine is still in FAILED state and will not
+            # emit a new completion event, so start the redrive monitor to poll the
+            # child and write the final result back to DynamoDB.
+            if nested_execution_arn:
+                monitor_arn = os.environ.get('REDRIVE_MONITOR_STATE_MACHINE_ARN')
+                if monitor_arn:
+                    try:
+                        monitor_input = {
+                            'child_execution_arn': sfn_execution_arn,
+                            'tenant_id': tenant_id,
+                            'target_alias': target_alias,
+                            'schedule_id': execution_record.get('tenant_schedule', '').split('#', 1)[-1],
+                        }
+                        sfn_client.start_execution(
+                            stateMachineArn=monitor_arn,
+                            input=json.dumps(monitor_input, default=str)
+                        )
+                        logger.info(f"Started redrive monitor for child execution: {sfn_execution_arn}")
+                    except Exception as e:
+                        logger.warning(f"Failed to start redrive monitor (redrive still succeeded): {e}")
 
             return {
                 "status": "REDRIVEN",
