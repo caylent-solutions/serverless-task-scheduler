@@ -83,9 +83,16 @@ def _get_ecs_cloudwatch_url(sfn_execution_arn: str, target_arn: str) -> Optional
     TaskSubmitted event — it is not propagated to the execution output because
     the ECS step uses a task token (SendTaskSuccess) whose payload is the custom
     task result, not the raw runTask response.
+
+    Uses reverseOrder=True so that in a redriven execution (where the history
+    contains events from both the original run and the redrive) we find the
+    most recent TaskSubmitted event and therefore point to the correct log stream.
     """
     try:
-        history = sfn_client.get_execution_history(executionArn=sfn_execution_arn)
+        history = sfn_client.get_execution_history(
+            executionArn=sfn_execution_arn,
+            reverseOrder=True
+        )
         for event in history.get('events', []):
             if event['type'] != 'TaskSubmitted':
                 continue

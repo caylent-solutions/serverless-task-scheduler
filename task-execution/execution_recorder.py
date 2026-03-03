@@ -186,62 +186,75 @@ def record_execution(
                     'message': 'This execution can be redriven using Step Functions redrive capability'
                 }
 
-        # Preserve cloudwatch_logs_url written by preprocessing (Step Functions targets
-        # have the URL pre-generated before execution begins)
-        existing_url = None
-        try:
-            existing_item = executions_table.get_item(
-                Key={'tenant_schedule': tenant_schedule, 'execution_id': execution_id}
-            )
-            if 'Item' in existing_item:
-                existing_url = existing_item['Item'].get('cloudwatch_logs_url')
-                if existing_url:
-                    logger.info(f"Preserving existing cloudwatch_logs_url from preprocessing: {existing_url}")
-        except Exception as e:
-            logger.warning(f"Failed to check for existing cloudwatch_logs_url: {e}")
+        # URL resolution priority:
+        #   1. result['cloudwatch_logs_url'] — injected this run by postprocessor (ECS/Lambda).
+        #      Always wins; on redrives it points to the NEW task's log stream.
+        #   2. existing_url from a previous DynamoDB record — covers SFN targets where
+        #      preprocessing writes the console URL before execution starts (the SFN
+        #      result itself never contains cloudwatch_logs_url).
+        #   3. Derive URL from target ARN / execution context (SFN console URL fallback,
+        #      or parse from the Cause field on failure).
+        cloudwatch_url = result.get('cloudwatch_logs_url') if isinstance(result, dict) else None
 
-        if existing_url:
-            item['cloudwatch_logs_url'] = existing_url
+        if cloudwatch_url:
+            item['cloudwatch_logs_url'] = cloudwatch_url
+            if VERBOSE_LOGGING:
+                logger.info(f"Using cloudwatch_logs_url from execution result: {cloudwatch_url}")
         else:
-            cloudwatch_url = result.get('cloudwatch_logs_url') if isinstance(result, dict) else None
-            target_execution_arn = state_machine_execution_arn
-            
-            # For Step Functions targets, extract the nested execution ARN
-            if isinstance(result, dict) and STATES_SERVICE_IDENTIFIER in target_arn and 'ExecutionArn' in result:
-                target_execution_arn = result['ExecutionArn']
+            # No fresh URL in result — look for one written by preprocessing.
+            existing_url = None
+            try:
+                existing_item = executions_table.get_item(
+                    Key={'tenant_schedule': tenant_schedule, 'execution_id': execution_id}
+                )
+                if 'Item' in existing_item:
+                    existing_url = existing_item['Item'].get('cloudwatch_logs_url')
+                    if existing_url:
+                        logger.info(f"Preserving existing cloudwatch_logs_url from preprocessing: {existing_url}")
+            except Exception as e:
+                logger.warning(f"Failed to check for existing cloudwatch_logs_url: {e}")
 
-            console_url = generate_console_url(
-                target_arn=target_arn,
-                execution_arn=target_execution_arn,
-                cloudwatch_logs_url=cloudwatch_url
-            )
-            if console_url:
-                item['cloudwatch_logs_url'] = console_url
-                if VERBOSE_LOGGING:
-                    logger.info(f"Generated console URL: {console_url}")
-            elif status == 'FAILED' and isinstance(result, dict) and 'Cause' in result and not cloudwatch_url:
-                try:
-                    cause_data = json.loads(result['Cause'])
-                    if 'cloudwatch_logs_url' in cause_data:
-                        console_url = generate_console_url(
-                            target_arn=target_arn,
-                            execution_arn=state_machine_execution_arn,
-                            cloudwatch_logs_url=cause_data['cloudwatch_logs_url']
-                        )
-                        if console_url:
-                            item['cloudwatch_logs_url'] = console_url
-                    elif 'errorMessage' in cause_data:
-                        error_message_data = json.loads(cause_data['errorMessage'])
-                        if 'cloudwatch_logs_url' in error_message_data:
+            if existing_url:
+                item['cloudwatch_logs_url'] = existing_url
+            else:
+                target_execution_arn = state_machine_execution_arn
+
+                # For Step Functions targets, extract the nested execution ARN
+                if isinstance(result, dict) and STATES_SERVICE_IDENTIFIER in target_arn and 'ExecutionArn' in result:
+                    target_execution_arn = result['ExecutionArn']
+
+                console_url = generate_console_url(
+                    target_arn=target_arn,
+                    execution_arn=target_execution_arn,
+                    cloudwatch_logs_url=None
+                )
+                if console_url:
+                    item['cloudwatch_logs_url'] = console_url
+                    if VERBOSE_LOGGING:
+                        logger.info(f"Generated console URL: {console_url}")
+                elif status == 'FAILED' and isinstance(result, dict) and 'Cause' in result:
+                    try:
+                        cause_data = json.loads(result['Cause'])
+                        if 'cloudwatch_logs_url' in cause_data:
                             console_url = generate_console_url(
                                 target_arn=target_arn,
                                 execution_arn=state_machine_execution_arn,
-                                cloudwatch_logs_url=error_message_data['cloudwatch_logs_url']
+                                cloudwatch_logs_url=cause_data['cloudwatch_logs_url']
                             )
                             if console_url:
                                 item['cloudwatch_logs_url'] = console_url
-                except (json.JSONDecodeError, TypeError, KeyError):
-                    pass
+                        elif 'errorMessage' in cause_data:
+                            error_message_data = json.loads(cause_data['errorMessage'])
+                            if 'cloudwatch_logs_url' in error_message_data:
+                                console_url = generate_console_url(
+                                    target_arn=target_arn,
+                                    execution_arn=state_machine_execution_arn,
+                                    cloudwatch_logs_url=error_message_data['cloudwatch_logs_url']
+                                )
+                                if console_url:
+                                    item['cloudwatch_logs_url'] = console_url
+                    except (json.JSONDecodeError, TypeError, KeyError):
+                        pass
 
         executions_table.put_item(Item=item)
         logger.info(f"Recorded execution: tenant_schedule={tenant_schedule}, execution={execution_id}, status={status}")
