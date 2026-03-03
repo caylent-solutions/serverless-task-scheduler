@@ -282,6 +282,14 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
+        - IndexName: tenant-schedule-timestamp-index
+          KeySchema:
+            - AttributeName: tenant_schedule
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
@@ -1191,10 +1199,11 @@ Resources:
                     - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingTenantMappingsTable}'
                   - !GetAtt TargetsTable.Arn
 
-              # Step Functions read access to get execution details
+              # Step Functions read access to get execution details and history (for ECS task ARN lookup)
               - Effect: Allow
                 Action:
                   - states:DescribeExecution
+                  - states:GetExecutionHistory
                 Resource:
                   - !Sub 'arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:*'
       ManagedPolicyArns:

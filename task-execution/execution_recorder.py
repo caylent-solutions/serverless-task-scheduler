@@ -60,6 +60,7 @@ def _extract_region_from_arn(arn: str, default_region: str = AWS_REGION) -> str:
         return default_region
 
 
+
 def generate_console_url(
     target_arn: str,
     execution_arn: str,
@@ -79,6 +80,9 @@ def generate_console_url(
             return None
 
     if target_arn and ECS_SERVICE_IDENTIFIER in target_arn:
+        # ECS CloudWatch URL is built in postprocessing.py (requires SFN history lookup)
+        # and injected into execution_result before record_execution is called.
+        # If it was successfully injected it will have been returned above via cloudwatch_logs_url.
         return None
 
     return None
@@ -201,6 +205,8 @@ def record_execution(
         else:
             cloudwatch_url = result.get('cloudwatch_logs_url') if isinstance(result, dict) else None
             target_execution_arn = state_machine_execution_arn
+            
+            # For Step Functions targets, extract the nested execution ARN
             if isinstance(result, dict) and STATES_SERVICE_IDENTIFIER in target_arn and 'ExecutionArn' in result:
                 target_execution_arn = result['ExecutionArn']
 

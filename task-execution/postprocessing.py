@@ -28,6 +28,7 @@ from execution_recorder import (
     record_execution,
     generate_console_url,
     STATES_SERVICE_IDENTIFIER,
+    ECS_SERVICE_IDENTIFIER,
 )
 
 logger = logging.getLogger()
@@ -72,6 +73,62 @@ def construct_nested_execution_arn(target_arn: str, execution_arn: str) -> Optio
     except (IndexError, ValueError) as e:
         logger.warning(f"Failed to construct nested execution ARN: {e}")
         return None
+
+
+def _get_ecs_cloudwatch_url(sfn_execution_arn: str, target_arn: str) -> Optional[str]:
+    """
+    Build a CloudWatch log stream URL for an ECS task execution.
+
+    The ECS task ARN is only available in the SFN execution history's
+    TaskSubmitted event — it is not propagated to the execution output because
+    the ECS step uses a task token (SendTaskSuccess) whose payload is the custom
+    task result, not the raw runTask response.
+    """
+    try:
+        history = sfn_client.get_execution_history(executionArn=sfn_execution_arn)
+        for event in history.get('events', []):
+            if event['type'] != 'TaskSubmitted':
+                continue
+            details = event.get('taskSubmittedEventDetails', {})
+            if details.get('resourceType') != 'ecs':
+                continue
+            output = json.loads(details.get('output', '{}'))
+            tasks = output.get('Tasks', [])
+            if not tasks:
+                continue
+
+            task = tasks[0]
+            ecs_task_arn = task.get('TaskArn', '')
+            if not ecs_task_arn:
+                continue
+
+            # arn:aws:ecs:region:account:task/cluster/task-id
+            task_id = ecs_task_arn.split('/')[-1]
+            region = ecs_task_arn.split(':')[3]
+
+            # Derive task family from target_arn:
+            # arn:aws:ecs:region:account:task-definition/family:revision
+            task_family = target_arn.split('/')[-1].split(':')[0]
+
+            containers = task.get('Containers', [])
+            container_name = containers[0].get('Name', task_family) if containers else task_family
+
+            log_group = f"/ecs/{task_family}"
+            log_stream = f"ecs/{container_name}/{task_id}"
+
+            log_group_encoded = log_group.replace('/', '%252F')
+            log_stream_encoded = log_stream.replace('/', '%252F')
+            url = (
+                f"https://console.aws.amazon.com/cloudwatch/home"
+                f"?region={region}#logsV2:log-groups/log-group/{log_group_encoded}"
+                f"/log-events/{log_stream_encoded}"
+            )
+            logger.info(f"Generated ECS CloudWatch URL from SFN history: {url}")
+            return url
+
+    except Exception as e:
+        logger.warning(f"Failed to get ECS CloudWatch URL from SFN history: {e}")
+    return None
 
 
 def process_success_status(execution_details: dict) -> tuple:
@@ -129,6 +186,13 @@ def handle_eventbridge_event(event, context):
         our_status, execution_result, target_arn, failed_state, redrive_info = process_failure_status(
             detail, execution_details, input_data, status, execution_arn
         )
+
+    # For ECS targets, the task ARN isn't in the execution output — look it up from
+    # SFN history and inject the CloudWatch URL so record_execution can persist it.
+    if target_arn and ECS_SERVICE_IDENTIFIER in target_arn and isinstance(execution_result, dict):
+        ecs_url = _get_ecs_cloudwatch_url(execution_arn, target_arn)
+        if ecs_url:
+            execution_result['cloudwatch_logs_url'] = ecs_url
 
     tenant_id    = input_data.get('tenant_id')
     target_alias = input_data.get('target_alias')

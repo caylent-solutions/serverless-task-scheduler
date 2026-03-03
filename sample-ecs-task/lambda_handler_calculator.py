@@ -11,6 +11,7 @@ invocation.
 # snippet-start:[python.example_code.lambda.handler.arithmetic]
 import logging
 import os
+import time
 
 
 logger = logging.getLogger()
@@ -38,10 +39,15 @@ def lambda_handler(event, context):
     logger.setLevel(os.environ.get("LOG_LEVEL", logging.INFO))
     logger.debug("Event: %s", event)
 
+    # Pause for 30 seconds with progress updates every 5 seconds
+    for elapsed in range(5, 35, 5):
+        time.sleep(5)
+        logger.info("Pausing for ECS test, %d of 30 seconds completed...", elapsed)
+
     action = event.get("action")
     func = ACTIONS.get(action)
-    x = event.get("x")
-    y = event.get("y")
+    x = float(event.get("x")) if event.get("x") is not None else None
+    y = float(event.get("y")) if event.get("y") is not None else None
     result = None
     try:
         if func is not None and x is not None and y is not None:
