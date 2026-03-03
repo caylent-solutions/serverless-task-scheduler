@@ -9,7 +9,7 @@ from .awssdk.dynamodb import get_database_client
 import logging
 import time
 import os
-from typing import Optional
+from typing import Optional, List
 from fastapi_events.middleware import EventHandlerASGIMiddleware
 from fastapi_events.handlers.local import local_handler
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +18,22 @@ from fastapi.responses import RedirectResponse
 # Configure logging - use the custom handler from __init__.py
 logger = logging.getLogger("app")
 logger.setLevel(logging.DEBUG)
+
+
+def get_cors_allowed_origins() -> List[str]:
+    """
+    Read allowed CORS origins from environment.
+
+    CORS_ALLOWED_ORIGINS should be a comma-separated list, e.g.
+    "https://app.example.com,https://admin.example.com".
+    Defaults to "*" for backward compatibility.
+    """
+    raw_value = os.environ.get('CORS_ALLOWED_ORIGINS', '*').strip()
+    if not raw_value:
+        return ['*']
+
+    origins = [origin.strip() for origin in raw_value.split(',') if origin.strip()]
+    return origins or ['*']
 
 
 def get_cookie_value(cookie_string: str, cookie_name: str) -> Optional[str]:
@@ -93,10 +109,11 @@ app = FastAPI(
 )
 
 # Add CORS middleware
+cors_allowed_origins = get_cors_allowed_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=cors_allowed_origins,
+    allow_credentials='*' not in cors_allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -168,8 +185,13 @@ async def log_and_time_requests(request: Request, call_next):
                     # Token is valid, attach user info to request
                     request.state.user = claims
                 except ImportError:
-                    # Cognito auth not available, proceed without authentication
-                    logger.warning("Cognito auth module not available")
+                    # Fail closed: auth is required for protected routes.
+                    logger.error("Cognito auth module not available for protected route")
+                    from fastapi.responses import JSONResponse
+                    return JSONResponse(
+                        status_code=500,
+                        content={"detail": "Authentication service unavailable"}
+                    )
                 except Exception as e:
                     logger.error(f"Token verification error: {e}")
                     from fastapi.responses import JSONResponse

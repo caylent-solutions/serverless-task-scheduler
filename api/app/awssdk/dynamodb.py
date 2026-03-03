@@ -756,7 +756,6 @@ class DynamoDBClient(DatabaseClient):
                 'IndexName': 'tenant-schedule-timestamp-index',
                 'KeyConditionExpression': key_condition,
                 'ExpressionAttributeValues': expression_values,
-                'Limit': limit,
                 'ScanIndexForward': False  # Most recent first (by timestamp SK)
             }
             if expression_names:
@@ -777,8 +776,34 @@ class DynamoDBClient(DatabaseClient):
             if filter_expressions:
                 query_params['FilterExpression'] = ' AND '.join(filter_expressions)
 
-            response = self.executions.query(**query_params)
-            return response.get('Items', [])
+            # Important: DynamoDB applies Limit before FilterExpression.
+            # If we have post-key filters, paginate until we collect enough filtered items.
+            has_post_key_filters = bool(filter_expressions)
+            if not has_post_key_filters:
+                query_params['Limit'] = limit
+                response = self.executions.query(**query_params)
+                return response.get('Items', [])
+
+            collected_items = []
+            exclusive_start_key = None
+            page_limit = max(limit, 25)
+
+            while len(collected_items) < limit:
+                query_params['Limit'] = page_limit
+                if exclusive_start_key:
+                    query_params['ExclusiveStartKey'] = exclusive_start_key
+                elif 'ExclusiveStartKey' in query_params:
+                    query_params.pop('ExclusiveStartKey', None)
+
+                response = self.executions.query(**query_params)
+                items = response.get('Items', [])
+                collected_items.extend(items)
+
+                exclusive_start_key = response.get('LastEvaluatedKey')
+                if not exclusive_start_key:
+                    break
+
+            return collected_items[:limit]
 
         except ClientError as e:
             logger.error(f"Error getting schedule executions for {tenant_id}#{schedule_id}: {e}")
@@ -836,7 +861,6 @@ class DynamoDBClient(DatabaseClient):
                 'IndexName': 'tenant-target-index',
                 'KeyConditionExpression': key_condition,
                 'ExpressionAttributeValues': expression_values,
-                'Limit': limit,
                 'ScanIndexForward': False  # Most recent first (by timestamp SK)
             }
             if expression_names:
@@ -847,8 +871,33 @@ class DynamoDBClient(DatabaseClient):
                 query_params['ExpressionAttributeValues'][':status'] = status
                 query_params.setdefault('ExpressionAttributeNames', {})['#st'] = 'status'
 
-            response = self.executions.query(**query_params)
-            return response.get('Items', [])
+            # Important: DynamoDB applies Limit before FilterExpression.
+            # If status filter is present, paginate until we collect enough filtered items.
+            if not status:
+                query_params['Limit'] = limit
+                response = self.executions.query(**query_params)
+                return response.get('Items', [])
+
+            collected_items = []
+            exclusive_start_key = None
+            page_limit = max(limit, 25)
+
+            while len(collected_items) < limit:
+                query_params['Limit'] = page_limit
+                if exclusive_start_key:
+                    query_params['ExclusiveStartKey'] = exclusive_start_key
+                elif 'ExclusiveStartKey' in query_params:
+                    query_params.pop('ExclusiveStartKey', None)
+
+                response = self.executions.query(**query_params)
+                items = response.get('Items', [])
+                collected_items.extend(items)
+
+                exclusive_start_key = response.get('LastEvaluatedKey')
+                if not exclusive_start_key:
+                    break
+
+            return collected_items[:limit]
 
         except ClientError as e:
             logger.error(f"Error listing executions for {tenant_id}/{target_alias}: {e}")

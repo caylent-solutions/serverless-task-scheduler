@@ -32,6 +32,28 @@ sfn_client = boto3.client('stepfunctions')
 NESTED_SUFFIX = '-nested'
 
 
+def _derive_parent_execution_name(child_execution_arn: str) -> str:
+    """Derive parent execution name from nested child execution ARN safely."""
+    if not child_execution_arn or not child_execution_arn.startswith('arn:'):
+        raise ValueError(f"Invalid child execution ARN: {child_execution_arn}")
+    if ':execution:' not in child_execution_arn:
+        raise ValueError(f"Child ARN is not a Step Functions execution ARN: {child_execution_arn}")
+
+    child_execution_name = child_execution_arn.split(':')[-1]
+    if not child_execution_name:
+        raise ValueError(f"Unable to parse execution name from ARN: {child_execution_arn}")
+    if not child_execution_name.endswith(NESTED_SUFFIX):
+        raise ValueError(
+            f"Child execution name does not end with '{NESTED_SUFFIX}': {child_execution_name}"
+        )
+
+    parent_execution_name = child_execution_name[:-len(NESTED_SUFFIX)]
+    if not parent_execution_name:
+        raise ValueError(f"Derived parent execution name is empty: {child_execution_arn}")
+
+    return parent_execution_name
+
+
 def handler(event, context):
     # SAM wraps the payload under Payload when using :::lambda:invoke
     payload = event.get('Payload', event)
@@ -44,8 +66,7 @@ def handler(event, context):
 
     # Derive the parent execution name (= DynamoDB SK / execution_id) from the child ARN.
     # Child execution name is always "{parent_uuid}-nested" (set by executor_step_function.json).
-    child_execution_name  = child_execution_arn.split(':')[-1]
-    parent_execution_name = child_execution_name.removesuffix(NESTED_SUFFIX)
+    parent_execution_name = _derive_parent_execution_name(child_execution_arn)
 
     logger.info(
         f"Recording redriven execution: child={child_execution_arn} "
