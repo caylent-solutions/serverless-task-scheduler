@@ -103,12 +103,21 @@ def _get_ecs_cloudwatch_url(sfn_execution_arn: str, target_arn: str) -> Optional
                 continue
 
             # arn:aws:ecs:region:account:task/cluster/task-id
-            task_id = ecs_task_arn.split('/')[-1]
-            region = ecs_task_arn.split(':')[3]
+            ecs_slash_parts = ecs_task_arn.split('/')
+            ecs_colon_parts = ecs_task_arn.split(':')
+            task_id = ecs_slash_parts[-1] if len(ecs_slash_parts) >= 3 else ''
+            region = ecs_colon_parts[3] if len(ecs_colon_parts) > 3 else ''
+            if not task_id or not region:
+                logger.warning(f"Malformed ECS task ARN: {ecs_task_arn}")
+                continue
 
             # Derive task family from target_arn:
             # arn:aws:ecs:region:account:task-definition/family:revision
-            task_family = target_arn.split('/')[-1].split(':')[0]
+            target_slash_parts = target_arn.split('/')
+            task_family = target_slash_parts[-1].split(':')[0] if len(target_slash_parts) >= 2 else ''
+            if not task_family:
+                logger.warning(f"Could not derive task family from target ARN: {target_arn}")
+                continue
 
             containers = task.get('Containers', [])
             container_name = containers[0].get('Name', task_family) if containers else task_family

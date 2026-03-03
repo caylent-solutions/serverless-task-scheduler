@@ -686,20 +686,18 @@ class DynamoDBClient(DatabaseClient):
                 )
                 return response.get('Item')
             else:
-                # Query by tenant_schedule only, get most recent execution.
-                # execution_id is a random UUID (not time-ordered), so fetch several
-                # and sort by timestamp to find the true most recent.
+                # Use the timestamp GSI so Limit=1 + ScanIndexForward=False returns the
+                # single most recent execution directly. Querying the main table would
+                # sort by execution_id (random UUID), making Limit unreliable.
                 response = self.executions.query(
+                    IndexName='tenant-schedule-timestamp-index',
                     KeyConditionExpression='tenant_schedule = :ts',
                     ExpressionAttributeValues={':ts': tenant_schedule},
-                    Limit=20,
+                    Limit=1,
                     ScanIndexForward=False
                 )
                 items = response.get('Items', [])
-                if not items:
-                    return None
-                items.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
-                return items[0]
+                return items[0] if items else None
         except ClientError as e:
             logger.error(f"Error getting execution for schedule {tenant_id}#{schedule_id}: {e}")
             return None
