@@ -70,7 +70,7 @@ const TargetList = ({ isAdmin }) => {
     setSelectedTarget({
       ...target,
       target_parameter_schema: JSON.stringify(target.target_parameter_schema, null, 2),
-      config: target.config ? JSON.stringify(target.config, null, 2) : ''
+      config: target.config ? JSON.stringify(target.config, null, 2) : null
     });
   };
 
@@ -104,7 +104,7 @@ const TargetList = ({ isAdmin }) => {
       target_description: '',
       target_arn: '',
       target_parameter_schema: JSON.stringify({ schema: { type: 'object', required: [], properties: {} } }, null, 2),
-      config: ''
+      config: null
     });
   };
 
@@ -190,7 +190,7 @@ const TargetList = ({ isAdmin }) => {
 
       let configData = null;
       if (isEcsArn(selectedTarget.target_arn)) {
-        if (selectedTarget.config && typeof selectedTarget.config === 'string' && selectedTarget.config.trim() !== '') {
+        if (selectedTarget.config && selectedTarget.config.trim() !== '') {
           try {
             configData = JSON.parse(selectedTarget.config);
           } catch (err) {
@@ -198,8 +198,6 @@ const TargetList = ({ isAdmin }) => {
             alert('Invalid JSON for ECS target configuration. Please ensure it is valid JSON format.');
             return;
           }
-        } else if (selectedTarget.config && typeof selectedTarget.config !== 'string') {
-          configData = selectedTarget.config;
         }
       }
 
@@ -398,7 +396,7 @@ const TargetList = ({ isAdmin }) => {
                         const wasEcs = isEcsArn(selectedTarget.target_arn);
                         const nowEcs = isEcsArn(newArn);
                         let newConfig = selectedTarget.config;
-                        if (nowEcs && !wasEcs && !newConfig) {
+                        if (nowEcs && !wasEcs && newConfig == null) {
                           newConfig = JSON.stringify(ECS_CONFIG_TEMPLATE, null, 2);
                         } else if (!nowEcs && wasEcs) {
                           newConfig = '';
@@ -428,7 +426,7 @@ const TargetList = ({ isAdmin }) => {
                       <label htmlFor="target-config">ECS Target Configuration (JSON)</label>
                       <textarea
                         id="target-config"
-                        value={selectedTarget.config}
+                        value={selectedTarget.config ?? ''}
                         onChange={(e) => setSelectedTarget({...selectedTarget, config: e.target.value})}
                         rows={10}
                       />

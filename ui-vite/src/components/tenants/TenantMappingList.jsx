@@ -336,13 +336,7 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
                     <select
                       id="target-id"
                       value={selectedMapping.target_id}
-                      onChange={(e) => {
-                        const newTargetId = e.target.value;
-                        const oldArn = targets.find(t => t.target_id === selectedMapping.target_id)?.target_arn ?? '';
-                        const newArn = targets.find(t => t.target_id === newTargetId)?.target_arn ?? '';
-                        const newEnvVars = (!isEcsArn(newArn) && isEcsArn(oldArn)) ? '' : selectedMapping.environment_variables;
-                        setSelectedMapping({...selectedMapping, target_id: newTargetId, environment_variables: newEnvVars});
-                      }}
+                      onChange={(e) => setSelectedMapping({...selectedMapping, target_id: e.target.value})}
                       required
                     >
                       <option value="">Select a target...</option>
