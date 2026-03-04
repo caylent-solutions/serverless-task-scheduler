@@ -2,6 +2,22 @@ import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 
+const ECS_CONFIG_TEMPLATE = {
+  cluster: 'arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster',
+  task_definition: 'arn:aws:ecs:us-east-1:123456789012:task-definition/my-task:1',
+  launch_type: 'FARGATE',
+  container_name: 'my-container',
+  network_configuration: {
+    awsvpcConfiguration: {
+      subnets: ['subnet-xxxxx'],
+      securityGroups: ['sg-xxxxx'],
+      assignPublicIp: 'ENABLED'
+    }
+  }
+};
+
+const isEcsArn = (arn) => Boolean(arn && arn.includes(':ecs:'));
+
 const TargetList = ({ isAdmin }) => {
   const [targets, setTargets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -173,16 +189,18 @@ const TargetList = ({ isAdmin }) => {
       }
 
       let configData = null;
-      if (selectedTarget.config && typeof selectedTarget.config === 'string' && selectedTarget.config.trim() !== '') {
-        try {
-          configData = JSON.parse(selectedTarget.config);
-        } catch (err) {
-          console.error('JSON parse error in ECS config:', err);
-          alert('Invalid JSON for ECS target configuration. Please ensure it is valid JSON format.');
-          return;
+      if (isEcsArn(selectedTarget.target_arn)) {
+        if (selectedTarget.config && typeof selectedTarget.config === 'string' && selectedTarget.config.trim() !== '') {
+          try {
+            configData = JSON.parse(selectedTarget.config);
+          } catch (err) {
+            console.error('JSON parse error in ECS config:', err);
+            alert('Invalid JSON for ECS target configuration. Please ensure it is valid JSON format.');
+            return;
+          }
+        } else if (selectedTarget.config && typeof selectedTarget.config !== 'string') {
+          configData = selectedTarget.config;
         }
-      } else if (selectedTarget.config && typeof selectedTarget.config !== 'string') {
-        configData = selectedTarget.config;
       }
 
       const targetData = {
@@ -375,7 +393,18 @@ const TargetList = ({ isAdmin }) => {
                       id="target-arn"
                       type="text"
                       value={selectedTarget.target_arn}
-                      onChange={(e) => setSelectedTarget({...selectedTarget, target_arn: e.target.value})}
+                      onChange={(e) => {
+                        const newArn = e.target.value;
+                        const wasEcs = isEcsArn(selectedTarget.target_arn);
+                        const nowEcs = isEcsArn(newArn);
+                        let newConfig = selectedTarget.config;
+                        if (nowEcs && !wasEcs && !newConfig) {
+                          newConfig = JSON.stringify(ECS_CONFIG_TEMPLATE, null, 2);
+                        } else if (!nowEcs && wasEcs) {
+                          newConfig = '';
+                        }
+                        setSelectedTarget({...selectedTarget, target_arn: newArn, config: newConfig});
+                      }}
                       placeholder="arn:aws:lambda:us-east-2:123456789012:function:LambdaCalculator"
                       required
                     />
@@ -394,31 +423,17 @@ const TargetList = ({ isAdmin }) => {
                       required
                     />
                   </div>
-                  <div className="form-group">
-                    <label htmlFor="target-config">ECS Target Configuration (JSON)</label>
-                    <textarea
-                      id="target-config"
-                      value={selectedTarget.config}
-                      onChange={(e) => setSelectedTarget({...selectedTarget, config: e.target.value})}
-                      rows={10}
-                      placeholder={`{
-  "cluster": "arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster",
-  "task_definition": "arn:aws:ecs:us-east-1:123456789012:task-definition/my-task:1",
-  "launch_type": "FARGATE",
-  "container_name": "my-container",
-  "network_configuration": {
-    "awsvpcConfiguration": {
-      "subnets": ["subnet-xxxxx"],
-      "securityGroups": ["sg-xxxxx"],
-      "assignPublicIp": "ENABLED"
-    }
-  }
-}`}
-                    />
-                    <small style={{ color: 'var(--color-text-light)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
-                      Required for ECS targets. Leave empty for Lambda and Step Functions targets.
-                    </small>
-                  </div>
+                  {isEcsArn(selectedTarget.target_arn) && (
+                    <div className="form-group">
+                      <label htmlFor="target-config">ECS Target Configuration (JSON)</label>
+                      <textarea
+                        id="target-config"
+                        value={selectedTarget.config}
+                        onChange={(e) => setSelectedTarget({...selectedTarget, config: e.target.value})}
+                        rows={10}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 

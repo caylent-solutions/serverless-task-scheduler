@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
 import ExecutionHistoryModal from '../common/ExecutionHistoryModal';
 import { validateUrlSafeIdentifier, handleUrlSafeInput } from '../../utils/validation';
+
+const isEcsArn = (arn) => Boolean(arn && arn.includes(':ecs:'));
 
 const TenantMappingList = ({ tenantName = 'admin' }) => {
   const [mappings, setMappings] = useState([]);
@@ -334,7 +336,13 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
                     <select
                       id="target-id"
                       value={selectedMapping.target_id}
-                      onChange={(e) => setSelectedMapping({...selectedMapping, target_id: e.target.value})}
+                      onChange={(e) => {
+                        const newTargetId = e.target.value;
+                        const oldArn = targets.find(t => t.target_id === selectedMapping.target_id)?.target_arn ?? '';
+                        const newArn = targets.find(t => t.target_id === newTargetId)?.target_arn ?? '';
+                        const newEnvVars = (!isEcsArn(newArn) && isEcsArn(oldArn)) ? '' : selectedMapping.environment_variables;
+                        setSelectedMapping({...selectedMapping, target_id: newTargetId, environment_variables: newEnvVars});
+                      }}
                       required
                     >
                       <option value="">Select a target...</option>
@@ -397,22 +405,21 @@ const TenantMappingList = ({ tenantName = 'admin' }) => {
 }`}
                     />
                   </div>
-                  <div className="form-group">
-                    <label htmlFor="environment-variables">Environment Variables - ECS Only (JSON)</label>
-                    <textarea
-                      id="environment-variables"
-                      value={selectedMapping.environment_variables}
-                      onChange={(e) => setSelectedMapping({...selectedMapping, environment_variables: e.target.value})}
-                      rows={10}
-                      placeholder={`{
+                  {isEcsArn(targets.find(t => t.target_id === selectedMapping.target_id)?.target_arn ?? '') && (
+                    <div className="form-group">
+                      <label htmlFor="environment-variables">Environment Variables (JSON)</label>
+                      <textarea
+                        id="environment-variables"
+                        value={selectedMapping.environment_variables}
+                        onChange={(e) => setSelectedMapping({...selectedMapping, environment_variables: e.target.value})}
+                        rows={10}
+                        placeholder={`{
   "LOG_LEVEL": "INFO",
   "TIMEOUT": "30"
 }`}
-                    />
-                    <small style={{ color: 'var(--color-text-light)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
-                      Note: Environment variables are only supported for ECS targets. Step Functions and Lambda targets do not support runtime environment injection.
-                    </small>
-                  </div>
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
