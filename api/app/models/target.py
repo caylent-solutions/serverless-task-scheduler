@@ -35,6 +35,10 @@ class Target(TargetBase):
         }
     )
     target_binary_link: Optional[str] = None
+    config: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="ECS target configuration (cluster, task_definition, launch_type, container_name, network_configuration)"
+    )
 
 
 class TargetWithExecutionInfo(Target):
