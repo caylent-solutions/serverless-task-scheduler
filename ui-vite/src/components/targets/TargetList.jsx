@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
-
 const ECS_CONFIG_TEMPLATE = {
   cluster: 'arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster',
   task_definition: 'arn:aws:ecs:us-east-1:123456789012:task-definition/my-task:1',
@@ -190,14 +189,12 @@ const TargetList = ({ isAdmin }) => {
 
       let configData = null;
       if (isEcsArn(selectedTarget.target_arn)) {
-        if (selectedTarget.config && selectedTarget.config.trim() !== '') {
-          try {
-            configData = JSON.parse(selectedTarget.config);
-          } catch (err) {
-            console.error('JSON parse error in ECS config:', err);
-            alert('Invalid JSON for ECS target configuration. Please ensure it is valid JSON format.');
-            return;
-          }
+        try {
+          configData = JSON.parse(selectedTarget.config);
+        } catch (err) {
+          console.error('JSON parse error in ECS config:', err);
+          alert('Invalid JSON for ECS target configuration. Please ensure it is valid JSON format.');
+          return;
         }
       }
 
@@ -429,6 +426,7 @@ const TargetList = ({ isAdmin }) => {
                         value={selectedTarget.config ?? ''}
                         onChange={(e) => setSelectedTarget({...selectedTarget, config: e.target.value})}
                         rows={10}
+                        required
                       />
                     </div>
                   )}
