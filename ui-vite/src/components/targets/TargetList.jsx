@@ -1,6 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import authenticatedFetch from '../../utils/api';
+const ECS_CONFIG_TEMPLATE = {
+  cluster: 'arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster',
+  task_definition: 'arn:aws:ecs:us-east-1:123456789012:task-definition/my-task:1',
+  launch_type: 'FARGATE',
+  container_name: 'my-container',
+  network_configuration: {
+    awsvpcConfiguration: {
+      subnets: ['subnet-xxxxx'],
+      securityGroups: ['sg-xxxxx'],
+      assignPublicIp: 'ENABLED'
+    }
+  }
+};
+
+const isEcsArn = (arn) => Boolean(arn && arn.includes(':ecs:'));
 
 const TargetList = ({ isAdmin }) => {
   const [targets, setTargets] = useState([]);
@@ -53,7 +68,8 @@ const TargetList = ({ isAdmin }) => {
   const handleEdit = (target) => {
     setSelectedTarget({
       ...target,
-      target_parameter_schema: JSON.stringify(target.target_parameter_schema, null, 2)
+      target_parameter_schema: JSON.stringify(target.target_parameter_schema, null, 2),
+      config: target.config ? JSON.stringify(target.config, null, 2) : null
     });
   };
 
@@ -86,7 +102,8 @@ const TargetList = ({ isAdmin }) => {
       target_id: '',
       target_description: '',
       target_arn: '',
-      target_parameter_schema: ''
+      target_parameter_schema: JSON.stringify({ schema: { type: 'object', required: [], properties: {} } }, null, 2),
+      config: null
     });
   };
 
@@ -170,9 +187,21 @@ const TargetList = ({ isAdmin }) => {
         return;
       }
 
+      let configData = null;
+      if (isEcsArn(selectedTarget.target_arn)) {
+        try {
+          configData = JSON.parse(selectedTarget.config);
+        } catch (err) {
+          console.error('JSON parse error in ECS config:', err);
+          alert('Invalid JSON for ECS target configuration. Please ensure it is valid JSON format.');
+          return;
+        }
+      }
+
       const targetData = {
         ...selectedTarget,
-        target_parameter_schema: parameterSchema
+        target_parameter_schema: parameterSchema,
+        config: configData
       };
 
       // Detect if this is a new target or editing existing one
@@ -313,6 +342,7 @@ const TargetList = ({ isAdmin }) => {
         <div className="modal-overlay">
           <div
             className="modal"
+            style={{ maxWidth: '900px' }}
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -326,71 +356,83 @@ const TargetList = ({ isAdmin }) => {
           >
             <h3 id="target-modal-title">{targets.some(t => t.target_id === selectedTarget.target_id) ? 'Edit Target' : 'Add Target'}</h3>
             <form onSubmit={handleSave}>
-              <div className="form-group">
-                <label htmlFor="target-id-input">Target ID</label>
-                <input
-                  id="target-id-input"
-                  type="text"
-                  value={selectedTarget.target_id}
-                  onChange={(e) => setSelectedTarget({...selectedTarget, target_id: e.target.value})}
-                  disabled={targets.some(t => t.target_id === selectedTarget.target_id)}
-                  placeholder="LambdaCalculator"
-                  required
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                {/* Left Column - Basic Fields */}
+                <div>
+                  <div className="form-group">
+                    <label htmlFor="target-id-input">Target ID</label>
+                    <input
+                      id="target-id-input"
+                      type="text"
+                      value={selectedTarget.target_id}
+                      onChange={(e) => setSelectedTarget({...selectedTarget, target_id: e.target.value})}
+                      disabled={targets.some(t => t.target_id === selectedTarget.target_id)}
+                      placeholder="LambdaCalculator"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="target-description">Description</label>
+                    <input
+                      id="target-description"
+                      type="text"
+                      value={selectedTarget.target_description}
+                      onChange={(e) => setSelectedTarget({...selectedTarget, target_description: e.target.value})}
+                      placeholder="Arithmetic to calculate the result of two numbers"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="target-arn">Target ARN</label>
+                    <input
+                      id="target-arn"
+                      type="text"
+                      value={selectedTarget.target_arn}
+                      onChange={(e) => {
+                        const newArn = e.target.value;
+                        const wasEcs = isEcsArn(selectedTarget.target_arn);
+                        const nowEcs = isEcsArn(newArn);
+                        let newConfig = selectedTarget.config;
+                        if (nowEcs && !wasEcs && newConfig == null) {
+                          newConfig = JSON.stringify(ECS_CONFIG_TEMPLATE, null, 2);
+                        } else if (!nowEcs && wasEcs) {
+                          newConfig = '';
+                        }
+                        setSelectedTarget({...selectedTarget, target_arn: newArn, config: newConfig});
+                      }}
+                      placeholder="arn:aws:lambda:us-east-2:123456789012:function:LambdaCalculator"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Right Column - JSON Fields */}
+                <div>
+                  <div className="form-group">
+                    <label htmlFor="target-parameter-schema">Parameter Schema (OpenAPI JSON)</label>
+                    <textarea
+                      id="target-parameter-schema"
+                      value={selectedTarget.target_parameter_schema}
+                      onChange={(e) => setSelectedTarget({...selectedTarget, target_parameter_schema: e.target.value})}
+                      rows={8}
+                      required
+                    />
+                  </div>
+                  {isEcsArn(selectedTarget.target_arn) && (
+                    <div className="form-group">
+                      <label htmlFor="target-config">ECS Target Configuration (JSON)</label>
+                      <textarea
+                        id="target-config"
+                        value={selectedTarget.config ?? ''}
+                        onChange={(e) => setSelectedTarget({...selectedTarget, config: e.target.value})}
+                        rows={10}
+                        required
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="form-group">
-                <label htmlFor="target-description">Description</label>
-                <input
-                  id="target-description"
-                  type="text"
-                  value={selectedTarget.target_description}
-                  onChange={(e) => setSelectedTarget({...selectedTarget, target_description: e.target.value})}
-                  placeholder="Arithmetic to calculate the result of two numbers"
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="target-arn">Target ARN</label>
-                <input
-                  id="target-arn"
-                  type="text"
-                  value={selectedTarget.target_arn}
-                  onChange={(e) => setSelectedTarget({...selectedTarget, target_arn: e.target.value})}
-                  placeholder="arn:aws:lambda:us-east-2:123456789012:function:LambdaCalculator"
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="target-parameter-schema">Parameter Schema (OpenAPI JSON Format)</label>
-                <textarea
-                  id="target-parameter-schema"
-                  value={selectedTarget.target_parameter_schema}
-                  onChange={(e) => setSelectedTarget({...selectedTarget, target_parameter_schema: e.target.value})}
-                  rows={8}
-                  placeholder={`{
-  "schema": {
-    "type": "object",
-    "required": ["action", "x", "y"],
-    "properties": {
-      "action": {
-        "type": "string",
-        "enum": ["add", "subtract", "multiply", "divide"],
-        "description": "The arithmetic operation to perform"
-      },
-      "x": {
-        "type": "string",
-        "description": "First operand"
-      },
-      "y": {
-        "type": "string",
-        "description": "Second operand"
-      }
-    }
-  }
-}`}
-                  required
-                />
-              </div>
+
               <div className="form-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setSelectedTarget(null)}>
                   Cancel

@@ -1,6 +1,8 @@
 from typing import Dict, List, Optional, Any
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from app.validation import validate_url_safe_identifier
+
+ECS_CONFIG_REQUIRED_KEYS = {'cluster', 'task_definition', 'launch_type', 'container_name', 'network_configuration'}
 
 
 class TargetBase(BaseModel):
@@ -35,6 +37,21 @@ class Target(TargetBase):
         }
     )
     target_binary_link: Optional[str] = None
+    config: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="ECS target configuration (cluster, task_definition, launch_type, container_name, network_configuration)"
+    )
+
+    @model_validator(mode='after')
+    def validate_ecs_config(self) -> 'Target':
+        if ':ecs:' not in self.target_arn:
+            return self
+        if not self.config:
+            raise ValueError("config is required for ECS targets")
+        missing = ECS_CONFIG_REQUIRED_KEYS - self.config.keys()
+        if missing:
+            raise ValueError(f"ECS config missing required keys: {sorted(missing)}")
+        return self
 
 
 class TargetWithExecutionInfo(Target):
