@@ -44,9 +44,9 @@ Schedule stores: target_alias = "send-email"  (NOT an ARN)
               ┌───────────┴───────────┐
               │                       │
          us-east-2                us-west-2
-    arn:aws:lambda:           arn:aws:lambda:
-    us-east-2:...:            us-west-2:...:
-    email-sender              email-sender
+      arn:aws:lambda:           arn:aws:lambda:
+      us-east-2:...:            us-west-2:...:
+      email-sender              email-sender
 ```
 
 **Schedules never contain hard-coded ARNs.** They contain aliases that are resolved at runtime against the local region's Targets table. As long as the DR Targets table has valid us-west-2 ARNs for the same `target_id` values, schedules execute correctly in either region without modification.

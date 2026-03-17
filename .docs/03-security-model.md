@@ -8,20 +8,20 @@ The Serverless Task Scheduler implements multiple, independent security layers. 
 
 ```
                     ┌─────────────────────────────┐
-                    │  Layer 1: Authentication     │
-                    │  (Cognito JWT tokens)        │
+                    │  Layer 1: Authentication    │
+                    │  (Cognito JWT tokens)       │
                     ├─────────────────────────────┤
-                    │  Layer 2: Authorization      │
-                    │  (Tenant access control)     │
+                    │  Layer 2: Authorization     │
+                    │  (Tenant access control)    │
                     ├─────────────────────────────┤
-                    │  Layer 3: IAM Roles          │
-                    │  (Three-tier permissions)    │
+                    │  Layer 3: IAM Roles         │
+                    │  (Three-tier permissions)   │
                     ├─────────────────────────────┤
-                    │  Layer 4: Data Isolation     │
-                    │  (DynamoDB tenant filtering) │
+                    │  Layer 4: Data Isolation    │
+                    │  (DynamoDB tenant filtering)│
                     ├─────────────────────────────┤
-                    │  Layer 5: Audit Trail        │
-                    │  (CloudTrail + execution DB) │
+                    │  Layer 5: Audit Trail       │
+                    │  (CloudTrail + execution DB)│
                     └─────────────────────────────┘
 ```
 
@@ -217,38 +217,38 @@ All Lambda functions log to CloudWatch with 14-day retention:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                      USERS                                │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐               │
-│  │ Admin    │  │ Tenant A │  │ Tenant B │               │
-│  │ User     │  │ User     │  │ User     │               │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘               │
-│       │              │              │                     │
-│       ▼              ▼              ▼                     │
+│                      USERS                               │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                │
+│  │ Admin    │  │ Tenant A │  │ Tenant B │                │
+│  │ User     │  │ User     │  │ User     │                │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘                │
+│       │             │             │                      │
+│       ▼             ▼             ▼                      │
 │  ┌──────────────────────────────────────────┐            │
 │  │         Cognito (Authentication)         │            │
 │  │         JWT Token Validation             │            │
 │  └─────────────────┬────────────────────────┘            │
-│                     │                                     │
-│                     ▼                                     │
+│                    │                                     │
+│                    ▼                                     │
 │  ┌──────────────────────────────────────────┐            │
 │  │    API Lambda (Authorization)            │            │
 │  │    UserMappingsTable → Tenant Access     │            │
 │  │    AppLambdaRole (cannot invoke targets) │            │
 │  └─────────────────┬────────────────────────┘            │
-│                     │                                     │
-│                     ▼                                     │
+│                    │                                     │
+│                    ▼                                     │
 │  ┌──────────────────────────────────────────┐            │
 │  │    EventBridge Scheduler                 │            │
 │  │    SchedulerRole (can ONLY start SFN)    │            │
 │  └─────────────────┬────────────────────────┘            │
-│                     │                                     │
-│                     ▼                                     │
+│                    │                                     │
+│                    ▼                                     │
 │  ┌──────────────────────────────────────────┐            │
 │  │    Executor State Machine                │            │
 │  │    ExecutorRole (broad execution perms)  │            │
 │  │    Preprocessing validates tenant access │            │
 │  └──────────────────────────────────────────┘            │
-│                                                           │
+│                                                          │
 │  ┌──────────────────────────────────────────┐            │
 │  │    DynamoDB (Data Isolation)             │            │
 │  │    All queries filtered by tenant_id     │            │

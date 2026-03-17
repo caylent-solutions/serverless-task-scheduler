@@ -70,7 +70,7 @@ The Preprocessing Lambda resolves tenant intent into a concrete execution plan.
 The `TargetTypeChoice` state routes to the appropriate executor based on `$.target_type`:
 
 ```
-                    ┌─────────────────────────┐
+                    ┌───────────────────-──────┐
                     │   TargetTypeChoice       │
                     │   (Choice State)         │
                     └─────┬───────┬───────┬────┘
