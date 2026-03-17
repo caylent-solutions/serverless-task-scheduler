@@ -250,10 +250,22 @@ This single command:
 
 ### Multi-Environment Deployment
 
-You can deploy separate environments (dev, staging, prod) with parameter overrides:
+You can deploy separate environments (dev, staging, prod) by defining a named profile for each in `samconfig.toml`:
+
+```toml
+[dev.deploy.parameters]
+stack_name = "my-scheduler-dev"
+parameter_overrides = "Environment=dev Owner=admin@example.com"
+
+[prod.deploy.parameters]
+stack_name = "my-scheduler-prod"
+parameter_overrides = "Environment=prod Owner=admin@example.com"
+```
+
+Then deploy against the named profile:
 
 ```bash
-sam deploy --config-env prod --parameter-overrides Environment=prod
+sam deploy --config-env prod
 ```
 
 Each environment gets its own isolated set of DynamoDB tables, Lambda functions, Cognito user pool, and API Gateway stage.

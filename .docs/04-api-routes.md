@@ -171,7 +171,7 @@ POST /tenants/acme-corp/mappings/send-email/_execute
 }
 ```
 
-This creates a one-time EventBridge schedule that fires in ~1 minute, ensuring the execution goes through the same Step Functions orchestration as scheduled runs.
+This triggers an immediate execution that goes through the same Step Functions orchestration as scheduled runs (internally, it provisions a one-time EventBridge schedule to ensure consistent processing).
 
 ### Schedule Routes
 
