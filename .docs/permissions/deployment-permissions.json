@@ -1,0 +1,386 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CloudFormationPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:CreateStack",
+        "cloudformation:UpdateStack",
+        "cloudformation:DeleteStack",
+        "cloudformation:DescribeStacks",
+        "cloudformation:DescribeStackEvents",
+        "cloudformation:DescribeStackResources",
+        "cloudformation:GetTemplate",
+        "cloudformation:ValidateTemplate",
+        "cloudformation:CreateChangeSet",
+        "cloudformation:DescribeChangeSet",
+        "cloudformation:ExecuteChangeSet",
+        "cloudformation:DeleteChangeSet",
+        "cloudformation:ListStackResources",
+        "cloudformation:GetTemplateSummary"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "S3DeploymentBucketPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:DeleteBucket",
+        "s3:GetBucketLocation",
+        "s3:GetBucketPolicy",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:GetBucketVersioning",
+        "s3:PutBucketVersioning",
+        "s3:GetBucketLogging",
+        "s3:PutBucketLogging",
+        "s3:DeleteBucketLogging",
+        "s3:GetBucketCORS",
+        "s3:PutBucketCORS",
+        "s3:DeleteBucketCORS",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:DeleteBucketPublicAccessBlock",
+        "s3:GetLifecycleConfiguration",
+        "s3:PutLifecycleConfiguration",
+        "s3:DeleteLifecycleConfiguration",
+        "s3:GetBucketTagging",
+        "s3:PutBucketTagging",
+        "s3:DeleteBucketTagging",
+        "s3:ListBucket",
+        "s3:ListBucketVersions"
+      ],
+      "Resource": [
+        "arn:aws:s3:::sts-*-static-*",
+        "arn:aws:s3:::sts-*-logs-*"
+      ]
+    },
+    {
+      "Sid": "S3ObjectPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject",
+        "s3:GetObjectVersion",
+        "s3:DeleteObjectVersion",
+        "s3:PutObjectAcl",
+        "s3:GetObjectAcl",
+        "s3:ListMultipartUploadParts",
+        "s3:AbortMultipartUpload"
+      ],
+      "Resource": [
+        "arn:aws:s3:::sts-*-static-*/*",
+        "arn:aws:s3:::sts-*-logs-*/*"
+      ]
+    },
+    {
+      "Sid": "SAMDeploymentBucketPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject",
+        "s3:ListBucket",
+        "s3:GetBucketLocation",
+        "s3:PutBucketVersioning",
+        "s3:GetBucketVersioning",
+        "s3:PutBucketPolicy",
+        "s3:GetBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:PutEncryptionConfiguration",
+        "s3:GetEncryptionConfiguration",
+        "s3:PutLifecycleConfiguration",
+        "s3:GetLifecycleConfiguration",
+        "s3:DeleteBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::aws-sam-cli-managed-*",
+        "arn:aws:s3:::aws-sam-cli-managed-*/*"
+      ]
+    },
+    {
+      "Sid": "SAMTransformPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:CreateChangeSet"
+      ],
+      "Resource": [
+        "arn:aws:cloudformation:*:aws:transform/Serverless-2016-10-31"
+      ]
+    },
+    {
+      "Sid": "SAMApplicationPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "serverlessrepo:CreateApplication",
+        "serverlessrepo:GetApplication",
+        "serverlessrepo:ListApplications",
+        "serverlessrepo:CreateApplicationVersion",
+        "serverlessrepo:GetApplicationPolicy",
+        "serverlessrepo:PutApplicationPolicy"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "LambdaPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:CreateFunction",
+        "lambda:DeleteFunction",
+        "lambda:GetFunction",
+        "lambda:GetFunctionConfiguration",
+        "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:ListVersionsByFunction",
+        "lambda:PublishVersion",
+        "lambda:DeleteFunctionConcurrency",
+        "lambda:CreateAlias",
+        "lambda:DeleteAlias",
+        "lambda:GetAlias",
+        "lambda:UpdateAlias",
+        "lambda:AddPermission",
+        "lambda:RemovePermission",
+        "lambda:GetPolicy",
+        "lambda:DeleteFunctionEventInvokeConfig",
+        "lambda:TagResource",
+        "lambda:UntagResource",
+        "lambda:ListTags",
+        "lambda:InvokeFunction"
+      ],
+      "Resource": "arn:aws:lambda:*:*:function:sts-*"
+    },
+    {
+      "Sid": "LambdaLayerPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:PublishLayerVersion",
+        "lambda:DeleteLayerVersion",
+        "lambda:GetLayerVersion"
+      ],
+      "Resource": "arn:aws:lambda:*:*:layer:*"
+    },
+    {
+      "Sid": "DynamoDBTablePermissions",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:DeleteTable",
+        "dynamodb:DescribeTable",
+        "dynamodb:UpdateTable",
+        "dynamodb:UpdateTimeToLive",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:UpdateContinuousBackups",
+        "dynamodb:DescribeContinuousBackups",
+        "dynamodb:TagResource",
+        "dynamodb:UntagResource",
+        "dynamodb:ListTagsOfResource",
+        "dynamodb:DescribeGlobalTableSettings",
+        "dynamodb:UpdateGlobalTableSettings"
+      ],
+      "Resource": "arn:aws:dynamodb:*:*:table/sts-*"
+    },
+    {
+      "Sid": "DynamoDBGlobalTablePermissions",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateGlobalTable",
+        "dynamodb:UpdateGlobalTable",
+        "dynamodb:DescribeGlobalTable",
+        "dynamodb:DescribeGlobalTableSettings",
+        "dynamodb:UpdateGlobalTableSettings",
+        "dynamodb:DescribeLimits",
+        "dynamodb:CreateTableReplica",
+        "dynamodb:DeleteTableReplica",
+        "dynamodb:DescribeKinesisStreamingDestination",
+        "dynamodb:EnableKinesisStreamingDestination",
+        "dynamodb:DisableKinesisStreamingDestination",
+        "dynamodb:DescribeContributorInsights"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:*:*:table/sts-*",
+        "arn:aws:dynamodb::*:global-table/sts-*"
+      ]
+    },
+    {
+      "Sid": "ApplicationAutoScalingPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "application-autoscaling:RegisterScalableTarget",
+        "application-autoscaling:DeregisterScalableTarget",
+        "application-autoscaling:DescribeScalableTargets",
+        "application-autoscaling:PutScalingPolicy",
+        "application-autoscaling:DeleteScalingPolicy",
+        "application-autoscaling:DescribeScalingPolicies",
+        "application-autoscaling:DescribeScalingActivities"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "APIGatewayPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "apigateway:POST",
+        "apigateway:GET",
+        "apigateway:PUT",
+        "apigateway:PATCH",
+        "apigateway:DELETE",
+        "apigateway:UpdateRestApiPolicy",
+        "apigateway:SetWebACL"
+      ],
+      "Resource": [
+        "arn:aws:apigateway:*::/restapis",
+        "arn:aws:apigateway:*::/restapis/*",
+        "arn:aws:apigateway:*::/tags/*"
+      ]
+    },
+    {
+      "Sid": "IAMRolePermissions",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:GetRole",
+        "iam:PassRole",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies",
+        "iam:TagRole",
+        "iam:UntagRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/sts-*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchLogsPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:DescribeLogGroups",
+        "logs:PutRetentionPolicy",
+        "logs:DeleteRetentionPolicy",
+        "logs:TagLogGroup",
+        "logs:UntagLogGroup",
+        "logs:ListTagsLogGroup",
+        "logs:DeleteLogStream",
+        "logs:DescribeLogStreams"
+      ],
+      "Resource": [
+        "arn:aws:logs:*:*:log-group:/aws/lambda/sts-*",
+        "arn:aws:logs:*:*:log-group:/aws/states/sts-*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchLogsDiscoveryPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogGroups"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "StepFunctionsPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "states:CreateStateMachine",
+        "states:DeleteStateMachine",
+        "states:DescribeStateMachine",
+        "states:UpdateStateMachine",
+        "states:TagResource",
+        "states:UntagResource",
+        "states:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:states:*:*:stateMachine:sts-*"
+    },
+    {
+      "Sid": "EventBridgePermissions",
+      "Effect": "Allow",
+      "Action": [
+        "events:PutRule",
+        "events:DeleteRule",
+        "events:DescribeRule",
+        "events:EnableRule",
+        "events:DisableRule",
+        "events:PutTargets",
+        "events:RemoveTargets",
+        "events:TagResource",
+        "events:UntagResource",
+        "events:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:events:*:*:rule/sts-*"
+    },
+    {
+      "Sid": "EventBridgeSchedulerPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "scheduler:CreateScheduleGroup",
+        "scheduler:DeleteScheduleGroup",
+        "scheduler:GetScheduleGroup",
+        "scheduler:TagResource",
+        "scheduler:UntagResource"
+      ],
+      "Resource": "arn:aws:scheduler:*:*:schedule-group/sts-*"
+    },
+    {
+      "Sid": "CognitoPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "cognito-idp:CreateUserPool",
+        "cognito-idp:DeleteUserPool",
+        "cognito-idp:DescribeUserPool",
+        "cognito-idp:UpdateUserPool",
+        "cognito-idp:CreateUserPoolClient",
+        "cognito-idp:DeleteUserPoolClient",
+        "cognito-idp:DescribeUserPoolClient",
+        "cognito-idp:UpdateUserPoolClient",
+        "cognito-idp:CreateUserPoolDomain",
+        "cognito-idp:DeleteUserPoolDomain",
+        "cognito-idp:DescribeUserPoolDomain",
+        "cognito-idp:TagResource",
+        "cognito-idp:UntagResource",
+        "cognito-idp:ListTagsForResource"
+      ],
+      "Resource": [
+        "arn:aws:cognito-idp:*:*:userpool/*"
+      ]
+    },
+    {
+      "Sid": "XRayPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "xray:PutTraceSegments",
+        "xray:PutTelemetryRecords"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ECRPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:GetAuthorizationToken",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CloudFormationStackSetPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:DescribeStackSet",
+        "cloudformation:DescribeStackSetOperation"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
