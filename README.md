@@ -224,10 +224,29 @@ Admins additionally have access to:
 - AWS Account with CLI configured (`aws configure`)
 - AWS SAM CLI installed
 - Python 3.13+
-- Node.js 18+ (for building the UI)
+- Node.js 23+ (for building the UI with Vite)
 - **Windows users:** WSL2 or Docker (required for building Python cryptography packages)
 
+### SAM Initial configuration
+
+Create a initial `samconfig.toml` file:
+
+```toml
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "my-scheduler"
+parameter_overrides = "Environment=default Owner=admin@example.com"
+```
+
+Optional extra entries:
+* `s3_bucket = "sam-configs-bucket"` - Use this configuration in case you haven't configured SAM bootstrap or you need to save SAM compiled files in a different bucket
+* `region = "us-east-1"` - In case you want to specify another region, by default it uses the region configured in the CLI.
+* `role_arn = "arn:aws:iam::123456789012:role/MyCloudFormationExecutionRole"` - If you want to assume a role while deploying the SAM template, if this is the case you should also add `capabilities = "CAPABILITY_IAM"`
+
 ### Deploy
+
+The minimum permissions to deploy the solution are documented in [deployment-permissions.json](.docs/permissions/deployment-permissions.json), if using a custom bucket and not a SAM created one add it's ARN inside the statement *SAMDeploymentBucketPermissions*
 
 ```bash
 ./quickdeploy.sh
@@ -253,6 +272,12 @@ This single command:
 You can deploy separate environments (dev, staging, prod) by defining a named profile for each in `samconfig.toml`:
 
 ```toml
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "my-scheduler"
+parameter_overrides = "Environment=default Owner=admin@example.com"
+
 [dev.deploy.parameters]
 stack_name = "my-scheduler-dev"
 parameter_overrides = "Environment=dev Owner=admin@example.com"
